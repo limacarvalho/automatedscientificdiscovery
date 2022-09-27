@@ -9,17 +9,20 @@
 
 ⚡ Python-related code ⚡
 
-## Installation
-
-```bash
-# Work in progress
-```
-
-## Usage
-
-```python
-# Work in progress
-```
+## Access/Clone repository
+- Make sure you have git installed on your local machine
+  - If not get the latest version from https://git-scm.com/downloads or install using the appropriate package manager (eg. brew, choco, apt, etc)
+- Run ```git clone https://gitlab.com/automatedscientificdiscovery/python-asd.git``` from a directory of your choice in your local machine  (if prompted enter your GitLab credentials)
+- Access the newly download folder
+- Run ```git checkout develop```
+- Create your own project-related folder (eg. predictability, complexity, relevance, etc)
+-  Upload your code to the newly created folder
+- Make sure to change directories to the git repository main directory (eg. python-asd)
+- Run ```git add *```
+- Run ```git status```
+- Verify that the files you want to upload/push are listed in the command output, and that temp files or cache files are not (eg. pyc, wheel, .DS_Store, etc)
+- Run ```git commit -m "REPLACE HERE WITH A MEANINGFUL MESSAGE"```
+- Run ```git push``` (if prompted, enter your GitLab credentials)
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
@@ -36,4 +39,5 @@ As much as possible try to follow the following rules/guidelines during developm
 Please make sure to update tests as appropriate.
 
 ## License
-[GNU AGPL](https://www.gnu.org/licenses/agpl-3.0.en.html)
+[MIT License](https://en.wikipedia.org/wiki/MIT_License)
+

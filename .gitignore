@@ -108,6 +108,8 @@ Temporary Items
 __pycache__/
 *.py[cod]
 *$py.class
+*.cfg
+*/bin
 
 # C extensions
 
@@ -125,6 +127,7 @@ parts/
 sdist/
 var/
 wheels/
+share/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
@@ -380,5 +383,27 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+### Database ###
+*.accdb
+*.db
+*.dbf
+*.mdb
+*.pdb
+*.sqlite3
+
+### Data ###
+*.csv
+*.dat
+*.efx
+*.gbr
+*.key
+*.pps
+*.ppt
+*.pptx
+*.sdf
+*.tax2010
+*.vcf
+*.xml
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,linux,python,r,c,terraform
