@@ -2,7 +2,6 @@
 from utils import dasker, helper, config
 from pprint import pprint
 
-
 import numpy as np
 import pandas as pd
 import sklearn.datasets
@@ -24,14 +23,14 @@ import xgboost as xgb
 from dask.distributed import Client
 import dask_optuna
 
-
 import joblib
 import pickle
 
-
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-class BriskXGBoost:
+
+
+class SlugXGBoost:
     def __init__(self) -> None:
         self.pred_class = "regression"
                     
@@ -53,8 +52,9 @@ class BriskXGBoost:
         self.y_train = None
         self.y_test = None
 
+
         self.temp_path = config.main_dir + "/ml/models/saved/temp/xgboost"
-        self.model_save_path = config.main_dir + "/ml/models/saved/base/xgboost/brisk"
+        self.model_save_path = config.main_dir + "/ml/models/saved/base/xgboost/slug"
 
 
 
@@ -62,6 +62,7 @@ class BriskXGBoost:
     def load_model(self, file_name):
         with open(file_name, "rb") as fin:
             model = pickle.load(fin)
+
         return model
 
 
@@ -71,28 +72,24 @@ class BriskXGBoost:
 
 
 
-    def __objective__(self, trial):        
+    def __objective__(self, trial):
+
+        # X_train, X_test, y_train, y_test = train_test_split(df_X, df_y, test_size=0.25)
         param = {
-            # "objective": "reg:squarederror",
-            "objective": "count:poisson",
-            # "booster": trial.suggest_categorical("booster", ["gbtree", "gblinear", "dart"]),
-            "booster": trial.suggest_categorical("booster", ["gbtree", "dart"]),
+            "objective": self.loss,
+            "booster": "gbtree",
             "lambda": trial.suggest_float("lambda", 1e-8, 1.0, log=True),
             "alpha": trial.suggest_float("alpha", 1e-8, 1.0, log=True),
+            "eta":  trial.suggest_float("eta", 1e-8, 1.0, log=True),
+            "gamma": trial.suggest_float("gamma", 1e-8, 10.0, log=True),
+            "grow_policy": trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"]),
+            "max_depth": trial.suggest_int("max_depth", 1, self.max_depth),
+            # "max_delta_step": trial.suggest_int("max_delta_step", 0, Params.max_delta_step),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 1e-8, 1.0, log=True),
+            "colsample_bylevel": trial.suggest_float("colsample_bylevel", 1e-8, 1.0, log=True),
+            "colsample_bynode": trial.suggest_float("colsample_bynode", 1e-8, 1.0, log=True),        
+            "max_bin": trial.suggest_categorical("max_bin", [64, 128, 512, 1024, 2048, 3072]),
         }
-
-
-        if param["booster"] == "gbtree" or param["booster"] == "dart":
-            param["max_depth"] = trial.suggest_int("max_depth", 2, 20)
-            param["eta"] = trial.suggest_float("eta", 1e-8, 1.0, log=True)
-            param["gamma"] = trial.suggest_float("gamma", 1e-8, 1.0, log=True)
-            param["grow_policy"] = trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"])
-
-        if param["booster"] == "dart":
-            param["sample_type"] = trial.suggest_categorical("sample_type", ["uniform", "weighted"])
-            param["normalize_type"] = trial.suggest_categorical("normalize_type", ["tree", "forest"])
-            param["rate_drop"] = trial.suggest_float("rate_drop", 1e-8, 1.0, log=True)
-            param["skip_drop"] = trial.suggest_float("skip_drop", 1e-8, 1.0, log=True)
 
 
         kf = KFold(n_splits=self.cv_splits)
@@ -120,7 +117,7 @@ class BriskXGBoost:
 
         mean_err = np.mean(err_test_list)
         
-        file_anme =  self.temp_path + "/brisk_xgboost_{}.pickle".format(trial.number)
+        file_anme =  self.temp_path + "/slug_xgboost_{}.pickle".format(trial.number)
         
         # save model in temp folder
         self.save_model(bst, file_anme)
@@ -133,12 +130,12 @@ class BriskXGBoost:
 
         print(f'Starting train for trials:{self.n_trails} with boosted rounds:{self.boosted_round}')
 
+
         print(f'Cleared previous models in the model save path')
         config.clear_temp_folder(self.model_save_path)
 
         storage = dask_optuna.DaskStorage()
         study = optuna.create_study(storage=storage, direction="minimize", sampler=optuna.samplers.TPESampler(), pruner=optuna.pruners.MedianPruner())
-
 
         with joblib.parallel_backend("dask"):
             study.optimize(self.__objective__, n_trials=self.n_trails, n_jobs=-1)
@@ -159,7 +156,7 @@ class BriskXGBoost:
 
 
         # load model from temp folder
-        file_name =  "/brisk_xgboost_{}.pickle".format(study.best_trial.number)
+        file_name =  "/slug_xgboost_{}.pickle".format(study.best_trial.number)
         best_model = self.load_model(self.temp_path + file_name)
 
         # save it to permanent folder
@@ -187,8 +184,6 @@ class BriskXGBoost:
 
         metirc_scores = []
         model_files = glob.glob(self.model_save_path+'/*')
-        
-
         model = self.load_model(model_files[0])    
 
         dtest = xgb.DMatrix(self.X_test, label=self.y_test)
