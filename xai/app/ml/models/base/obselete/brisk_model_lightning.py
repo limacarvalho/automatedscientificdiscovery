@@ -97,7 +97,7 @@ class BriskModel(pl.LightningModule):
         super(BriskModel, self).__init__() 
 
         # Defining learning rate
-        self.lr = 0.004
+        self.lr = 0.005
         #self.batch_size = batch_size
         #self.X = X
         #self.y = y
