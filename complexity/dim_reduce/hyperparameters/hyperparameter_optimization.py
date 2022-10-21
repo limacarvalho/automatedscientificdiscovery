@@ -1,23 +1,18 @@
-from ..dim_reduction.dimred_main import Dimreduction
-from ..helper_data.global_vars import *
-from ..helper_data.helper_data import empty_dict
-from ..helper_data.helper_data import check_dim
-from ..helper_metrix.loss_functions import fun_kmax
+from dimred_main import class_dimreduce_main
+from helper_data.global_vars import *
+from helper_data.helper_data import empty_dict
+from helper_data.helper_data import check_dim
+from loss_functions import fun_kmax
 from bayes_opt import BayesianOptimization
 import traceback
 import numpy as np
+from asd_logging import logger
 
-
-class Hyperparameter_optimization:
-    '''
-    opt
-
-    '''
+class class_hyperparameter_optimization:
 
     def __init__(self, cutoff_loss):
         self.loss_fun = globalvar_loss_function
         self.cutoff_loss = cutoff_loss
-
 
     def black_box_reduce(self, **params: dict):
         '''
@@ -25,11 +20,11 @@ class Hyperparameter_optimization:
         It receives hyperparameters from the bayes optimization package and returns a
         quality loss which is maximized during the optimization process.
         The results of all dim reductions are stored in self.list_of_dict_results .
-        :param params: dict parameters provided by the bayesian optimization method
+        :param params: parameters provided by the bayesian optimization method
         :return: float mae_norm 0.0 ... 1.0
         '''
         # dim reduction and quality measurement
-        dimred = Dimreduction(self.fun_id, self.data_high, self.dim_low)
+        dimred = class_dimreduce_main(self.fun_id, self.data_high, self.dim_low)
         dict_results = dimred.exe_dimreduce(params, step=globalstring_step2)
 
         # number of init and iteration steps
@@ -37,11 +32,12 @@ class Hyperparameter_optimization:
             dict_results['init_steps'] = self.init_steps
             dict_results['iter_steps'] = self.iter_steps
         except:
-            print(globalstring_error + 'adding init steps or iter steps to dict')
+            logger.error(f"{globalstring_error}adding init steps or iter steps to dict", exc_info=True)
             dict_results['init_steps'] = 0
             dict_results['iter_steps'] = 0
 
         dict_results['dim_low'] = self.dim_low
+
         # this dictionary is updated after every dim reduction
         self.list_of_dict_results.append(dict_results)
         # return the loss value for hyperparameter optimization
@@ -63,7 +59,7 @@ class Hyperparameter_optimization:
             n_hps = len(hyperparameters)
             init = 3 + (n_hps * 2)
             iterations = n_hps * 5
-        print(globalstring_info + self.fun_id, ' init:', init, ' iterations:', iterations)
+        logger.info(f"{globalstring_info}{self.fun_id} init:{init} iterations:{iterations}")
         return init, iterations
 
 
@@ -71,20 +67,25 @@ class Hyperparameter_optimization:
         '''
         runs the BayesianOptimization function by maximizing the black box output (loss)
         in case of no changes after te init steps, the function breaks.
-        :param hyperparameters: dict hyperparameters, hyperparameter: value_range
-        :return: object optimizer.max
+        Parameters
+        ----------
+        hyperparameters : dictionary hyperparameters, hyperparameter: value_range
+        Returns: optimizer object
+        -------
+
         '''
         optimizer = BayesianOptimization(
-            f = self.black_box_reduce,
-            pbounds = hyperparameters,
-            random_state = 1,
-            verbose = 0)
+            f=self.black_box_reduce,
+            pbounds=hyperparameters,
+            random_state=1,
+            verbose=0)
         try:
             optimizer.maximize(init_points=self.init_steps, n_iter=self.iter_steps)
         except:
-            print(globalstring_warning + 'NO CHANGE WITH HYPERPARAMETER TUNING', self.fun_id)
+            logger.error(f"{globalstring_warning}NO CHANGE WITH HYPERPARAMETER TUNING {self.fun_id}", exc_info=True)
             pass
         return optimizer
+
 
 
     def get_best_optimizer_result(self, optimizer):
@@ -97,8 +98,14 @@ class Hyperparameter_optimization:
         optimizer.max)
         The hyperparameters are floats with a lot of float values, so its very unlikely to have the
         same combination of hyperparamters.
-        :param optimizer: dict optimizer
-        :return: dict of best results
+        Parameters
+        ----------
+        optimizer : optimizer object
+
+        Returns dictionary of best results
+
+        -------
+
         '''
         best_result = {}
         try:
@@ -107,18 +114,16 @@ class Hyperparameter_optimization:
                 if row['params'] == best_params:
                     best_result = self.list_of_dict_results[i]
         except:
-            best_result = {}
-            print(globalstring_error + 'FINDING BEST RESULTS', self.fun_id)
-            print(traceback.format_exc())
+            logger.error(f"{globalstring_error}FINDING BEST RESULTS {self.fun_id}", exc_info=True)
         return best_result
+
 
 
     def hp_optimization_bayes(self,
                               fun_id: str,
                               hyperparameters: dict,
-                              data: np.array,
-                              ndim: int
-                              ) -> (dict,list):
+                              data:np.array,
+                              ndim: int) -> (dict,list):
         '''
         - - - DESCRIPTION - - -
         Bayesian global hyperparameter optimization with gaussian processes.
@@ -171,12 +176,7 @@ class Hyperparameter_optimization:
         else:
             # optimize
             optimizer = self.fun_maximize_optimizer(hyperparameters)
-            if not optimizer:
-                dict_best_results = {}
-                self.list_of_dict_results = []
-            else:
-                dict_best_results = self.get_best_optimizer_result(optimizer)
-
+            dict_best_results = self.get_best_optimizer_result(optimizer)
             # future function, will come with early stop condition
             # optimizer = self.fun_custom_maximize(hyperparameters) # funzt
 

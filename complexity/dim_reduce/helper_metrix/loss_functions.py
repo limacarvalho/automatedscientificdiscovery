@@ -3,6 +3,7 @@ import numpy as np
 from scipy.spatial import distance
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import traceback
+from asd_logging import logger
 
 '''
 - T&C and MRREs try to detect what goes wrong in a given embedding, 
@@ -23,14 +24,9 @@ def fun_kmax(data_high: np.array) -> int:
 
 
 
-class Metrics:
+class class_metrix_dim_reduce:
 
-    def __init__(self,
-                 fun_id: str,
-                 data_high: np.array,
-                 data_low: np.array,
-                 kmax: int = None
-                 ):
+    def __init__(self, fun_id: str, data_high: np.array, data_low: np.array, kmax: int = None):
         '''
 
         :param fun_id: function identifier (only used for error messages)
@@ -42,6 +38,7 @@ class Metrics:
             self.fun_id = fun_id
         self.data_high = data_high
         self.data_low  = data_low
+        self.nrows = data_high.shape[0]
 
         if kmax is not None:
             self.kmax = fun_kmax(self.data_high)
@@ -65,10 +62,7 @@ class Metrics:
 
 
 
-    def coranking_matrix(self,
-                         data_high: np.array,
-                         data_low: np.array
-                         ) -> (np.array, np.array, np.array):
+    def coranking_matrix(self, data_high: np.array, data_low: np.array) -> (np.array, np.array, np.array):
         '''
         check if this is licenced!
         Generates a co-ranking matrix and arrays of flat rankings for high and low dimensional data.
@@ -158,8 +152,8 @@ class Metrics:
         :param low_data_flat: flattened low data
         :return: mae
         '''
-        mae = mean_absolute_error(y_true = high_data_flat,
-                                  y_pred = low_data_flat)
+        mae = mean_absolute_error(y_true=high_data_flat,
+                                 y_pred=low_data_flat)
         return np.round(mae, 3)
 
 
@@ -174,65 +168,38 @@ class Metrics:
         return np.round(r2, 3)
 
 
-    def empty_array(self):
-        '''
-        empty array for try catch exceptions
-        :return:
-        '''
-        return np.array([[1, 2], [1, 2]])
-
-
     def metrix_all(self):
         '''
         here we collect several coranking based metrizes and return them in a dictionary.
         :return:
         '''
+        nth_row = self.adjust_data_size()
+        kmax_   = int(self.kmax / nth_row)
         error_messages = '! errors ' + str(self.fun_id) + ' '
-
-        try:
-            nth_row = self.adjust_data_size()
-        except:
-            nth_row = 1
-            error_messages = error_messages + 'nth_row '
-
-        try:
-            data_high_reduced = self.data_high[::nth_row]
-        except:
-            data_high_reduced = self.empty_array()
-            error_messages = error_messages + 'data_high '
-
-        # kmax based on nth_row, nrows reduced based on shape of reduced dataset
-        kmax_ = int(self.kmax / nth_row)
-        nrows_reduced = data_high_reduced.shape[0]
-
-        try:
-            data_low_reduced  = self.data_low[::nth_row]
-        except:
-            data_low_reduced = self.empty_array()
-            error_messages = error_messages + 'data_low '
 
         # trustworthiness
         try:
-            trust = self.trustworthiness_(data_high_reduced,
-                                          data_low_reduced,
-                                          kmax=kmax_)
+            trust = self.trustworthiness_(self.data_high[::nth_row],
+                                           self.data_low[::nth_row],
+                                           kmax=kmax_)
         except:
             trust = 0
             error_messages = error_messages + 'trustworthiness '
 
         # continuity
         try:
-            cont = self.trustworthiness_(data_low_reduced,
-                                         data_high_reduced,
-                                         kmax=kmax_)
+            cont = self.trustworthiness_(self.data_low[::nth_row],
+                                          self.data_high[::nth_row],
+                                          kmax=kmax_)
         except:
             cont = 0
             error_messages = error_messages + 'continuity '
 
         # coranking matrix
         try:
-            Q, high_data_flat, low_data_flat = self.coranking_matrix(data_high_reduced,
-                                                                     data_low_reduced)
+            Q, high_data_flat, low_data_flat = self.coranking_matrix(self.data_high[::nth_row],
+                                                                     self.data_low[::nth_row])
+            # print('DATA: ', self.data_high.shape, 'Q: ', Q.shape, 'kmax_adj: ', kmax_)
         except:
             Q, high_data_flat, low_data_flat = np.array([[1, 2],[1,2]]), 0, 0
             error_messages = error_messages + 'Q-matrix '
@@ -249,7 +216,7 @@ class Metrics:
             # mean absolute error, normalized by number of rows, in this way we get
             # a measure between 0...1 which can be compared to the others (R2, trust, continuity...)
             mae_norm = self.mean_absolute_error_(high_data_flat, low_data_flat)
-            mae_norm = np.round(1-(mae_norm / nrows_reduced), 3)
+            mae_norm = np.round(1-(mae_norm/self.nrows), 3)
         except:
             mae_norm = 0
             error_messages = error_messages + 'mae_norm '
@@ -264,22 +231,18 @@ class Metrics:
 
         # Print Error messages, we collect the error messages, because when one measure fails we
         # usulaly have several failures, and too many error messages.
-        if len(error_messages) > 10 + len(self.fun_id): print(error_messages)
+        if len(error_messages) > 10 + len(self.fun_id): logger.error(error_messages)
 
-        dict_results = {'Q': Q, # np.array of coranking matrix
+        dict_results = {'Q': Q, # np.arra of coranking matrix
                         'kmax': self.kmax, # kmax
                         'trust': trust, # trustworthiness
                         'cont': cont, # continuity
                         'lcmc':lcmc, # lcmc
                         'mae_norm': mae_norm, # mean absolute error, normalized by number of rows
+
                         'r2': r2
                         }
         return dict_results
-
-
-
-
-
 
 
     # other metrizes which are not used above:

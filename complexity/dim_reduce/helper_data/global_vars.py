@@ -1,15 +1,15 @@
 
 # path to folder for rerrors, create it if not created yet
-globalvar_path_dir_r_errors = '/Users/kay/Desktop/W7X/project/results/r_errors/'
+globalvar_path_dir_r_errors = '/shared/admin/complexity_module/results/r_errors/'
 
 # path to dir were to store the results
-globalvar_path_dir_results = '/Users/kay/Desktop/W7X/project/results/dim_reduce/test/'
+globalvar_path_dir_results = '/shared/admin/complexity_module/results/dim_reduce/test/'
 
 # how many cpus
-globalvar_n_cpus = 10
+globalvar_n_cpus = 4
 
 # how many gpus
-globalvar_n_gpus = 32
+globalvar_n_gpus = 0
 
 
 # identifier of loss function, other options: trustworthiness

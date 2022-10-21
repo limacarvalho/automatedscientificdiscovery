@@ -1,10 +1,11 @@
-from dimension_tools.dimension_suite.dim_reduce.dim_reduction.dimred_call_functions import call_dimred_functions
-from dimension_tools.dimension_suite.dim_reduce.dim_reduction.dimred_main import Dimreduction
-from dimension_tools.dimension_suite.dim_reduce.hyperparameters.hyperparameter_optimization import Hyperparameter_optimization
-from dimension_tools.dimension_suite.dim_reduce.helper_data.global_vars import *
+from dimred_call_functions import call_dimred_functions
+from dimred_main import class_dimreduce_main
+from hyperparameter_optimization import class_hyperparameter_optimization
+from helper_data.global_vars import *
 import numpy as np
 import json
 import ray
+from asd_logging import logger
 
 # import multiprocessing
 # from threading import Thread
@@ -22,17 +23,16 @@ def hp_optimization(fun_id: str,
                     low_dim: int,
                     cutoff_loss: float) -> list:
     '''
-    hyperparameter optimization function for parallel processing on multiple cores.
-    Each core runs the hyperparameter optimization of one dimred function.
+    This is the function we run in parallel.
 
-    :param str fun_id: function identifier example: 'py_pca'
-    :param (object, dict,  fun: returns 1) the function call 2) default hyperparameters 3)
-    :param np.array high_data: high dimensional data
+    :param fun_id: function identifier example: 'pca'
+    :param fun: returns 1) the function call 2) default hyperparameters 3)
+    :param high_data: high dimensional data
     :param low_dim: target dimension for low dimensional data
     :param cutoff_loss: cutoff
     :return: list with [dct_best_dim_reduction, lods_all_results]
     '''
-    hp = Hyperparameter_optimization(cutoff_loss)
+    hp = class_hyperparameter_optimization(cutoff_loss)
     function, params, hyperparams = fun
     # hyperparameter optimization with bayesian method
     dict_best_result, lods_results = hp.hp_optimization_bayes(fun_id,
@@ -47,7 +47,7 @@ def hp_optimization(fun_id: str,
 def multi_optimization(functions: list,
                        data_high: np.array,
                        dim_low: int,
-                       cutoff_loss: float) -> dict:
+                       cutoff_loss: float) -> (list, list):
     '''
     getter function for parallel processed hyperparameter optimization function.
     Each CPU performs the hyperparameter optimization of one dim reduction function ('py_pca').
@@ -56,23 +56,28 @@ def multi_optimization(functions: list,
     1) dictionary of best dim reduction including the dimension, function and hyperparameters
     2) list of dictionaries of results of all dim reductions
     Here we seperate them and append them with the results from the other functions.
+    Parameters
+    ----------
+    functions : list of dim reduce function identifiers
+    data : high dimensional data
+    dim : dimension of low dimensional data
 
-    :param functions: list of dim reduce function identifiers
-    :param data_high: np.array high dimensional data
-    :param dim_low: int target dimension for low dimensional daa
-    :param cutoff_loss: float quality cutoff for q-matrix parameter default: mae_norm
-    :return: dict with: -list with dicts of best results of each function
-                        -list of lists of all results for each function
+    Returns
+        -list with dicts of best results of each function
+        -list of lists of all results for each function
+    -------
+
     '''
     # set ray multiprocessing, get resources: ray.available_resources()['GPU'] 'CPU'
     # here we use all cpus when more than 10 functions else we use one cpu per function
-    n_cpus = globalvar_n_cpus
+    n_cpus = min(globalvar_n_cpus, len(functions))
     ray.shutdown()
     ray.init(num_cpus=n_cpus, num_gpus=globalvar_n_gpus)
-    print(globalstring_info + 'MULTIPROCESS ON:', n_cpus,  ' CPUs')
+    logger.info(f"{globalstring_info}MULTIPROCESS CPU-RESOURCES {ray.available_resources()}")
 
     # returns dictionary with fun_id: fun; fun returns: function, params, hyperparams
     dict_fun = call_dimred_functions(functions, data_high)
+    logger.info('multi_optimization')
 
     list_of_list_of_results = ray.get([
                                 hp_optimization.remote(fun_id, fun,
@@ -96,9 +101,6 @@ def multi_optimization(functions: list,
                       }
 
     return results_step_2
-
-
-
 
 #######################################################################################
 # parallell dim reduction without hyperparameter optimization
@@ -128,7 +130,7 @@ def worker_dim_reduce(dict_fun: dict,
     # string to dict, hyperparameters from hyperparameter optimization step
     hyperparameters = json.loads(dict_fun['hyperparameters'])
     # dim reduction
-    class_dimred = Dimreduction(fun_id=fun_id, data_high=data, dim_low=dim_low)
+    class_dimred = class_dimreduce_main(fun_id=fun_id, data_high=data, dim_low=dim_low)
     dict_results = class_dimred.exe_dimreduce(params=hyperparameters, step=globalstring_step3)
     return dict_results
 
@@ -185,8 +187,8 @@ def multiprocess_dimred(dicts_funs: list,
 #     return list_of_lists_
 #
 # def multi_optimization_dask(functions, data, dim):
-#     print(global_vars.globalstring_info + 'FUNCTIONS: ', functions)
-#     print(global_vars.globalstring_info + 'CPU-RESOURCES', ray.available_resources())
+#     print(globalstring_info + 'FUNCTIONS: ', functions)
+#     print(globalstring_info + 'CPU-RESOURCES', ray.available_resources())
 #     dict_fun = call_functions_dimred(functions, data, dim)
 #
 #     list_of_lists = []

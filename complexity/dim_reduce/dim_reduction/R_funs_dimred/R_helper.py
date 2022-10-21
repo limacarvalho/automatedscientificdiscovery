@@ -1,9 +1,10 @@
 import numpy as np
 import traceback
-from dimension_tools.dimension_suite.dim_reduce.helper_data.helper_data import Helper
-from dimension_tools.dimension_suite.dim_reduce.helper_data.global_vars import *
+from helper_data.helper_data import helper
+from helper_data.global_vars import *
 import pyper as pr
 import os
+from asd_logging import logger
 
 r = pr.R(use_pandas = True)
 r('library(Rdimtools)')
@@ -11,7 +12,7 @@ r('Sys.setenv(LANGUAGE="en")')
 
 
 
-class R_helper:
+class class_run_r_functions:
 
     def __init__(self):
         '''
@@ -31,13 +32,13 @@ class R_helper:
         '''
         # check if r-error directory exists, if True: ok, if not create one and pass it to
         # globalvar_path_dir_r_errors
-        Helper().check_if_dir_exists(self.path_dir_error)
+        helper().check_if_dir_exists(self.path_dir_error)
 
         # crete path for error file
         self.path_error_file = str(self.path_dir_error + 'rerror.txt')
 
         # erase rerror.txt file from directory if exists.
-        Helper().erase_file(self.path_error_file)
+        helper().erase_file(self.path_error_file)
 
 
 
@@ -57,7 +58,7 @@ class R_helper:
         if os.path.exists(self.path_error_file) == True:
             f = open(self.path_error_file, 'r')
             file_contents = f.read()
-            print('R-ERROR: ', fun_id, file_contents)
+            logging.error(f"R-ERROR: {fun_id}{file_contents}", exc_info=True)
             f.close()
             os.remove(self.path_error_file)
 
@@ -176,8 +177,7 @@ class R_helper:
                 dict_argstring = arg_string
         except:
             dict_argstring = {'empty': 'empty'}
-            print(globalstring_error + 'PARAMS DATATYPE MUST BE STRING OR DICT')
-            print(traceback.format_exc())
+            logger.error(f"{globalstring_error}PARAMS DATATYPE MUST BE STRING OR DICT", exc_info=True)
 
         return dict_argstring
 

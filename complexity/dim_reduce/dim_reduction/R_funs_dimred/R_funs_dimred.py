@@ -4,7 +4,7 @@ r('library(Rdimtools)')
 r('Sys.setenv(LANGUAGE="en")')
 
 
-class Dimred_functions_R:
+class class_dimred_functions_R:
     '''
     404 error on kisungyou website when clicking on source.
         address changed, codes are here: https://github.com/kisungyou/Rdimtools/tree/master/R
@@ -898,7 +898,7 @@ class Dimred_functions_R:
 
     def funR_lamp(self):
         '''
-        - - - DESCRIPTION - - -
+ifl        - - - DESCRIPTION - - -
         Local Affine Mulditimensional Projection (LAMP) can be considered as a nonlinear method even though each
         datum is projected using locally estimated affine mapping. It first finds a low-dimensional embedding
         for control points and then locates the rest data using affine mapping. We use 𝑛√n number of data as

@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import random
 import traceback
 import time
 import datetime
@@ -10,121 +9,70 @@ import json
 from datetime import datetime
 from typing import Union
 from sklearn.preprocessing import StandardScaler
-from dimension_tools.dimension_suite.dim_reduce.helper_data.global_vars import *
+from helper_data.global_vars import *
+from asd_logging import logger
 
 
-class Preprocess_data:
+class class_preprocess_data:
 
     '''
-    utility class for preprocessing data: scaling size reduction etc.
+    utility class for preprocessing data
     '''
 
     def __init__(self):
         pass
 
 
-    def reduce_helper(
-              self,
-              data: np.array,
-              nrows: int,
-              nrows_reduced: int
-        ) -> np.array:
+    def reduce_file_size(self, data, nth_row):
         '''
-        helper for reduction of data size.
-        :param np.array data: raw data, need to be numeric
-        :param int nrows: number of rows of np.array (shape[0])
-        :param int nrows_reduced:  number of target rows
-        :return: np.array with reduced number of rows
+        reducing file size for the first steps of the dim reduction method.
+        data size is determined as ncols*nrows.
+
+        :param data: high dimensional data
+        :param nth_row: int with number of rows to keep, if 3 for example it takes every 3rd row
+                        'auto' for automatic calculation or int for every nth row.
+        :return: dataset with every nth row of custom dataset
         '''
-        if nrows < 500:
-            return data
-        else:
-            idx_rows = sorted(random.sample(range(0, nrows), nrows_reduced))
-        return data[idx_rows]
-
-
-    def reduce_file_size(self,
-                         data: np.array,
-                         percent_of_rows: Union[str,int]
-                         ) -> np.array:
-        '''
-        reducing file size for the first steps of the dim reduction sequence with hundrets
-        of dimensionality reductions.
-        in case the percentage is 'auto': data size is 5 rows per column, in case of very
-        small datasets (<250 rows) we keep all columns. Rows are choosen randomly.
-        :param np.array data: high dimensional data
-        :param int percent_of_rows: default 'auto' for automatic calculation.
-            in case a value 0...100 is provided it means the percentage of rows to use.
-        :return: np.array dataset with every nth row of original dataset
-        '''
-        min_nrows = 250
-        nrows = data.shape[0]
-        ncols = data.shape[1]
-        data_reduced = data
-        start = time.time()
-
-        # we calculate the size of the small dataset
-        if percent_of_rows == 'auto':
-
-            # if number of rows of original dataset is smaller than minimum number of rows
-            if nrows < min_nrows:
-                data_reduced = data
-
-            # if number of rows of original dataset is bigger than minimum number of rows
-            else:
-                try:
-                    nrows_reduced = min(int(ncols * 5), nrows)
-
-                    # dataset with less than 50 columns but more than 250 rows.
-                    if nrows_reduced < min_nrows <= nrows:
-                        # 1500 is set arbitrary, it should work for datasets less than aprox 15.000 rows
-                        nrows_reduced = max(0.2 * nrows, 1500)
-                    data_reduced = self.reduce_helper(data, nrows-1, nrows_reduced)
-                except:
-                    print(globalstring_error + ' DATA SIZE REDUCE')
-                    print(traceback.format_exc())
-
-        # the customer has predefined the percentage of rows
-        else:
-            if isinstance(percent_of_rows, int) and (0 < percent_of_rows <= 100):
-                if percent_of_rows == 100:
-                    data_reduced = data
+        lowest_limit = 10000
+        if nth_row == 'auto':
+            try:
+                data_size = data.shape[0] * data.shape[1]
+                if data_size <= lowest_limit:
+                    nth_row = 1
                 else:
-                    nrows_reduced = min(int(nrows * int(percent_of_rows/100)), nrows)
-                    data_reduced = self.reduce_helper(data, nrows-1, nrows_reduced)
-            else:
-                print(globalstring_error + 'DATA SIZE REDUCE nth row must be integer, and between'
-                                           ' 0 and 100; dataset is not reduced')
-                print(traceback.format_exc())
-                data_reduced = data
+                    nth_row = 1 + int(round(data_size/lowest_limit,0))
+            except:
+                logger.error(f"{globalstring_error} DATA SIZE REDUCE", exc_info=True)
 
-        # TODO: remove prints, make logger message
-        print(globalstring_info, 'REDUCE NUMBER OF ROWS FROM: ',
-              data.shape[0], ' TO: ', data_reduced.shape[0], 'NCOLS: ', data_reduced.shape[1],
-              'TIMIT: ', round(time.time() - start, 2))
+        else:
+            if not isinstance(nth_row, int):
+                logger.info(f"{globalstring_error}DATA SIZE REDUCE nth row must be integer, take every row instead")
+                nth_row = 1 #
 
+        # reduce number of rows by taking every nth row
+        data_reduced = data[::nth_row]
+
+        logger.info(f"{globalstring_info}REDUCE NUMBER OF ROWS FROM: {data.shape[0]} TO: {data_reduced.shape[0]} NCOLS: {data_reduced.shape[1]}")
         return data_reduced
+
 
 
     def scaling(self, X_train: Union[np.array, pd.DataFrame],
                       X_test: Union[np.array, pd.DataFrame] = None) -> np.array:
         '''
         standart scaling of data (X_train, default) and X_test if provided.
-        speed : 10.000rows * 100cols = 0.0sec >>>
-
         :param X_train: array wit data to be scaled
         :param X_test: array wit data to be scaled
         :return: array with scaled data
         '''
-        start = time.time()
         sc = StandardScaler()
         X_train = sc.fit_transform(X_train)
-        print('SCALING, TIMIT: ', round(time.time() - start, 2))
         if X_test != None:
             X_test  = sc.transform(X_test)
             return X_train, X_test
         else:
             return X_train
+
 
 
     def check_scale_status_data(self, data: np.array) -> list:
@@ -154,12 +102,12 @@ class Preprocess_data:
             max_idx = numbers.index(Max)
             status = names[max_idx]
             cols = round(Max/data_numeric.shape[1]*100, 0)
-            print('DATA preprocess:', data.shape, status, 'columns: ', cols)
+            logger.info(f"DATA preprocess: {data.shape} {status} columns: {cols}")
             return [status, cols]
         except:
-            print('STATUS OF DATAFRAME ESTIMATION ERROR')
-            print(traceback.format_exc())
+            logger.error("STATUS OF DATAFRAME ESTIMATION ERROR", exc_info=True)
             return [0, 0]
+
 
 
     def preprocess_scaling(self, data: Union[np.array, pd.DataFrame]) -> (np.array, list):
@@ -171,6 +119,7 @@ class Preprocess_data:
         data_scaled = self.scaling(X_train=data)
         status = self.check_scale_status_data(data_scaled)
         return data_scaled, status
+
 
 
     def positive_scale(self, data: np.array) -> np.array:
@@ -186,8 +135,42 @@ class Preprocess_data:
         return data
 
 
+    # def normalizing(self, X_train, X_test=None):
+    #     '''
+    #     standart scaling of data (X_train, default) and X_test if provided.
+    #     :param X_train:
+    #     :param X_test:
+    #     :return:
+    #     '''
+    #     sc = MinMaxScaler()
+    #     X_train = sc.fit_transform(X_train)
+    #     if X_test != None:
+    #         X_test  = sc.transform(X_test)
+    #         return X_train, X_test
+    #     else:
+    #         return X_train
 
-class Helper:
+
+    # def main_preprocess(self, data, method):
+    #     '''
+    #     preprocessing of data
+    #     :param data: data to be preprocessed, pd.DataFrame or Array
+    #     :param method: which method to be used.
+    #     :return:
+    #     '''
+    #     if method == 'scaling':
+    #         return self.scaling(X_train=data)
+    #     elif method == 'normalize':
+    #         return self.normalizing(X_train=data)
+    #     elif method == None:
+    #         return data
+    #     else: print('data preprocesss method not specified')
+
+
+
+
+
+class helper:
 
     def __init__(self):
         pass
@@ -219,7 +202,7 @@ class Helper:
         if os.path.isdir(path) == True:
             pass
         else:
-            print('DIRECTORY DOES NOT EXIT path:', path)
+            logger.info(f"DIRECTORY DOES NOT EXIT path: {path}")
 
 
 
@@ -265,38 +248,6 @@ def empty_dict(fun_id: str, dim_low: Union[int, None], kmax: int) -> dict:
 
 
 
-def flatten_list_dicts(list_dicts: list) -> list:
-    '''
-    converts inputs into list of dicts
-    :param list_dicts: list of dicts which sometimes is not the case
-    :return: list of dicts
-    '''
-    list_dicts_flat = []
-
-    if isinstance(list_dicts, list):
-        for items in list_dicts:
-            # results is list of lists of dicts
-            if isinstance(items, list):
-                for it in items:
-                    list_dicts_flat.append(it)
-            # results is lists of dicts
-            elif isinstance(items, dict):
-                list_dicts_flat.append(items)
-            else:
-                list_ = list_dicts
-                print(globalstring_error, 'PLOT ITEMS OF LIST, UNKNOWN DATA-TYPE, must be dict or list')
-
-    # results lists of dicts
-    elif isinstance(list_dicts, dict):
-        list_dicts_flat.append(list_dicts)
-    #
-    else:
-        list_dicts_flat = list_dicts
-        print(globalstring_error, 'PLOT ITEMS OF LIST, UNKNOWN DATA-TYPE, must be dict or list')
-    return list_dicts_flat
-
-
-
 ########### DECORATORS
 # timing of wrapped function
 def timit_(fun_id):
@@ -304,11 +255,21 @@ def timit_(fun_id):
         def real_wrapper(*args, **kwargs):
            start = time.time()
            result = function_to_be_decorated(*args, **kwargs)
-           print('timit: ', fun_id, round(time.time()- start,2))
+           logger.info(f"timit: {fun_id} {round(time.time()- start,2)}")
            return result
         return real_wrapper
     return function
 
+
+def daytime_day():
+    '''
+    returns the actual time in format: DAY-MONTH-YEAR: 12-07-1979
+    :return: string of actual day
+    '''
+    DAY = datetime.now().day
+    MONTH = datetime.now().month
+    YEAR = datetime.now().year
+    return str(str(DAY) + '-' + str(MONTH) + '-' + str(YEAR))
 
 
 ''' INFORMATION
@@ -317,12 +278,3 @@ json.loads take a string as input and returns a dictionary as output.
 json.dumps take a dictionary as input and returns a string as output.
 '''
 
-# def daytime_day():
-#     '''
-#     returns the actual time in format: DAY-MONTH-YEAR: 12-07-1979
-#     :return: string of actual day
-#     '''
-#     DAY = datetime.now().day
-#     MONTH = datetime.now().month
-#     YEAR = datetime.now().year
-#     return str(str(DAY) + '-' + str(MONTH) + '-' + str(YEAR))

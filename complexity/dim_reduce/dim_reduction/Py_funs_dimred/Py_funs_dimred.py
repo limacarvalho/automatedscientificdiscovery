@@ -8,9 +8,9 @@ import numpy as np
 
 
 
-class Dimred_functions_python:
+class class_dimred_functions_python:
     '''
-    dimensionality reduction functions
+
     '''
 
     def __init__(self, nrows, ncols):
@@ -18,7 +18,7 @@ class Dimred_functions_python:
         self.ncols = ncols  # data.shape[1]
 
 
-    def dictionary_learning_mini_batch(self) -> (object, dict, dict):
+    def dictionary_learning_mini_batch(self):
         '''
         - - - DESCRIPTION - - -
         Dictionary learning is the method of learning a matrix, called a dictionary, such that we can write
@@ -81,39 +81,36 @@ class Dimred_functions_python:
         - - - INFORMATION - - -
         https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.DictionaryLearning.html
         '''
-        fun = MiniBatchDictionaryLearning(
-            n_components=None,
-            alpha=0.1,
-            n_iter=1000,
-            fit_algorithm='lars',
-            n_jobs=None,
-            batch_size=3,
-            shuffle=True,
-            dict_init=None,
-            transform_algorithm='omp',
-            transform_n_nonzero_coefs=None,
-            transform_alpha=None,
-            verbose=False,
-            split_sign=False,
-            random_state=42,
-            positive_code=False,
-            positive_dict=False,
-            transform_max_iter=1000
-        )
+        fun = MiniBatchDictionaryLearning(n_components=None,
+                                          alpha=0.1,
+                                          n_iter=1000,
+                                          fit_algorithm='lars',
+                                          n_jobs=None,
+                                          batch_size=3,
+                                          shuffle=True,
+                                          dict_init=None,
+                                          transform_algorithm='omp',
+                                          transform_n_nonzero_coefs=None,
+                                          transform_alpha=None,
+                                          verbose=False,
+                                          split_sign=False,
+                                          random_state=42,
+                                          positive_code=False,
+                                          positive_dict=False,
+                                          transform_max_iter=1000)
         # Hyperparameters
-        hyperpars = {
-             'alpha': [0.1, 10], # XXX controls sparsity
-             'n_iter': [5,1000], #
-             'fit_algorithm': [0, 1], # {‘lars’, ‘cd’}, default=’lars’
-             'transform_algorithm': [0, 2], # XXX 'lars','lasso_cd','threshold' / others: omp, lasso-lars
-             'transform_n_nonzero_coefs': [2, int(self.ncols/2) ], # int! only for 'lars' and 'omp', default None == int(n_features / 10)
-             'transform_alpha': [0.005, 6], #
-             }
+        hyperpars = {'alpha': [0.01, 10], # XXX controls sparsity
+                     'n_iter': [5,1000], #
+                     'fit_algorithm': [0, 1], # {‘lars’, ‘cd’}, default=’lars’
+                     'transform_algorithm': [0, 4], # XXX 'omp','lars','lasso_lars','lasso_cd','threshold'
+                     'transform_n_nonzero_coefs': [2, int(self.ncols/2) ], # int! only for 'lars' and 'omp', default None == int(n_features / 10)
+                     'transform_alpha': [0.01, 10], #
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
-    def factor_analysis(self)-> (object, dict, dict):
+    def factor_analysis(self):
         '''
          - - - DESCRIPTION - - -
         FactorAnalysis
@@ -153,32 +150,28 @@ class Dimred_functions_python:
             See “The varimax criterion for analytic rotation in factor analysis” H. F. Kaiser, 1958.
 
         - - - INFORMATION - - -
-        https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.FactorAnalysis.html
+        https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.FactorAnalysis.html#sklearn.decomposition.FactorAnalysis
         '''
-        fun = FactorAnalysis(
-             n_components=None,
-             tol=0.05, # default: 0.01
-             copy=True,
-             max_iter=100, # default=1000,
-             noise_variance_init=None, # custom noise variances for each feature.
-             svd_method='randomized',  # {‘lapack’, ‘randomized’}
-             iterated_power=0, # default =3
-             random_state=42
-        )
+        fun = FactorAnalysis(n_components=None,
+                             tol=0.01,
+                             copy=True,
+                             max_iter=1000,
+                             noise_variance_init=None, # custom noise variances for each feature.
+                             svd_method='randomized',  # {‘lapack’, ‘randomized’}
+                             iterated_power=3,
+                             random_state=42)
 
-        hyperpars = {
-            'empty_py': [0]
-             # 'max_iter': [5,1000], # maximum iterations
-             # 'tol': [0.001, 0.1], # tolerance for expectation–maximization algorithm (log-likelihood)
-             # 'svd_method': [0,1], # single value dcomposition, more accurate, slow: ‘lapack’, speed: ‘randomized’ (default)
-             # 'iterated_power': [0, 10], # svd iteration: only for: 'randomized'_svd; iterations to make: m-by-k matrix Y
-        }
+        hyperpars = {'max_iter': [5,1000], # maximum iterations
+                     'tol': [0.001, 0.1], # tolerance for expectation–maximization algorithm (log-likelihood)
+                     'svd_method': [0,1], # single value dcomposition, more accurate, slow: ‘lapack’, speed: ‘randomized’ (default)
+                     'iterated_power': [0, 10], # svd iteration: only for: 'randomized'_svd; iterations to make: m-by-k matrix Y
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
 
-    def fast_ica(self)-> (object, dict, dict):
+    def fast_ica(self):
         '''
         - - - DESCRIPTION - - -
         FastICA: a fast algorithm for Independent Component Analysis.
@@ -227,30 +220,28 @@ class Dimred_functions_python:
         - - - INFORMATION - - -
         https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.FastICA.html
         '''
-        fun = FastICA(
-              n_components=None,
-              algorithm='parallel',  # ‘parallel’ (default), ‘deflation’
-              whiten=True, # !!! not needed but if not set to True: n_components will be set to n_features
-              fun='logcosh',  # XXX functional form of the G function used in the approximation to neg-entropy
-              fun_args=None,
-              max_iter=200,
-              tol=0.0001,
-              w_init=None, # custom: The mixing matrix to be used to initialize the algorithm.
-              random_state=42
-        )
+        fun = FastICA(n_components=None,
+                      algorithm='parallel',  # ‘parallel’ (default), ‘deflation’
+                      whiten=True, # !!! not needed but if not set to True: n_components will be set to n_features
+                      fun='logcosh',  # XXX functional form of the G function used in the approximation to neg-entropy
+                      fun_args=None,
+                      max_iter=200,
+                      tol=0.0001,
+                      w_init=None, # custom: The mixing matrix to be used to initialize the algorithm.
+                      random_state=42
+                      )
         # does not work: dtypes ok, hps ok,
-        hyperpars = {
-             # 'algorithm': [0, 1], # fastica algorithm: ‘parallel’ (default), ‘deflation’
-             'fun': [0, 2], # 'logcosh','exp','cube'
-             'max_iter': [5, 1000], # maximum iterations
-             'tol': [1e-8, 0.1], # Tolerance on update at each iteration.
-        }
+        hyperpars = {'algorithm': [0, 1], # fastica algorithm: ‘parallel’ (default), ‘deflation’
+                     'fun': [0, 2], # 'logcosh','exp','cube'
+                     'max_iter': [5, 1000], # maximum iterations
+                     'tol': [1e-8, 0.1], # Tolerance on update at each iteration.
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
 
-    def isomap(self)-> (object, dict, dict):
+    def isomap(self):
             '''
             - - - DESCRIPTION - - -
             Isomap Embedding.
@@ -320,37 +311,35 @@ class Dimred_functions_python:
              - - - INFORMATION - - -
             https://scikit-learn.org/stable/modules/generated/sklearn.manifold.Isomap.html
             '''
-            fun = Isomap(
-                 n_components=None,
-                 n_neighbors=5,
-                 eigen_solver='auto', # eigenvector, eigenvalue {‘auto’, ‘arpack’, ‘dense’}, default=’auto’
-                 tol=0, # Convergence tolerance of arpack, tol <e-12 slower, >e-7 faster, not used if eigen_solver == ‘dense’.
-                 max_iter=None, # not used if eigen_solver == ‘dense’
-                 path_method='auto', # {‘auto’, ‘FW’, ‘D’}, default=’auto’; FW faster?
-                 neighbors_algorithm='auto', # auto is fastest, ('auto', 'brute', 'kd_tree', 'ball_tree')
-                 n_jobs=None, # spectra dataset: 64.49s, 63.99s no effect
-                 metric='minkowski', # metric is determined by p value!
-                 p=2, # for metric='minkowski': manhatten distance (p=1), euclidean distance (p=2)
-                 metric_params=None
-            )
+            fun = Isomap(n_components=None,
+                         n_neighbors=5,
+                         eigen_solver='auto', # eigenvector, eigenvalue {‘auto’, ‘arpack’, ‘dense’}, default=’auto’
+                         tol=0, # Convergence tolerance of arpack, tol <e-12 slower, >e-7 faster, not used if eigen_solver == ‘dense’.
+                         max_iter=None, # not used if eigen_solver == ‘dense’
+                         path_method='auto', # {‘auto’, ‘FW’, ‘D’}, default=’auto’; FW faster?
+                         neighbors_algorithm='auto', # auto is fastest, ('auto', 'brute', 'kd_tree', 'ball_tree')
+                         n_jobs=None, # spectra dataset: 64.49s, 63.99s no effect
+                         metric='minkowski', # metric is determined by p value!
+                         p=2, # for metric='minkowski': manhatten distance (p=1), euclidean distance (p=2)
+                         metric_params=None
+                         )
 
             # Hyperparameters
             neighbors_max = int(min(self.nrows/2, 100))
-            hyperpars = {
-                'n_neighbors': [5, neighbors_max],
-                 'p': [1, 2],  # for metric: 'minkowski' 1-minkowski 2-euclidean
-                 'max_iter': [5, 1000],
-                 'path_method': [0, 1], # 'FW', 'D' speed!
-                 'neighbors_algorithm': [0, 2], # 'brute', 'kd_tree', 'ball_tree'
-                 'tol': [1e-15, 0.1],   # tol <e-12 slower, >e-7 faster
-                # 'eigen_solver': [0, 1], # ‘arpack’, ‘dense’ not important and a lot of errors
-            }
+            hyperpars = {'n_neighbors': [5, neighbors_max],
+                         # 'eigen_solver': [0, 1], # ‘arpack’, ‘dense’ not important and a lot of errors
+                         'p': [1, 2],  # for metric: 'minkowski' 1-minkowski 2-euclidean
+                         'max_iter': [5, 1000],
+                         'path_method': [0, 1], # 'FW', 'D' speed!
+                         'neighbors_algorithm': [0, 2], # 'brute', 'kd_tree', 'ball_tree'
+                         'tol': [1e-15, 0.1],   # tol <e-12 slower, >e-7 faster
+                         }
             params = fun.get_params()
             return fun, params, hyperpars
 
 
 
-    def locally_linear_embedding(self)-> (object, dict, dict):
+    def locally_linear_embedding(self):
         '''
         - - - DESCRIPTION - - -
         Locally linear embedding (LLE) seeks a lower-dimensional projection of the data which preserves distances within
@@ -459,38 +448,35 @@ class Dimred_functions_python:
         - - - INFORMATION - - -
         https://scikit-learn.org/stable/modules/generated/sklearn.manifold.locally_linear_embedding.html
         '''
-        fun = LocallyLinearEmbedding(
-             n_components=None,
-             n_neighbors=5,
-             reg=0.001,
-             eigen_solver='dense',
-             tol=1e-06,
-             max_iter=100,
-             method='auto',
-             hessian_tol=0.0001,
-             modified_tol=1e-12,
-             random_state=42,
-             n_jobs=None
-        )
+        fun = LocallyLinearEmbedding(n_components=None,
+                                     n_neighbors=5,
+                                     reg=0.001,
+                                     eigen_solver='dense',
+                                     tol=1e-06,
+                                     max_iter=100,
+                                     method='auto',
+                                     hessian_tol=0.0001,
+                                     modified_tol=1e-12,
+                                     random_state=42,
+                                     n_jobs=None)
         # Hyperparameters
         neighbors_max = int(min(self.nrows/2, 100))
         # n_components * (n_components + 3) / 2
-        hyperpars = {
-             'n_neighbors': [5, neighbors_max],
-             'reg': [0.00001, 0.1], # regularization constant
-             'tol': [1e-10, 0.1], # ‘arpack’ only, tolerance
-             'max_iter': [5, 1000],
-             'method': [0, 2], # ‘standard’,‘modified’,‘ltsa’, default=’standard’ (‘hessian’ requieres too many n-neighbors)
-             'modified_tol': [1e-10, 0.1], # if method == ‘modified’
-             # 'eigen_solver': [0, 1], # ‘arpack’, ‘dense’ arpack complains a lot and not important
-             # 'hessian_tol': [1e-10, 0.1], # if method == ‘hessian’
-             }
+        hyperpars = {'n_neighbors': [5, neighbors_max],
+                     'reg': [0.00001, 0.1], # regularization constant
+                     # 'eigen_solver': [0, 1], # ‘arpack’, ‘dense’ arpack complains a lot and not important
+                     'tol': [1e-10, 0.1], # ‘arpack’ only, tolerance
+                     'max_iter': [5, 1000],
+                     'method': [0, 2], # ‘standard’,‘modified’,‘ltsa’, default=’standard’ (‘hessian’ requieres too many n-neighbors)
+                     # 'hessian_tol': [1e-10, 0.1], # if method == ‘hessian’
+                     'modified_tol': [1e-10, 0.1], # if method == ‘modified’
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
 
-    def non_negative_matrix_factorization(self) -> (object, dict, dict):
+    def non_negative_matrix_factorization(self):
         '''
         - - - DESCRIPTION - - -
         Find two non-negative matrices (W, H) whose product approximates the non- negative matrix X.
@@ -552,34 +538,33 @@ class Dimred_functions_python:
         - - - INFORMATION - - -
         MORE: https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.NMF
         '''
-        fun = NMF(
-              n_components=None,
-              init=None, # None: ‘nndsvd’ if n_components <= min(n_samples, n_features), otherwise random. ‘random’, ‘nndsvd’, ‘nndsvda’, ‘nndsvdar’, ‘custom’
-              solver='cd', # Numerical solver 'cd' oordinate descent ,'mu' multuplicative update
-              beta_loss='frobenius', # distance between X and W*H ‘frobenius’, ‘kullback-leibler’, ‘itakura-saito’ (kl slow)
-              tol=0.0001,
-              max_iter=200,
-              random_state=42, # default None
-              alpha=1,
-              l1_ratio=0.0,
-              verbose=0,
-              shuffle=False
-              )
+        fun = NMF(n_components=None,
+                  init=None, # None: ‘nndsvd’ if n_components <= min(n_samples, n_features), otherwise random. ‘random’, ‘nndsvd’, ‘nndsvda’, ‘nndsvdar’, ‘custom’
+                  solver='cd', # Numerical solver 'cd' oordinate descent ,'mu' multuplicative update
+                  beta_loss='frobenius', # distance between X and W*H ‘frobenius’, ‘kullback-leibler’, ‘itakura-saito’ (kl slow)
+                  tol=0.0001,
+                  max_iter=200,
+                  random_state=42, # default None
+                  alpha=1,
+                  l1_ratio=0.0,
+                  verbose=0,
+                  shuffle=False
+                  )
         hyperpars = {
-             'init': [0, 3], # ‘random’, ‘nndsvd’, ‘nndsvda’, ‘nndsvdar’
-             'solver': [0, 1], # ‘cd’, ‘mu’
-             'beta_loss': [0, 1], # ‘frobenius’, ‘kullback-leibler’, ‘itakura-saito’
-             'tol': [1e-6, 0.1], #
-             'max_iter': [5, 1000], #
-             'alpha': [0.1, 10], # from v1.0 on substituted by alpha_w, alpha_h
-             'l1_ratio': [0.0, 1.0], # For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
-        }
+                     'init': [0, 3], # ‘random’, ‘nndsvd’, ‘nndsvda’, ‘nndsvdar’
+                     'solver': [0, 1], # ‘cd’, ‘mu’
+                     'beta_loss': [0, 1], # ‘frobenius’, ‘kullback-leibler’, ‘itakura-saito’
+                     'tol': [1e-6, 0.1], #
+                     'max_iter': [5, 1000], #
+                     'alpha': [0.1, 10], # from v1.0 on substituted by alpha_w, alpha_h
+                     'l1_ratio': [0.0, 1.0], # For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
 
-    def pca(self) -> (object, dict, dict):
+    def pca(self):
         '''
          - - - DESCRIPTION - - -
         n=0.95...0.99 means percent of explained variance in pca's
@@ -637,26 +622,25 @@ class Dimred_functions_python:
         - - - INFORMATION - - -
         https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
         '''
-        fun = PCA(
-              n_components=None,
-              copy=True,
-              whiten=False,
-              svd_solver='auto',
-              tol=0.0, #
-              iterated_power='auto',
-              random_state=42
-        )
+        fun = PCA(n_components=None,
+                  copy=True,
+                  whiten=False,
+                  svd_solver='auto',
+                  tol=0.0, #
+                  iterated_power='auto',
+                  random_state=42
+                  )
         hyperpars = {
-            'empty_py': [0]
-             # 'svd_solver': [0, 2], # ‘full’, ‘arpack’, ‘randomized’, default=’auto’
-             # 'tol': [0.0, 100.0], # !arpack only [0.0, infinity]
-             # 'iterated_power': [0, 100], # !randomized only
-             }
+                    'empty_py': [0]
+                     # 'svd_solver': [0, 2], # ‘full’, ‘arpack’, ‘randomized’, default=’auto’
+                     # 'tol': [0.0, 100.0], # !arpack only [0.0, infinity]
+                     # 'iterated_power': [0, 100], # !randomized only
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
-    def pca_incremental(self)-> (object, dict, dict):
+    def pca_incremental(self):
         '''
          - - - DESCRIPTION - - -
         Incremental principal components analysis (IPCA).
@@ -697,21 +681,20 @@ class Dimred_functions_python:
         - - - INFORMATION - - -
         https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.IncrementalPCA.html#sklearn.decomposition.IncrementalPCA
         '''
-        fun = IncrementalPCA(
-             n_components=None,
-             whiten=False,
-             copy=True,
-             batch_size=None # 5 * n_features, provides a balance between accuracy and memory use.
-        )
+        fun = IncrementalPCA(n_components=None,
+                             whiten=False,
+                             copy=True,
+                             batch_size=None # 5 * n_features, provides a balance between accuracy and memory use.
+                             )
         hyperpars = {
-             'empty_py': [0]
-        }
+                     'empty_py': [0]
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
 
-    def pca_sparse(self) -> (object, dict, dict):
+    def pca_sparse(self):
         '''
         - - - DESCRIPTION - - -
         USE: better interpretation of the features,
@@ -761,32 +744,31 @@ class Dimred_functions_python:
         - - - INFORMATION - - -
         https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.SparsePCA.html
         '''
-        fun = SparsePCA(
-            n_components=None,
-            alpha=1,
-            ridge_alpha=0.01, # L2 Regularization, adds “squared magnitude” of coefficient as penalty term to the loss function
-            max_iter=1000,
-            tol=1e-08,
-            method='lars', # lars: uses the least angle regression method to solve the lasso problem.
-                           # cd: uses the coordinate descent method to compute the Lasso solution.
-            n_jobs=None, # loadings for warm restart scenarios
-            U_init=None, # loadings for warm restart scenarios
-            V_init=None, # loadings for warm restart scenarios
-            verbose=False,
-            random_state=42
-        )
+        fun = SparsePCA(n_components=None,
+                        alpha=1,
+                        ridge_alpha=0.01, # L2 Regularization, adds “squared magnitude” of coefficient as penalty term to the loss function
+                        max_iter=1000,
+                        tol=1e-08,
+                        method='lars', # lars: uses the least angle regression method to solve the lasso problem.
+                                       # cd: uses the coordinate descent method to compute the Lasso solution.
+                        n_jobs=None, # loadings for warm restart scenarios
+                        U_init=None, # loadings for warm restart scenarios
+                        V_init=None, # loadings for warm restart scenarios
+                        verbose=False,
+                        random_state=42
+                        )
         hyperpars = {
-             'alpha': [0.0001, 0.5], # controls sparsity, higher: more sparse
-             'ridge_alpha': [0.0001, 10], # L2 Regularization
-             'tol': [0.001, 0.1], # Tolerance for the stopping condition
-             'max_iter': [100,800], #
-             'method': [0,1], # ‘lars’, ‘cd’
-        }
+                     'alpha': [0.0001, 10], # controls sparsity, higher: more sparse
+                     'ridge_alpha': [0.0001, 10], # L2 Regularization
+                     'tol': [1e-15, 0.1], # Tolerance for the stopping condition
+                     'max_iter': [5,1000], #
+                     'method': [0,1], # ‘lars’, ‘cd’
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
-    def pca_sparse_mini_batch(self) -> (object, dict, dict):
+    def pca_sparse_mini_batch(self):
         '''
          - - - DESCRIPTION - - -
 
@@ -834,31 +816,30 @@ class Dimred_functions_python:
 
         - - - INFORMATION - - -
         '''
-        fun = MiniBatchSparsePCA(
-             n_components=None,
-             alpha=1,
-             ridge_alpha=0.01,
-             n_iter=100,
-             callback=None,
-             batch_size=3,
-             verbose=False,
-             shuffle=True,
-             n_jobs=None,
-             method='lars',
-             random_state=42
-        )
+        fun = MiniBatchSparsePCA(n_components=None,
+                                 alpha=1,
+                                 ridge_alpha=0.01,
+                                 n_iter=100,
+                                 callback=None,
+                                 batch_size=3,
+                                 verbose=False,
+                                 shuffle=True,
+                                 n_jobs=None,
+                                 method='lars',
+                                 random_state=42
+                                 )
         hyperpars = {
-             'alpha': [0.1, 10], # controls sparsity, higher: more sparse
-             'ridge_alpha': [0.5, 10], # L2 Regularization
-             'n_iter': [50,250], #
-             'method': [0,1], # ‘lars’, ‘cd’
-        }
+                     'alpha': [0.0001, 10], # controls sparsity, higher: more sparse
+                     'ridge_alpha': [0.0001, 10], # L2 Regularization
+                     'n_iter': [5,1000], #
+                     'method': [0,1], # ‘lars’, ‘cd’
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
 
-    def pca_kernel(self) -> (object, dict, dict):
+    def pca_kernel(self):
         '''
         - - - DESCRIPTION - - -
         Kernel PCA is able to find a projection of the data that makes data linearly separable
@@ -941,38 +922,34 @@ class Dimred_functions_python:
         - - - INFORMATION - - -
         https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.KernelPCA.html#sklearn.decomposition.KernelPCA
         '''
-        fun = KernelPCA(
-            n_components=None,
-            kernel='linear',
-            gamma=10,
-            degree=3,
-            coef0=1,
-            kernel_params=None, # Parameters (keyword arguments and values) for kernel passed as callable object.
-            alpha=1.0,
-            fit_inverse_transform=False,
-            eigen_solver='auto',
-            tol=0,
-            max_iter=None,
-            remove_zero_eig=False,
-            random_state=42,
-            copy_X=True,
-            n_jobs=None
-        )
-        #
+        fun = KernelPCA(n_components=None,
+                        kernel='linear',
+                        gamma=10,
+                        degree=3,
+                        coef0=1,
+                        kernel_params=None, # Parameters (keyword arguments and values) for kernel passed as callable object.
+                        alpha=1.0,
+                        fit_inverse_transform=False,
+                        eigen_solver='auto',
+                        tol=0,
+                        max_iter=None,
+                        remove_zero_eig=False,
+                        random_state=42,
+                        copy_X=True,
+                        n_jobs=None)
         gamma_min = round(1 / max([5, self.ncols]), 4)
-
         hyperpars = {
-             'kernel': [0, 3], # ‘linear’, ‘rbf’, ‘sigmoid’, ‘cosine’, not used: ‘precomputed’, 'poly'-errors
-             'gamma': [gamma_min, 10], # if None: 1/n_features
-             # 'degree': [1, 4], # only for ‘poly’-errors
-             # 'coef0': [1.0, 10.0], # only for poly and sigmoid -errors
-             'alpha': [0.0001, 10], # controls ridge regression, only when fit_inverse_transform=True.
-             'fit_inverse_transform': [0,1], # False - True
-             # 'eigen_solver': [0, 2], # ‘dense’, ‘arpack’, ‘randomized’ not important and a lot of errors
-             'tol': [0, 0.1], #  only arpack, Residual tolerances of the computed eigenvalues. default: 0
-             'max_iter': [5,1000], # only arpack, Maximum number of iterations
-             # 'remove_zero_eig': [0,1], # True, False if to remove zero eigenvectors (n might be smaller than n_components)
-        }
+                     'kernel': [0, 3], # ‘linear’, ‘rbf’, ‘sigmoid’, ‘cosine’, not used: ‘precomputed’, 'poly'-errors
+                     'gamma': [gamma_min, 10], # if None: 1/n_features
+                     # 'degree': [1, 4], # only for ‘poly’-errors
+                     # 'coef0': [1.0, 10.0], # only for poly and sigmoid -errors
+                     'alpha': [0.0001, 10], # controls ridge regression, only when fit_inverse_transform=True.
+                     'fit_inverse_transform': [0,1], # False - True
+                     # 'eigen_solver': [0, 2], # ‘dense’, ‘arpack’, ‘randomized’ not important and a lot of errors
+                     'tol': [0, 0.1], #  only arpack, Residual tolerances of the computed eigenvalues. default: 0
+                     'max_iter': [5,1000], # only arpack, Maximum number of iterations
+                     # 'remove_zero_eig': [0,1], # True, False if to remove zero eigenvectors (n might be smaller than n_components)
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
@@ -1034,30 +1011,29 @@ class Dimred_functions_python:
         - - - INFORMATION - - -
         https://scikit-learn.org/stable/modules/generated/sklearn.manifold.smacof.html#
         '''
-        fun = smacof(
-             dissimilarities=np.zeros(shape=(2, 2)),
-             metric=True,
-             n_components=None,
-             init=None,  # ndarray with Starting configuration
-             n_init=8,
-             n_jobs=None,
-             max_iter=300,
-             verbose=0,
-             eps=0.001,
-             random_state=42,
-             return_n_iter=False
-        )
+        fun = smacof(dissimilarities=np.zeros(shape=(2, 2)),
+                     metric=True,
+                     n_components=None,
+                     init=None,  # ndarray with Starting configuration
+                     n_init=8,
+                     n_jobs=None,
+                     max_iter=300,
+                     verbose=0,
+                     eps=0.001,
+                     random_state=42,
+                     return_n_iter=False
+                     )
         hyperpars = {
-             'metric': [0.0, 1.0], # False, True (metric or non-metric)
-             'n_init': [2,32], # n initializations (best one choosen, default=8
-             'max_iter': [5,1000], # only arpack, Maximum number of iterations
-             'eps': [0.00001, 0.1],
-        }
+                     'metric': [0.0, 1.0], # False, True (metric or non-metric)
+                     'n_init': [2,32], # n initializations (best one choosen, default=8
+                     'max_iter': [5,1000], # only arpack, Maximum number of iterations
+                     'eps': [0.00001, 0.1],
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
-    def spectral_embedding(self) -> (object, dict, dict):
+    def spectral_embedding(self):
         '''
         - - - DESCRIPTION - - -
         Spectral embedding for non-linear dimensionality reduction.
@@ -1100,31 +1076,29 @@ class Dimred_functions_python:
         https://scikit-learn.org/stable/modules/generated/sklearn.manifold.SpectralEmbedding.html
         '''
         ####
-        fun = SpectralEmbedding(
-            n_components=None,
-            affinity='nearest_neighbors', #
-            gamma=None,
-            random_state=42,
-            eigen_solver=None, # should have no influence on result
-            n_neighbors=None,
-            n_jobs=None
-        )
+        fun = SpectralEmbedding(n_components=None,
+                                affinity='nearest_neighbors', #
+                                gamma=None,
+                                random_state=42,
+                                eigen_solver=None, # should have no influence on result
+                                n_neighbors=None,
+                                n_jobs=None
+                                )
         ### init
         inv_feat = 1/self.ncols
         neighbors_max = int(min(self.nrows/2, 100))
-        # hyerparameter ranges, further processed in hyperparameter -> hyperparameter_initialization.py
         hyperpars = {
-             'affinity': [0, 1], #‘ nearest_neighbors’, ‘rbf’
-             'gamma': [inv_feat/100, 10], # only rbf, default: 1/n_features
-             'n_neighbors': [5, neighbors_max], # only nearest neighbors, default: 1/n_features
-            # 'eigen_solver': [0, 2], # CAUSES MANY MATRIX ERRORS ‘arpack’, ‘lobpcg’, ‘amg’
-        }
+                     'affinity': [0, 1], #‘ nearest_neighbors’, ‘rbf’
+                     'gamma': [inv_feat/100, 10], # only rbf, default: 1/n_features
+                     # 'eigen_solver': [0, 2], # CAUSES MANY MATRIX ERRORS ‘arpack’, ‘lobpcg’, ‘amg’
+                     'n_neighbors': [5, neighbors_max], # only nearest neighbors, default: 1/n_features
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
 
-    def truncated_svd(self) -> (object, dict, dict):
+    def truncated_svd(self):
         '''
          - - - DESCRIPTION - - -
             TruncatedSVD implements a variant of singular value decomposition (SVD) that only computes the k
@@ -1173,451 +1147,449 @@ class Dimred_functions_python:
         - - - INFORMATION - - -
         https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html#
         '''
-        fun = TruncatedSVD(
-            n_components=None,
-            algorithm='randomized',
-            n_iter=5,
-            random_state=42,
-            tol=0.0
-            )
+        fun = TruncatedSVD(n_components=None,
+                           algorithm='randomized',
+                           n_iter=5,
+                           random_state=42,
+                           tol=0.0
+                           )
         hyperpars = {
-             'algorithm': [0, 1], # algorithm with other options is already choosen, 'arpack', 'randomized'
-             'n_iter': [5,1000], #
-             'tol': [0, 0.1], #  only arpack, Residual tolerances of the computed eigenvalues. default: 0
-        }
+                     'algorithm': [0, 1], # algorithm with other options is already choosen, 'arpack', 'randomized'
+                     'n_iter': [5,1000], #
+                     'tol': [0, 0.1], #  only arpack, Residual tolerances of the computed eigenvalues. default: 0
+                     }
         params = fun.get_params()
         return fun, params, hyperpars
 
 
 
-# def tsne(self) -> (object, dict, dict):
-#     '''
-#     !!! ValueError: 'n_components' should be inferior to 4 for the barnes_hut algorithm as it relies on quad-tree or oct-tree.
-#      - - - DESCRIPTION - - -
-#
-#
-#     - - - PARAMETERS - - -
-#     perplexity float, default=30.0
-#         The perplexity is related to the number of nearest neighbors that is used in other manifold learning
-#         algorithms. Larger datasets usually require a larger perplexity. Consider selecting a value between
-#         5 and 50. Different values can result in significantly different results.
-#     early_exaggeration float, default=12.0
-#         Controls how tight natural clusters in the original space are in the embedded space and how much
-#         space will be between them. For larger values, the space between natural clusters will be larger
-#         in the embedded space. Again, the choice of this parameter is not very critical. If the cost
-#         function increases during initial optimization, the early exaggeration factor or the learning rate
-#         might be too high.
-#     learning_rate float or ‘auto’, default=200.0
-#         The learning rate for t-SNE is usually in the range [10.0, 1000.0]. If the learning rate is too high,
-#         the data may look like a ‘ball’ with any point approximately equidistant from its nearest neighbours.
-#         If the learning rate is too low, most points may look compressed in a dense cloud with few outliers.
-#         If the cost function gets stuck in a bad local minimum increasing the learning rate may help.
-#         Note that many other t-SNE implementations (bhtsne, FIt-SNE, openTSNE, etc.) use a definition of
-#         learning_rate that is 4 times smaller than ours. So our learning_rate=200 corresponds to
-#         learning_rate=800 in those other implementations. The ‘auto’ option sets the learning_rate to
-#         max(N / early_exaggeration / 4, 50) where N is the sample size, following [4] and [5].
-#         This will become default in 1.2.
-#     n_iter int, default=1000
-#         Maximum number of iterations for the optimization. Should be at least 250.
-#     n_iter_without_progress int, default=300
-#         Maximum number of iterations without progress before we abort the optimization, used after 250 initial
-#         iterations with early exaggeration. Note that progress is only checked every 50 iterations so this value
-#         is rounded to the next multiple of 50.
-#     min_grad_norm float, default=1e-7
-#         If the gradient norm is below this threshold, the optimization will be stopped.
-#     metric str or callable, default=’euclidean’
-#         The metric to use when calculating distance between instances in a feature array. If metric is a string,
-#         it must be one of the options allowed by scipy.spatial.distance.pdist for its metric parameter,
-#         or a metric listed in pairwise.PAIRWISE_DISTANCE_FUNCTIONS. If metric is “precomputed”, X is assumed
-#         to be a distance matrix. Alternatively, if metric is a callable function, it is called on each pair of
-#         instances (rows) and the resulting value recorded. The callable should take two arrays from X as input
-#         and return a value indicating the distance between them. The default is “euclidean” which is interpreted
-#         as squared euclidean distance.
-#     metric_params dict, default=None
-#         Additional keyword arguments for the metric function.
-#     init{‘random’, ‘pca’} or ndarray of shape (n_samples, n_components), default=’random’
-#         Initialization of embedding. Possible options are ‘random’, ‘pca’, and a numpy array of shape
-#         (n_samples, n_components). PCA initialization cannot be used with precomputed distances and is usually
-#         more globally stable than random initialization. init='pca' will become default in 1.2.
-#     verbose int, default=0
-#         Verbosity level.
-#     random_state int, RandomState instance or None, default=None
-#         Determines the random number generator. Pass an int for reproducible results across multiple function calls.
-#         Note that different initializations might result in different local minima of the cost function.
-#     method str, default=’barnes_hut’
-#         By default the gradient calculation algorithm uses Barnes-Hut approximation running in O(NlogN) time.
-#         method=’exact’ will run on the slower, but exact, algorithm in O(N^2) time. The exact algorithm should
-#         be used when nearest-neighbor errors need to be better than 3%. However, the exact method cannot scale
-#         to millions of examples.
-#     angle float, default=0.5
-#         Only used if method=’barnmetrices_hut’ This is the trade-off between speed and accuracy for Barnes-Hut T-SNE.
-#         ‘angle’ is the angular size (referred to as theta in [3]) of a distant node as measured from a point.
-#         If this size is below ‘angle’ then it is used as a summary node of all points contained within it.
-#         This method is not very sensitive to changes in this parameter in the range of 0.2 - 0.8.
-#         Angle less than 0.2 has quickly increasing computation time and angle greater 0.8 has quickly increasing error.
-#         n_jobs int, default=None
-#         The number of parallel jobs to run for neighbors search. This parameter has no impact when metric="precomputed"
-#          or (metric="euclidean" and method="exact"). None means 1 unless in a joblib.parallel_backend context. -1 means
-#           using all processors.
-#     - - - INFORMATION - - -
-#     https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html
-#
-#     '''
-#     fun = TSNE(
-#        n_components=None,
-#        perplexity=30.0,
-#        early_exaggeration=12.0, # the choice of this parameter is not very critical
-#        learning_rate='auto',
-#        n_iter=1000,
-#        n_iter_without_progress=300, # checked every 50 iterations
-#        min_grad_norm=1e-07,
-#        metric='euclidean',
-#        init='pca',
-#        verbose=0,
-#        random_state=42,
-#        method='exact', # the 'exact' method cannot scale, barnes_hut is only for 1,2,3 dimensions
-#        angle=0.5,
-#        n_jobs=None
-#     )
-#     hyperpars = {
-#          'perplexity': [5, 50], # default: 30
-#          'learning_rate': [10.0, 1000.0], # default: auto
-#          'n_iter': [250, 2000], # default: 1000
-#          'n_iter_without_progress': [0, 9], # default: 300 # checked every 50 iterations
-#          'min_grad_norm': [1e-09, 0.1], # default: 1e-07
-#          'metric': [0, 2], # 'minkowski','manhattan', default: 'euclidean'
-#          'init': [0, 1], # ‘random’, ‘pca’
-#          'angle': [0.2, 0.8], # FALSE, TRUE
-#          # 'preprocess': [0, 5], # not neccessary, data are scaled
-#     }
-#     params = fun.get_params()
-#     return fun, params, hyperpars
+    def tsne(self):
+        '''
+        !!! ValueError: 'n_components' should be inferior to 4 for the barnes_hut algorithm as it relies on quad-tree or oct-tree.
+         - - - DESCRIPTION - - -
 
 
-# def umap(self) -> (object, dict, dict):
-#     '''
-#
-#      - - - DESCRIPTION - - -
-#
-#
-#     - - - PARAMETERS - - -
-#     Uniform Manifold Approximation and Projection
-#         Finds a low dimensional embedding of the data that approximates
-#         an underlying manifold.
-#         Parameters
-#         ----------
-#         n_neighbors: float (optional, default 15)
-#             The size of local neighborhood (in terms of number of neighboring
-#             sample points) used for manifold approximation. Larger values
-#             result in more global views of the manifold, while smaller
-#             values result in more local data being preserved. In general
-#             values should be in the range 2 to 100.
-#         n_components: int (optional, default 2)
-#             The dimension of the space to embed into. This defaults to 2 to
-#             provide easy visualization, but can reasonably be set to any
-#             integer value in the range 2 to 100.
-#         metric: string or function (optional, default 'euclidean')
-#             The metric to use to compute distances in high dimensional space.
-#             If a string is passed it must match a valid predefined metric. If
-#             a general metric is required a function that takes two 1d arrays and
-#             returns a float can be provided. For performance purposes it is
-#             required that this be a numba jit'd function. Valid string metrics
-#             include:
-#                 * euclidean
-#                 * manhattan
-#                 * chebyshev
-#                 * minkowski
-#                 * canberra
-#                 * braycurtis
-#                 * mahalanobis
-#                 * wminkowski
-#                 * seuclidean
-#                 * cosine
-#                 * correlation
-#                 * haversine
-#                 * hamming
-#                 * jaccard
-#                 * dice
-#                 * russelrao
-#                 * kulsinski
-#                 * ll_dirichlet
-#                 * hellinger
-#                 * rogerstanimoto
-#                 * sokalmichener
-#                 * sokalsneath
-#                 * yule
-#             Metrics that take arguments (such as minkowski, mahalanobis etc.)
-#             can have arguments passed via the metric_kwds dictionary. At this
-#             time care must be taken and dictionary elements must be ordered
-#             appropriately; this will hopefully be fixed in the future.
-#         n_epochs: int (optional, default None)
-#             The number of training epochs to be used in optimizing the
-#             low dimensional embedding. Larger values result in more accurate
-#             embeddings. If None is specified a value will be selected based on
-#             the size of the input dataset (200 for large datasets, 500 for small).
-#         learning_rate: float (optional, default 1.0)
-#             The initial learning rate for the embedding optimization.
-#         init: string (optional, default 'spectral')
-#             How to initialize the low dimensional embedding. Options are:
-#                 * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
-#                 * 'random': assign initial embedding positions at random.
-#                 * A numpy array of initial embedding positions.
-#         min_dist: float (optional, default 0.1)
-#             The effective minimum distance between embedded points. Smaller values
-#             will result in a more clustered/clumped embedding where nearby points
-#             on the manifold are drawn closer together, while larger values will
-#             result on a more even dispersal of points. The value should be set
-#             relative to the ``spread`` value, which determines the scale at which
-#             embedded points will be spread out.
-#         spread: float (optional, default 1.0)
-#             The effective scale of embedded points. In combination with ``min_dist``
-#             this determines how clustered/clumped the embedded points are.
-#         low_memory: bool (optional, default True)
-#             For some datasets the nearest neighbor computation can consume a lot of
-#             memory. If you find that UMAP is failing due to memory constraints
-#             consider setting this option to True. This approach is more
-#             computationally expensive, but avoids excessive memory use.
-#         set_op_mix_ratio: float (optional, default 1.0)
-#             Interpolate between (fuzzy) union and intersection as the set operation
-#             used to combine local fuzzy simplicial sets to obtain a global fuzzy
-#             simplicial sets. Both fuzzy set operations use the product t-norm.
-#             The value of this parameter should be between 0.0 and 1.0; a value of
-#             1.0 will use a pure fuzzy union, while 0.0 will use a pure fuzzy
-#             intersection.
-#         local_connectivity: int (optional, default 1)
-#             The local connectivity required -- i.e. the number of nearest
-#             neighbors that should be assumed to be connected at a local level.
-#             The higher this value the more connected the manifold becomes
-#             locally. In practice this should be not more than the local intrinsic
-#             dimension of the manifold.
-#         repulsion_strength: float (optional, default 1.0)
-#             Weighting applied to negative samples in low dimensional embedding
-#             optimization. Values higher than one will result in greater weight
-#             being given to negative samples.
-#         negative_sample_rate: int (optional, default 5)
-#             The number of negative samples to select per positive sample
-#             in the optimization process. Increasing this value will result
-#             in greater repulsive force being applied, greater optimization
-#             cost, but slightly more accuracy.
-#         transform_queue_size: float (optional, default 4.0)
-#             For transform operations (embedding new points using a trained model_
-#             this will control how aggressively to search for nearest neighbors.
-#             Larger values will result in slower performance but more accurate
-#             nearest neighbor evaluation.
-#         a: float (optional, default None)
-#             More specific parameters controlling the embedding. If None these
-#             values are set automatically as determined by ``min_dist`` and
-#             ``spread``.
-#         b: float (optional, default None)
-#             More specific parameters controlling the embedding. If None these
-#             values are set automatically as determined by ``min_dist`` and
-#             ``spread``.
-#         random_state: int, RandomState instance or None, optional (default: None)
-#             If int, random_state is the seed used by the random number generator;
-#             If RandomState instance, random_state is the random number generator;
-#             If None, the random number generator is the RandomState instance used
-#             by `np.random`.
-#         metric_kwds: dict (optional, default None)
-#             Arguments to pass on to the metric, such as the ``p`` value for
-#             Minkowski distance. If None then no arguments are passed on.
-#         angular_rp_forest: bool (optional, default False)
-#             Whether to use an angular random projection forest to initialise
-#             the approximate nearest neighbor search. This can be faster, but is
-#             mostly on useful for metric that use an angular style distance such
-#             as cosine, correlation etc. In the case of those metrics angular forests
-#             will be chosen automatically.
-#         target_n_neighbors: int (optional, default -1)
-#             The number of nearest neighbors to use to construct the target simplcial
-#             set. If set to -1 use the ``n_neighbors`` value.
-#         target_metric: string or callable (optional, default 'categorical')
-#             The metric used to measure distance for a target array is using supervised
-#             dimension reduction. By default this is 'categorical' which will measure
-#             distance in terms of whether categories match or are different. Furthermore,
-#             if semi-supervised is required target values of -1 will be trated as
-#             unlabelled under the 'categorical' metric. If the target array takes
-#             continuous values (e.g. for a regression problem) then metric of 'l1'
-#             or 'l2' is probably more appropriate.
-#         target_metric_kwds: dict (optional, default None)
-#             Keyword argument to pass to the target metric when performing
-#             supervised dimension reduction. If None then no arguments are passed on.
-#         target_weight: float (optional, default 0.5)
-#             weighting factor between data topology and target topology. A value of
-#             0.0 weights predominantly on data, a value of 1.0 places a strong emphasis on
-#             target. The default of 0.5 balances the weighting equally between data and
-#             target.
-#         transform_seed: int (optional, default 42)
-#             Random seed used for the stochastic aspects of the transform operation.
-#             This ensures consistency in transform operations.
-#         verbose: bool (optional, default False)
-#             Controls verbosity of logging.
-#         tqdm_kwds: dict (optional, defaul None)
-#             Key word arguments to be used by the tqdm progress bar.
-#         unique: bool (optional, default False)
-#             Controls if the rows of your data should be uniqued before being
-#             embedded.  If you have more duplicates than you have n_neighbour
-#             you can have the identical data points lying in different regions of
-#             your space.  It also violates the definition of a metric.
-#             For to map from internal structures back to your data use the variable
-#             _unique_inverse_.
-#         densmap: bool (optional, default False)
-#             Specifies whether the density-augmented objective of densMAP
-#             should be used for optimization. Turning on this option generates
-#             an embedding where the local densities are encouraged to be correlated
-#             with those in the original space. Parameters below with the prefix 'dens'
-#             further control the behavior of this extension.
-#         dens_lambda: float (optional, default 2.0)
-#             Controls the regularization weight of the density correlation term
-#             in densMAP. Higher values prioritize density preservation over the
-#             UMAP objective, and vice versa for values closer to zero. Setting this
-#             parameter to zero is equivalent to running the original UMAP algorithm.
-#         dens_frac: float (optional, default 0.3)
-#             Controls the fraction of epochs (between 0 and 1) where the
-#             density-augmented objective is used in densMAP. The first
-#             (1 - dens_frac) fraction of epochs optimize the original UMAP objective
-#             before introducing the density correlation term.
-#         dens_var_shift: float (optional, default 0.1)
-#             A small constant added to the variance of local radii in the
-#             embedding when calculating the density correlation objective to
-#             prevent numerical instability from dividing by a small number
-#         output_dens: float (optional, default False)
-#             Determines whether the local radii of the final embedding (an inverse
-#             measure of local density) are computed and returned in addition to
-#             the embedding. If set to True, local radii of the original data
-#             are also included in the output for comparison; the output is a tuple
-#             (embedding, original local radii, embedding local radii). This option
-#             can also be used when densmap=False to calculate the densities for
-#             UMAP embeddings.
-#         disconnection_distance: float (optional, default np.inf or maximal value for bounded distances)
-#             Disconnect any vertices of distance greater than or equal to disconnection_distance when approximating the
-#             manifold via our k-nn graph. This is particularly useful in the case that you have a bounded metric.  The
-#             UMAP assumption that we have a connected manifold can be problematic when you have points that are maximally
-#             different from all the rest of your data.  The connected manifold assumption will make such points have perfect
-#             similarity to a random set of other points.  Too many such points will artificially connect your space.
-#         precomputed_knn: tuple (optional, default (None,None,None))
-#             If the k-nearest neighbors of each point has already been calculated you
-#             can pass them in here to save computation time. The number of nearest
-#             neighbors in the precomputed_knn must be greater or equal to the
-#             n_neighbors parameter. This should be a tuple containing the output
-#             of the nearest_neighbors() function or attributes from a previously fit
-#             UMAP object; (knn_indices, knn_dists,knn_search_index).
-#
-#     - - - INFORMATION - - -
-#     https://umap-learn.readthedocs.io/en/latest/basic_usage.html
-#     '''
+        - - - PARAMETERS - - -
+        perplexity float, default=30.0
+            The perplexity is related to the number of nearest neighbors that is used in other manifold learning
+            algorithms. Larger datasets usually require a larger perplexity. Consider selecting a value between
+            5 and 50. Different values can result in significantly different results.
+        early_exaggeration float, default=12.0
+            Controls how tight natural clusters in the original space are in the embedded space and how much
+            space will be between them. For larger values, the space between natural clusters will be larger
+            in the embedded space. Again, the choice of this parameter is not very critical. If the cost
+            function increases during initial optimization, the early exaggeration factor or the learning rate
+            might be too high.
+        learning_rate float or ‘auto’, default=200.0
+            The learning rate for t-SNE is usually in the range [10.0, 1000.0]. If the learning rate is too high,
+            the data may look like a ‘ball’ with any point approximately equidistant from its nearest neighbours.
+            If the learning rate is too low, most points may look compressed in a dense cloud with few outliers.
+            If the cost function gets stuck in a bad local minimum increasing the learning rate may help.
+            Note that many other t-SNE implementations (bhtsne, FIt-SNE, openTSNE, etc.) use a definition of
+            learning_rate that is 4 times smaller than ours. So our learning_rate=200 corresponds to
+            learning_rate=800 in those other implementations. The ‘auto’ option sets the learning_rate to
+            max(N / early_exaggeration / 4, 50) where N is the sample size, following [4] and [5].
+            This will become default in 1.2.
+        n_iter int, default=1000
+            Maximum number of iterations for the optimization. Should be at least 250.
+        n_iter_without_progress int, default=300
+            Maximum number of iterations without progress before we abort the optimization, used after 250 initial
+            iterations with early exaggeration. Note that progress is only checked every 50 iterations so this value
+            is rounded to the next multiple of 50.
+        min_grad_norm float, default=1e-7
+            If the gradient norm is below this threshold, the optimization will be stopped.
+        metric str or callable, default=’euclidean’
+            The metric to use when calculating distance between instances in a feature array. If metric is a string,
+            it must be one of the options allowed by scipy.spatial.distance.pdist for its metric parameter,
+            or a metric listed in pairwise.PAIRWISE_DISTANCE_FUNCTIONS. If metric is “precomputed”, X is assumed
+            to be a distance matrix. Alternatively, if metric is a callable function, it is called on each pair of
+            instances (rows) and the resulting value recorded. The callable should take two arrays from X as input
+            and return a value indicating the distance between them. The default is “euclidean” which is interpreted
+            as squared euclidean distance.
+        metric_params dict, default=None
+            Additional keyword arguments for the metric function.
+        init{‘random’, ‘pca’} or ndarray of shape (n_samples, n_components), default=’random’
+            Initialization of embedding. Possible options are ‘random’, ‘pca’, and a numpy array of shape
+            (n_samples, n_components). PCA initialization cannot be used with precomputed distances and is usually
+            more globally stable than random initialization. init='pca' will become default in 1.2.
+        verbose int, default=0
+            Verbosity level.
+        random_state int, RandomState instance or None, default=None
+            Determines the random number generator. Pass an int for reproducible results across multiple function calls.
+            Note that different initializations might result in different local minima of the cost function.
+        method str, default=’barnes_hut’
+            By default the gradient calculation algorithm uses Barnes-Hut approximation running in O(NlogN) time.
+            method=’exact’ will run on the slower, but exact, algorithm in O(N^2) time. The exact algorithm should
+            be used when nearest-neighbor errors need to be better than 3%. However, the exact method cannot scale
+            to millions of examples.
+        angle float, default=0.5
+            Only used if method=’barnmetrices_hut’ This is the trade-off between speed and accuracy for Barnes-Hut T-SNE.
+            ‘angle’ is the angular size (referred to as theta in [3]) of a distant node as measured from a point.
+            If this size is below ‘angle’ then it is used as a summary node of all points contained within it.
+            This method is not very sensitive to changes in this parameter in the range of 0.2 - 0.8.
+            Angle less than 0.2 has quickly increasing computation time and angle greater 0.8 has quickly increasing error.
+            n_jobs int, default=None
+            The number of parallel jobs to run for neighbors search. This parameter has no impact when metric="precomputed"
+             or (metric="euclidean" and method="exact"). None means 1 unless in a joblib.parallel_backend context. -1 means
+              using all processors.
+        - - - INFORMATION - - -
+        https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html
 
-
-# fun = UMAP(a=None,
-#            angular_rp_forest=False,
-#            b=None,
-#            force_approximation_algorithm=False,
-#            init='spectral',
-#            learning_rate=1.0,
-#            local_connectivity=1.0,
-#            low_memory=False,
-#            metric='euclidean',
-#            metric_kwds=None,
-#            min_dist=0.1,
-#            n_components=None,
-#            n_epochs=None,
-#            n_neighbors=15,
-#            negative_sample_rate=5,
-#            output_metric='euclidean',
-#            output_metric_kwds=None,
-#            random_state=42,
-#            repulsion_strength=1.0,
-#            set_op_mix_ratio=1.0,
-#            spread=1.0,
-#            target_metric='categorical',
-#            target_metric_kwds=None,
-#            target_n_neighbors=-1,
-#            target_weight=0.5,
-#            transform_queue_size=4.0,
-#            transform_seed=42,
-#            unique=False,
-#            verbose=False
-#            )
-# hyperpars = {
-#              'n_neighbors': [2, 100], # default: 30
-#              'min_dist': [0.01, 1.0], # default: auto
-#              'metric': [0, 2], # 'minkowski','manhattan', default: 'euclidean'
-#
-#              # 'min_grad_norm': [1e-09, 0.1], # default: 1e-07
-#              # 'n_iter': [250, 2000], # default: 1000
-#              # 'n_iter_without_progress': [0, 9], # default: 300 # checked every 50 iterations
-#              # 'init': [0, 1], # ‘random’, ‘pca’
-#              # 'angle': [0.2, 0.8], # FALSE, TRUE
-#              #
-#              # 'preprocess': [0, 5], # not neccessary, data are scaled
-#             }
-# params = fun.get_params()
-# return fun, params, hyperpars
-
-
-# def dictionary_learning(self) -> (object, dict, dict):
-#     '''
-#     NOT USED: slower version of minibatch_dictionary_learning
-#     - - - INFORMATION - - -
-#     https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.DictionaryLearning.html
-#     '''
-#     fun = DictionaryLearning(n_components=None,
-#                              alpha=,
-#                              max_iter=1000,
-#                              tol=1e-08,
-#                              fit_algorithm='lars',
-#                              transform_algorithm='omp',
-#                              transform_n_nonzero_coefs=None,
-#                              transform_alpha=None,
-#                              n_jobs=None,
-#                              code_init=None,
-#                              dict_init=None,
-#                              verbose=False,
-#                              split_sign=False,
-#                              random_state=None,
-#                              positive_code=False,
-#                              positive_dict=False,
-#                              transform_max_iter=1000)
-#     string = str(' alpha='+str(alpha) )
-#     self.printout(fun_name='dictionary-learning', n=n, string=string)
-#     return fun.fit_transform(self.data), string
+        '''
+        fun = TSNE(n_components=None,
+                   perplexity=30.0,
+                   early_exaggeration=12.0, # the choice of this parameter is not very critical
+                   learning_rate='auto',
+                   n_iter=1000,
+                   n_iter_without_progress=300, # checked every 50 iterations
+                   min_grad_norm=1e-07,
+                   metric='euclidean',
+                   init='pca',
+                   verbose=0,
+                   random_state=42,
+                   method='exact', # the 'exact' method cannot scale, barnes_hut is only for 1,2,3 dimensions
+                   angle=0.5,
+                   n_jobs=None
+                    )
+        hyperpars = {
+                     'perplexity': [5, 50], # default: 30
+                     'learning_rate': [10.0, 1000.0], # default: auto
+                     'n_iter': [250, 2000], # default: 1000
+                     'n_iter_without_progress': [0, 9], # default: 300 # checked every 50 iterations
+                     'min_grad_norm': [1e-09, 0.1], # default: 1e-07
+                     'metric': [0, 2], # 'minkowski','manhattan', default: 'euclidean'
+                     'init': [0, 1], # ‘random’, ‘pca’
+                     'angle': [0.2, 0.8], # FALSE, TRUE
+                     # 'preprocess': [0, 5], # not neccessary, data are scaled
+                    }
+        params = fun.get_params()
+        return fun, params, hyperpars
 
 
 
-# def dictionary_learning_online(self, X) -> (object, dict, dict):
-#     '''
-#     # NOT USED
-#     - - - DESCRIPTION - - -
-#     Solves a dictionary learning matrix factorization problem online.
-#     Finds the best dictionary and the corresponding sparse code for approximating the data matrix X by solving:
-#     (U^*, V^*) = argmin 0.5 || X - U V ||_Fro^2 + alpha * || U ||_1,1
-#     (U,V) with || V_k ||_2 = 1 for all  0 <= k < n_components
-#     where V is the dictionary and U is the sparse code. ||.||_Fro stands for the Frobenius norm and ||.||_1,1
-#     stands for the entry-wise matrix norm which is the sum of the absolute values of all the entries in the matrix.
-#     This is accomplished by repeatedly iterating over mini-batches by slicing the input data.
-#     '''
-#     fun = dict_learning_online(X, n_components=None,
-#                                alpha=1,
-#                                n_iter=100,
-#                                return_code=True,
-#                                dict_init=None,
-#                                callback=None,
-#                                batch_size=3,
-#                                verbose=False,
-#                                shuffle=True,
-#                                n_jobs=None,
-#                                method='lars',
-#                                iter_offset=0,
-#                                random_state=None,
-#                                return_inner_stats=False,
-#                                inner_stats=None,
-#                                return_n_iter=False,
-#                                positive_dict=False,
-#                                positive_code=False,
-#                                method_max_iter=1000)
-#     string = str(' default parameters' )
-#     self.printout(fun_name='dictionary-learning-online', n=n, string=string)
-#     return fun.fit_transform(self.data), string
 
 
+
+
+    # def umap(self):
+    #     '''
+    #
+    #      - - - DESCRIPTION - - -
+    #
+    #
+    #     - - - PARAMETERS - - -
+    #     Uniform Manifold Approximation and Projection
+    #         Finds a low dimensional embedding of the data that approximates
+    #         an underlying manifold.
+    #         Parameters
+    #         ----------
+    #         n_neighbors: float (optional, default 15)
+    #             The size of local neighborhood (in terms of number of neighboring
+    #             sample points) used for manifold approximation. Larger values
+    #             result in more global views of the manifold, while smaller
+    #             values result in more local data being preserved. In general
+    #             values should be in the range 2 to 100.
+    #         n_components: int (optional, default 2)
+    #             The dimension of the space to embed into. This defaults to 2 to
+    #             provide easy visualization, but can reasonably be set to any
+    #             integer value in the range 2 to 100.
+    #         metric: string or function (optional, default 'euclidean')
+    #             The metric to use to compute distances in high dimensional space.
+    #             If a string is passed it must match a valid predefined metric. If
+    #             a general metric is required a function that takes two 1d arrays and
+    #             returns a float can be provided. For performance purposes it is
+    #             required that this be a numba jit'd function. Valid string metrics
+    #             include:
+    #                 * euclidean
+    #                 * manhattan
+    #                 * chebyshev
+    #                 * minkowski
+    #                 * canberra
+    #                 * braycurtis
+    #                 * mahalanobis
+    #                 * wminkowski
+    #                 * seuclidean
+    #                 * cosine
+    #                 * correlation
+    #                 * haversine
+    #                 * hamming
+    #                 * jaccard
+    #                 * dice
+    #                 * russelrao
+    #                 * kulsinski
+    #                 * ll_dirichlet
+    #                 * hellinger
+    #                 * rogerstanimoto
+    #                 * sokalmichener
+    #                 * sokalsneath
+    #                 * yule
+    #             Metrics that take arguments (such as minkowski, mahalanobis etc.)
+    #             can have arguments passed via the metric_kwds dictionary. At this
+    #             time care must be taken and dictionary elements must be ordered
+    #             appropriately; this will hopefully be fixed in the future.
+    #         n_epochs: int (optional, default None)
+    #             The number of training epochs to be used in optimizing the
+    #             low dimensional embedding. Larger values result in more accurate
+    #             embeddings. If None is specified a value will be selected based on
+    #             the size of the input dataset (200 for large datasets, 500 for small).
+    #         learning_rate: float (optional, default 1.0)
+    #             The initial learning rate for the embedding optimization.
+    #         init: string (optional, default 'spectral')
+    #             How to initialize the low dimensional embedding. Options are:
+    #                 * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
+    #                 * 'random': assign initial embedding positions at random.
+    #                 * A numpy array of initial embedding positions.
+    #         min_dist: float (optional, default 0.1)
+    #             The effective minimum distance between embedded points. Smaller values
+    #             will result in a more clustered/clumped embedding where nearby points
+    #             on the manifold are drawn closer together, while larger values will
+    #             result on a more even dispersal of points. The value should be set
+    #             relative to the ``spread`` value, which determines the scale at which
+    #             embedded points will be spread out.
+    #         spread: float (optional, default 1.0)
+    #             The effective scale of embedded points. In combination with ``min_dist``
+    #             this determines how clustered/clumped the embedded points are.
+    #         low_memory: bool (optional, default True)
+    #             For some datasets the nearest neighbor computation can consume a lot of
+    #             memory. If you find that UMAP is failing due to memory constraints
+    #             consider setting this option to True. This approach is more
+    #             computationally expensive, but avoids excessive memory use.
+    #         set_op_mix_ratio: float (optional, default 1.0)
+    #             Interpolate between (fuzzy) union and intersection as the set operation
+    #             used to combine local fuzzy simplicial sets to obtain a global fuzzy
+    #             simplicial sets. Both fuzzy set operations use the product t-norm.
+    #             The value of this parameter should be between 0.0 and 1.0; a value of
+    #             1.0 will use a pure fuzzy union, while 0.0 will use a pure fuzzy
+    #             intersection.
+    #         local_connectivity: int (optional, default 1)
+    #             The local connectivity required -- i.e. the number of nearest
+    #             neighbors that should be assumed to be connected at a local level.
+    #             The higher this value the more connected the manifold becomes
+    #             locally. In practice this should be not more than the local intrinsic
+    #             dimension of the manifold.
+    #         repulsion_strength: float (optional, default 1.0)
+    #             Weighting applied to negative samples in low dimensional embedding
+    #             optimization. Values higher than one will result in greater weight
+    #             being given to negative samples.
+    #         negative_sample_rate: int (optional, default 5)
+    #             The number of negative samples to select per positive sample
+    #             in the optimization process. Increasing this value will result
+    #             in greater repulsive force being applied, greater optimization
+    #             cost, but slightly more accuracy.
+    #         transform_queue_size: float (optional, default 4.0)
+    #             For transform operations (embedding new points using a trained model_
+    #             this will control how aggressively to search for nearest neighbors.
+    #             Larger values will result in slower performance but more accurate
+    #             nearest neighbor evaluation.
+    #         a: float (optional, default None)
+    #             More specific parameters controlling the embedding. If None these
+    #             values are set automatically as determined by ``min_dist`` and
+    #             ``spread``.
+    #         b: float (optional, default None)
+    #             More specific parameters controlling the embedding. If None these
+    #             values are set automatically as determined by ``min_dist`` and
+    #             ``spread``.
+    #         random_state: int, RandomState instance or None, optional (default: None)
+    #             If int, random_state is the seed used by the random number generator;
+    #             If RandomState instance, random_state is the random number generator;
+    #             If None, the random number generator is the RandomState instance used
+    #             by `np.random`.
+    #         metric_kwds: dict (optional, default None)
+    #             Arguments to pass on to the metric, such as the ``p`` value for
+    #             Minkowski distance. If None then no arguments are passed on.
+    #         angular_rp_forest: bool (optional, default False)
+    #             Whether to use an angular random projection forest to initialise
+    #             the approximate nearest neighbor search. This can be faster, but is
+    #             mostly on useful for metric that use an angular style distance such
+    #             as cosine, correlation etc. In the case of those metrics angular forests
+    #             will be chosen automatically.
+    #         target_n_neighbors: int (optional, default -1)
+    #             The number of nearest neighbors to use to construct the target simplcial
+    #             set. If set to -1 use the ``n_neighbors`` value.
+    #         target_metric: string or callable (optional, default 'categorical')
+    #             The metric used to measure distance for a target array is using supervised
+    #             dimension reduction. By default this is 'categorical' which will measure
+    #             distance in terms of whether categories match or are different. Furthermore,
+    #             if semi-supervised is required target values of -1 will be trated as
+    #             unlabelled under the 'categorical' metric. If the target array takes
+    #             continuous values (e.g. for a regression problem) then metric of 'l1'
+    #             or 'l2' is probably more appropriate.
+    #         target_metric_kwds: dict (optional, default None)
+    #             Keyword argument to pass to the target metric when performing
+    #             supervised dimension reduction. If None then no arguments are passed on.
+    #         target_weight: float (optional, default 0.5)
+    #             weighting factor between data topology and target topology. A value of
+    #             0.0 weights predominantly on data, a value of 1.0 places a strong emphasis on
+    #             target. The default of 0.5 balances the weighting equally between data and
+    #             target.
+    #         transform_seed: int (optional, default 42)
+    #             Random seed used for the stochastic aspects of the transform operation.
+    #             This ensures consistency in transform operations.
+    #         verbose: bool (optional, default False)
+    #             Controls verbosity of logging.
+    #         tqdm_kwds: dict (optional, defaul None)
+    #             Key word arguments to be used by the tqdm progress bar.
+    #         unique: bool (optional, default False)
+    #             Controls if the rows of your data should be uniqued before being
+    #             embedded.  If you have more duplicates than you have n_neighbour
+    #             you can have the identical data points lying in different regions of
+    #             your space.  It also violates the definition of a metric.
+    #             For to map from internal structures back to your data use the variable
+    #             _unique_inverse_.
+    #         densmap: bool (optional, default False)
+    #             Specifies whether the density-augmented objective of densMAP
+    #             should be used for optimization. Turning on this option generates
+    #             an embedding where the local densities are encouraged to be correlated
+    #             with those in the original space. Parameters below with the prefix 'dens'
+    #             further control the behavior of this extension.
+    #         dens_lambda: float (optional, default 2.0)
+    #             Controls the regularization weight of the density correlation term
+    #             in densMAP. Higher values prioritize density preservation over the
+    #             UMAP objective, and vice versa for values closer to zero. Setting this
+    #             parameter to zero is equivalent to running the original UMAP algorithm.
+    #         dens_frac: float (optional, default 0.3)
+    #             Controls the fraction of epochs (between 0 and 1) where the
+    #             density-augmented objective is used in densMAP. The first
+    #             (1 - dens_frac) fraction of epochs optimize the original UMAP objective
+    #             before introducing the density correlation term.
+    #         dens_var_shift: float (optional, default 0.1)
+    #             A small constant added to the variance of local radii in the
+    #             embedding when calculating the density correlation objective to
+    #             prevent numerical instability from dividing by a small number
+    #         output_dens: float (optional, default False)
+    #             Determines whether the local radii of the final embedding (an inverse
+    #             measure of local density) are computed and returned in addition to
+    #             the embedding. If set to True, local radii of the original data
+    #             are also included in the output for comparison; the output is a tuple
+    #             (embedding, original local radii, embedding local radii). This option
+    #             can also be used when densmap=False to calculate the densities for
+    #             UMAP embeddings.
+    #         disconnection_distance: float (optional, default np.inf or maximal value for bounded distances)
+    #             Disconnect any vertices of distance greater than or equal to disconnection_distance when approximating the
+    #             manifold via our k-nn graph. This is particularly useful in the case that you have a bounded metric.  The
+    #             UMAP assumption that we have a connected manifold can be problematic when you have points that are maximally
+    #             different from all the rest of your data.  The connected manifold assumption will make such points have perfect
+    #             similarity to a random set of other points.  Too many such points will artificially connect your space.
+    #         precomputed_knn: tuple (optional, default (None,None,None))
+    #             If the k-nearest neighbors of each point has already been calculated you
+    #             can pass them in here to save computation time. The number of nearest
+    #             neighbors in the precomputed_knn must be greater or equal to the
+    #             n_neighbors parameter. This should be a tuple containing the output
+    #             of the nearest_neighbors() function or attributes from a previously fit
+    #             UMAP object; (knn_indices, knn_dists,knn_search_index).
+    #
+    #     - - - INFORMATION - - -
+    #     https://umap-learn.readthedocs.io/en/latest/basic_usage.html
+    #     '''
+    #     # fun = UMAP(a=None,
+        #            angular_rp_forest=False,
+        #            b=None,
+        #            force_approximation_algorithm=False,
+        #            init='spectral',
+        #            learning_rate=1.0,
+        #            local_connectivity=1.0,
+        #            low_memory=False,
+        #            metric='euclidean',
+        #            metric_kwds=None,
+        #            min_dist=0.1,
+        #            n_components=None,
+        #            n_epochs=None,
+        #            n_neighbors=15,
+        #            negative_sample_rate=5,
+        #            output_metric='euclidean',
+        #            output_metric_kwds=None,
+        #            random_state=42,
+        #            repulsion_strength=1.0,
+        #            set_op_mix_ratio=1.0,
+        #            spread=1.0,
+        #            target_metric='categorical',
+        #            target_metric_kwds=None,
+        #            target_n_neighbors=-1,
+        #            target_weight=0.5,
+        #            transform_queue_size=4.0,
+        #            transform_seed=42,
+        #            unique=False,
+        #            verbose=False
+        #            )
+        # hyperpars = {
+        #              'n_neighbors': [2, 100], # default: 30
+        #              'min_dist': [0.01, 1.0], # default: auto
+        #              'metric': [0, 2], # 'minkowski','manhattan', default: 'euclidean'
+        #
+        #              # 'min_grad_norm': [1e-09, 0.1], # default: 1e-07
+        #              # 'n_iter': [250, 2000], # default: 1000
+        #              # 'n_iter_without_progress': [0, 9], # default: 300 # checked every 50 iterations
+        #              # 'init': [0, 1], # ‘random’, ‘pca’
+        #              # 'angle': [0.2, 0.8], # FALSE, TRUE
+        #              #
+        #              # 'preprocess': [0, 5], # not neccessary, data are scaled
+        #             }
+        # params = fun.get_params()
+        # return fun, params, hyperpars
+
+    # def dictionary_learning(self):
+    #     '''
+    #     NOT USED: slower version of minibatch_dictionary_learning
+    #     - - - INFORMATION - - -
+    #     https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.DictionaryLearning.html
+    #     '''
+    #     fun = DictionaryLearning(n_components=None,
+    #                              alpha=,
+    #                              max_iter=1000,
+    #                              tol=1e-08,
+    #                              fit_algorithm='lars',
+    #                              transform_algorithm='omp',
+    #                              transform_n_nonzero_coefs=None,
+    #                              transform_alpha=None,
+    #                              n_jobs=None,
+    #                              code_init=None,
+    #                              dict_init=None,
+    #                              verbose=False,
+    #                              split_sign=False,
+    #                              random_state=None,
+    #                              positive_code=False,
+    #                              positive_dict=False,
+    #                              transform_max_iter=1000)
+    #     string = str(' alpha='+str(alpha) )
+    #     self.printout(fun_name='dictionary-learning', n=n, string=string)
+    #     return fun.fit_transform(self.data), string
+
+
+
+    # def dictionary_learning_online(self, X):
+    #     '''
+    #     # NOT USED
+    #     - - - DESCRIPTION - - -
+    #     Solves a dictionary learning matrix factorization problem online.
+    #     Finds the best dictionary and the corresponding sparse code for approximating the data matrix X by solving:
+    #     (U^*, V^*) = argmin 0.5 || X - U V ||_Fro^2 + alpha * || U ||_1,1
+    #     (U,V) with || V_k ||_2 = 1 for all  0 <= k < n_components
+    #     where V is the dictionary and U is the sparse code. ||.||_Fro stands for the Frobenius norm and ||.||_1,1
+    #     stands for the entry-wise matrix norm which is the sum of the absolute values of all the entries in the matrix.
+    #     This is accomplished by repeatedly iterating over mini-batches by slicing the input data.
+    #     '''
+    #     fun = dict_learning_online(X, n_components=None,
+    #                                alpha=1,
+    #                                n_iter=100,
+    #                                return_code=True,
+    #                                dict_init=None,
+    #                                callback=None,
+    #                                batch_size=3,
+    #                                verbose=False,
+    #                                shuffle=True,
+    #                                n_jobs=None,
+    #                                method='lars',
+    #                                iter_offset=0,
+    #                                random_state=None,
+    #                                return_inner_stats=False,
+    #                                inner_stats=None,
+    #                                return_n_iter=False,
+    #                                positive_dict=False,
+    #                                positive_code=False,
+    #                                method_max_iter=1000)
+    #     string = str(' default parameters' )
+    #     self.printout(fun_name='dictionary-learning-online', n=n, string=string)
+    #     return fun.fit_transform(self.data), string
 
 # def latent_ditrichlet_allocation(self):
 #         '''
@@ -1733,7 +1705,7 @@ class Dimred_functions_python:
 #         return fun.fit_transform(data), string
 
 
-# def mds(self, n, metric=True) -> (object, dict, dict):
+# def mds(self, n, metric=True):
 #         '''
 #         !!!!!!!! NOT USED, TAKES TOO LONG, R functions used instead
 #
@@ -1794,7 +1766,7 @@ class Dimred_functions_python:
 
 
 
-# def som(self, n, n_=10, m_=10) -> (object, dict, dict):
+# def som(self, n, n_=10, m_=10):
 #         '''
 #          - - - DESCRIPTION - - -
 #         - - - PARAMETERS - - -
@@ -1816,17 +1788,17 @@ class Dimred_functions_python:
 #         return fun.fit_transform(self.data), string
 
 
-# def quadratic_discriminant_analysis(self) -> (object, dict, dict):
-#     '''
-#     A classifier with a quadratic decision boundary, generated by fitting class conditional densities to the data
-#     and using Bayes’ rule. The model fits a Gaussian density to each class.
-#     MORE: https://scikit-learn.org/stable/modules/lda_qda.html#lda-qda
-#
-#     :return:
-#     '''
-#     fun = QuadraticDiscriminantAnalysis(priors=None, reg_param=0.0, store_covariance=False, tol=0.0001)
-#     print('QuadraticDiscriminantAnalysis n_components:', n)
-#     return fun.fit_transform(self.data)
+# def quadratic_discriminant_analysis(self):
+    #     '''
+    #     A classifier with a quadratic decision boundary, generated by fitting class conditional densities to the data
+    #     and using Bayes’ rule. The model fits a Gaussian density to each class.
+    #     MORE: https://scikit-learn.org/stable/modules/lda_qda.html#lda-qda
+    #
+    #     :return:
+    #     '''
+    #     fun = QuadraticDiscriminantAnalysis(priors=None, reg_param=0.0, store_covariance=False, tol=0.0001)
+    #     print('QuadraticDiscriminantAnalysis n_components:', n)
+    #     return fun.fit_transform(self.data)
 
 
 

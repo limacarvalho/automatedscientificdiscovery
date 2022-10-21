@@ -1,6 +1,11 @@
-from dimension_tools.dimension_suite.dim_reduce.dim_reduction.dimred_call_functions import call_dimred_functions
-from dimension_tools.dimension_suite.dim_reduce.dim_reduction.dimred_main import Dimreduction
-from ..helper_data.global_vars import *
+from dimred_call_functions import call_dimred_functions
+from dimred_main import class_dimreduce_main
+from helper_data.global_vars import *
+from asd_logging import logger
+
+## pop up window or predefined dictionary with function and parameter options and we do the rest?
+# + we take care on the correct format and guide the customer
+# + less errors
 
 
 def custom_factor_analysis(data_high, dim_low, dict_params):
@@ -30,9 +35,9 @@ def custom_factor_analysis(data_high, dim_low, dict_params):
                         'svd_method': 'randomized',  # [0,1], svd iteration: only for: 'randomized'_svd; iterations to make: m-by-k matrix Y
                         'iterated_power': 3  # [0, 10],
                     '''
-            print(message)
+            logger.error(message, exc_info=True)
 
-    dimred = Dimreduction(fun_id=fun_id, data_high=data_high, dim_low=dim_low)
+    dimred = class_dimreduce_main(fun_id=fun_id, data_high=data_high, dim_low=dim_low)
     results = dimred.exe_dimreduce(params=hyperparameters, step=globalstring_step1)
     return results
 
@@ -49,7 +54,7 @@ def custom_factor_analysis(data_high, dim_low, dict_params):
     #     :return: loss of dimensionality reduction quality test
     #     '''
     #     # returns: dict with
-    #     dimred = Dimreduction(fun_id='py_pca', data_high=self.data, dim_low=dim_low)
+    #     dimred = class_dimreduce_main(fun_id='py_pca', data_high=self.data, dim_low=dim_low)
     #     results = dimred.exe_dimreduce(params={}, step=globalstring_step1)
     #     self.list_of_dicts.append(results)
     #     return results[self.loss_fun]

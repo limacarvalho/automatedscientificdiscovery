@@ -1,9 +1,10 @@
-from .R_funs_dimred.R_funs_dimred import Dimred_functions_R
-from .Py_funs_dimred.Py_funs_dimred import Dimred_functions_python
+from R_funs_dimred.R_funs_dimred import class_dimred_functions_R
+from Py_funs_dimred.Py_funs_dimred import class_dimred_functions_python
 import pandas as pd
 import numpy as np
-from ..helper_data import global_vars
+from helper_data.global_vars import *
 from typing import Union
+from asd_logging import logger
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -12,108 +13,101 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-def exclude_functions(functions: Union[str, list]) -> bool:
+def exclude_functions(function_list: Union[str, list]) -> bool:
     '''
-    checks if functions need to be excluded or not.
-    :param functions: list functions provided by the customer.
-    :return: bool is True in case functions starts with !
-        is False in case it doesnt start with
+
+    :param function_list:
+    :return:
     '''
     excludes = False
-    for fun_id in functions:
+    for fun_id in function_list:
         if fun_id.startswith('!'):
             excludes = True
     return excludes
 
-
-
-def call_dimred_functions(
-        functions: Union[str, list],
-        data_high: np.array
-    ) -> dict:
+def call_dimred_functions(functions: Union[str, list], data_high: np.array) -> dict:
     '''
     function caller with function_identifier: function call (returns function,
     default parameters, hyperparameters (hyperparameter: range*))
     *categorical hyperparametes are presented as integer, we are using bayes-opt
     which returns floats, which need to be translated into categories.
     some of the functions need data information (shape, distributions etc)
-    :param np.array data_high: high dimensional data
-    :param Union[str, list] functions: list of strings with function identifiers:
-        'py_pca' or just string
-    :return: dict dictionary with function identifiers and function calls
+    :param functions: list of strings wih function identifiers: 'py_pca' or just string
+    :param data: high dimensional data
+    :return: dictionary with function identifiers and function calls
     '''
 
     nrows = data_high.shape[0]
     ncols = data_high.shape[1]
 
     # call python function class
-    python = Dimred_functions_python(nrows=nrows, ncols=ncols)
+    python = class_dimred_functions_python(nrows=nrows, ncols=ncols)
 
     # call R function class
-    rdim = Dimred_functions_R(nrows=nrows, ncols=ncols)
+    rdim = class_dimred_functions_R(nrows=nrows, ncols=ncols)
 
     funcs = {
-        'py_pca': python.pca(),  # keep always on! 1# 'py_pca_incremental': python.pca_incremental(), # !
-        'py_pca_sparse': python.pca_sparse(),
-        'py_pca_sparse_mb': python.pca_sparse_mini_batch(),
-        'py_dictlearn_mb': python.dictionary_learning_mini_batch(),
-        'py_fa': python.factor_analysis(),
-        'py_fastica':  python.fast_ica(),
-        'py_nmf': python.non_negative_matrix_factorization(),
-        'py_spectral_embedding': python.spectral_embedding(),
-        'py_truncated_svd': python.truncated_svd(), #1
-        'r_adr': rdim.funR_adr(),
-        'r_asi': rdim.funR_asi(),
-        'r_elpp2': rdim.funR_elpp2(), #1
-        'r_extlpp': rdim.funR_extlpp(),
-        'r_ldakm': rdim.funR_ldakm(),
-        'r_lmds': rdim.funR_lmds(),
-        'r_lpp': rdim.funR_lpp(),
-        'r_mds':rdim.funR_mds(),
-        'r_npca': rdim.funR_npca(),
-        'r_olpp':rdim.funR_olpp(),
-        'r_pflpp':rdim.funR_pflpp(),
-        'r_ppca':rdim.funR_ppca(),
-        'r_rndproj':rdim.funR_rndproj(),
-        'r_rpcag':rdim.funR_rpcag(),
-        'r_sdlpp':rdim.funR_sdlpp(),
-        'r_udp':rdim.funR_udp(),
-        'r_cisomap':rdim.funR_cisomap(),
-        'r_crca':rdim.funR_crca(),
-        'r_crda':rdim.funR_crda(),
-        'r_fastmap':rdim.funR_fastmap(),
-        'r_idmap':rdim.funR_idmap(),
-        'r_ispe':rdim.funR_ispe(),
-        'r_keca':rdim.funR_keca(),
-        'r_lamp':rdim.funR_lamp(),
-        'r_lapeig':rdim.funR_lapeig(),
-        'r_nnp': rdim.funR_nnp(),
-        'r_sammon': rdim.funR_sammon(), # initialize= random properly called
-        'r_spe':rdim.funR_spe(),
-        'r_spmds':rdim.funR_spmds()
-
-        # ## 'py_tsne': python.tsne(), # takes too long, no good results
-        # ## 'pca_kernel': python.pca_kernel(), # many errors, no good results
-        # ## 'py_isomap':  python.isomap(), # good results, slow
-        # ## 'py_lle': python.locally_linear_embedding(), # many errors, no good results
-
-    }
+            ## 'py_isomap':  python.isomap(), # good results, slow
+            'py_dictlearn_mb': python.dictionary_learning_mini_batch(),
+            'py_fa': python.factor_analysis(),
+            'py_fastica':  python.fast_ica(),
+            ## 'py_lle': python.locally_linear_embedding(), # many errors, no good results
+            'py_nmf': python.non_negative_matrix_factorization(),
+            'py_pca': python.pca(), # keep always on! 1
+            'py_pca_incremental': python.pca_incremental(), # !
+            'py_pca_sparse': python.pca_sparse(),
+            'py_pca_sparse_mb': python.pca_sparse_mini_batch(),
+            ## 'pca_kernel': python.pca_kernel(), # many errors, no good results
+            'py_spectral_embedding': python.spectral_embedding(),
+            'py_truncated_svd': python.truncated_svd(), #1
+            ## 'py_tsne': python.tsne(), # takes too long, no good results
+            'r_adr': rdim.funR_adr(),
+            'r_asi': rdim.funR_asi(),
+            'r_elpp2': rdim.funR_elpp2(), #1
+            'r_extlpp': rdim.funR_extlpp(),
+            'r_ldakm': rdim.funR_ldakm(),
+            'r_lmds': rdim.funR_lmds(),
+            'r_lpp': rdim.funR_lpp(),
+            'r_mds':rdim.funR_mds(),
+            'r_npca': rdim.funR_npca(),
+            'r_olpp':rdim.funR_olpp(),
+            'r_pflpp':rdim.funR_pflpp(),
+            'r_ppca':rdim.funR_ppca(),
+            'r_rndproj':rdim.funR_rndproj(),
+            'r_rpcag':rdim.funR_rpcag(),
+            'r_sdlpp':rdim.funR_sdlpp(),
+            'r_udp':rdim.funR_udp(),
+            'r_cisomap':rdim.funR_cisomap(),
+            'r_crca':rdim.funR_crca(),
+            'r_crda':rdim.funR_crda(),
+            'r_fastmap':rdim.funR_fastmap(),
+            'r_idmap':rdim.funR_idmap(),
+            'r_ispe':rdim.funR_ispe(),
+            'r_keca':rdim.funR_keca(),
+            'r_lamp':rdim.funR_lamp(),
+            'r_lapeig':rdim.funR_lapeig(),
+            'r_nnp': rdim.funR_nnp(),
+            'r_sammon': rdim.funR_sammon(), # initialize= random properly called
+            'r_spe':rdim.funR_spe(),
+            'r_spmds':rdim.funR_spmds()
+            }
 
     # in case a functions string is provided instead of a list, make it list
     if isinstance(functions, str):
         functions = [functions]
 
     # message strings
+    string_try = globalstring_info+'choose dimred functions with method: '
     string_except = 'coosing dimred functions failed, please check the correct spelling.' \
                     'Please also check the instructions'
 
     # calls all functions of the above list, uncheck them if not needed
     if functions[0] == 'all_functions':
         try:
-            # print(string_try+'all functions: ', funcs.keys())
+            logger.info(f"{string_try}all functions: {funcs.keys()}")
             return funcs
         except:
-            print(global_vars.globalstring_error, 'error in choosing functions: all functions')
+            logger.error(f"{globalstring_error}error in choosing functions: all functions", exc_info=True)
 
     else:
         # exclude custom functions: exlude the functions from the funcs dictionary if at least one
@@ -126,10 +120,10 @@ def call_dimred_functions(
                     # remove the leading '!' and delete fnction from 'all_functions' dictionary
                     fun_to_remove = fun_id.replace('!', '')
                     del dict_funs[fun_to_remove]
-                # print(string_try+'exclude custom functions', dict_funs.keys())
+                logger.info(f"{string_try}exclude custom functions, {dict_funs.keys()}")
                 return dict_funs
             except:
-                print(global_vars.globalstring_error, string_except)
+               logger.error(f"{globalstring_error}{string_except}", exc_info=True)
 
         # include custom functions: 'py_pca' for example
         # customers need to choose
@@ -144,10 +138,10 @@ def call_dimred_functions(
                     for key, value in funcs.items():
                         if key == fun_id:
                             dict_funs[key] = value
-                # print(string_try+'custom functions', dict_funs.keys())
+                logger.info(f"{string_try}custom functions, {dict_funs.keys()}")
                 return dict_funs
             except:
-                print(global_vars.globalstring_error, string_except)
+                logger.error(f"{globalstring_error}{string_except}", exc_info=True)
 
 
 

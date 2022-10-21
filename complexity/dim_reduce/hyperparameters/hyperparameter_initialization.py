@@ -1,5 +1,6 @@
-from ..helper_data import global_vars
+from helper_data.global_vars import *
 import numpy as np
+from asd_logging import logger
 
 def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> (str, dict):
     '''
@@ -35,8 +36,8 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
 
         ######## PYTHON     dictionary_learning_mini_batch
         if key == 'transform_algorithm':
-            params[key] = ['lars','lasso_cd','threshold'][int(round(value,0))]
-            # ['omp','lars','lasso_lars','lasso_cd','threshold']
+            params[key] = ['omp','lars','lasso_lars','lasso_cd','threshold'][int(round(value,0))]
+
         ######## PYTHON     fastica
         if key == 'fun':
             params[key] = ['logcosh','exp','cube'][int(round(value,0))]
@@ -186,7 +187,7 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
             try:
                 params.pop('empty_py')
             except:
-                print(global_vars.globalstring_error + 'no such key: empty_py')
+                logger.error(f"{globalstring_error}no such key: empty_py", exc_info=True)
                 pass
 
 

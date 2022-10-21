@@ -1,12 +1,12 @@
-from dimension_tools.dimension_suite.dim_reduce.dim_reduction.dimred_main import Dimreduction
-from dimension_tools.dimension_suite.dim_reduce.helper_data.global_vars import *
-from dimension_tools.dimension_suite.dim_reduce.helper_data.helper_data import empty_dict
-from dimension_tools.dimension_suite.dim_reduce.helper_metrix.loss_functions import fun_kmax
+from dimred_main import class_dimreduce_main
+from helper_data.global_vars import *
+from helper_data.helper_data import empty_dict
+from loss_functions import fun_kmax
 import traceback
-from typing import Union
+from asd_logging import logger
 
 
-class Target_dimension:
+class class_target_dim:
     '''
     Here we find the target dimension for dimensionality reduction.
     The target dimension is the smallest possible dimension above the loss cutoff.
@@ -15,14 +15,14 @@ class Target_dimension:
     '''
 
     def __init__(self,
-                 data_high,
-                 data_id = 'data',
-                 cutoff_loss = 0.99,
-                 loss_fun = globalvar_loss_function
+                 data,
+                 data_id='data',
+                 cutoff_loss=0.99,
+                 loss_fun=globalvar_loss_function
                  ):
 
         '''
-        :param data_high: high dimensional data
+        :param data: high dimensional data
         :param data_id: data_identifier
         :param cutoff_loss: cutoff for loss
         :param loss_fun: loss function usually mae_norm
@@ -30,11 +30,10 @@ class Target_dimension:
 
         # init
         self.data_id = data_id
-        self.data_high = data_high
-        self.ncols = data_high.shape[1]
+        self.data = data
+        self.ncols = data.shape[1]
         self.loss_fun = loss_fun
         self.cutoff_loss = cutoff_loss
-
 
     def dim_reduce_worker(self, dim_low):
         '''
@@ -45,7 +44,7 @@ class Target_dimension:
         :return: loss of dimensionality reduction quality test
         '''
         # returns: dict with
-        dimred = Dimreduction(fun_id='py_pca', data_high=self.data_high, dim_low=dim_low)
+        dimred = class_dimreduce_main(fun_id='py_pca', data_high=self.data, dim_low=dim_low)
         results = dimred.exe_dimreduce(params={}, step=globalstring_step1)
         self.list_of_dicts.append(results)
         return results[self.loss_fun]
@@ -83,7 +82,7 @@ class Target_dimension:
                  dim_low: target dimension
         '''
         self.list_of_dicts = []
-        ndims = [self.data_high.shape[1]]
+        ndims = [self.data.shape[1]]
         dim_low = ndims[-1]
 
         # when dimenion greater than 1: new dimension by bisection
@@ -192,61 +191,26 @@ class Target_dimension:
 
 
 
-    def getter_target_dimension(self, target_dim: Union[int, str]) -> dict:
+    def getter_target_dimension(self):
         '''
         gets the output from above function and handles exceptions.
         In case there is no satisfying result an empty dict is returned.
-        :param: Union[int, str] target_dim: value provided by the customer
-            target dimension for optimization of dimred function hyperparameters
-            default: 'auto' calculates the target dim on a dataset with less rows
         :return: lods_results: list of dicts (lods) of results of all dim reductions
                  dim_low: target dimension
         '''
-        def exception_target_dim():
-            '''
-            build dictionary for exception.
-            :return: dict with empty results and None as target dim
-            '''
-            kmax = fun_kmax(self.data_high)
-            results_step_1 = {
-                'results': empty_dict(fun_id='py_pca', dim_low=None, kmax=kmax),
-                'target_dim': None
-            }
-            return results_step_1
+        try:
+            lods_results, dim_target = self.quick_search_target_dimension()
 
-        # automatic calculation of target dim
-        if target_dim == 'auto':
-            try:
-                lods_results, target_dim = self.quick_search_target_dimension()
-                results_step_1 = {
-                    'results': lods_results,
-                    'target_dim': target_dim
-                }
-            except:
-                results_step_1 = exception_target_dim()
-                print(globalstring_error + 'TARGET DIMENSION', self.data_id,
-                      'returns empty [dict] and no target_dim')
-                print(traceback.format_exc())
+        except:
+            dim_target = None
+            kmax = fun_kmax(self.data)
+            lods_results = empty_dict(fun_id='py_pca', dim_low=None, kmax=kmax)
+            logger.error(f"{globalstring_error}TARGET DIMENSION {self.data_id} returns empty [dict] and no target_dim", exc_info=True)
 
-        # target dim is provided by the customer
-        elif isinstance(target_dim, int) and self.ncols >= target_dim >= 1:
-            try:
-                kmax = fun_kmax(self.data_high)
-                results_step_1 = {
-                    'results': empty_dict(fun_id='py_pca', dim_low=None, kmax=kmax),
-                    'target_dim': target_dim
-                }
-            except:
-                results_step_1 = exception_target_dim()
-                print(globalstring_error + 'TARGET DIMENSION', self.data_id,
-                      'please provide valid target dimension or default: "auto"')
-                print(traceback.format_exc())
+        # dictionary with results step 1
+        results_step_1 = {'results': lods_results,
+                          'target_dim': dim_target
+                          }
 
-        # wrong value provided by the customer
-        else:
-            print(globalstring_error + 'TARGET DIMENSION', self.data_id,
-                  'please provide valid target dimension or default: "auto"')
-            results_step_1 = exception_target_dim()
-        # return dictionary with results and target_dim
         return results_step_1
 
