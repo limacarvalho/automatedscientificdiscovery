@@ -1,8 +1,5 @@
 
 from ml.models.base.tabular_dataset import TabularDataset
-# from ml.models.base.brisk_model_lightning import TabularDataset
-# from ml.preprocess import data
-from utils import dasker, helper
 
 
 import optuna
@@ -12,8 +9,6 @@ import pickle
 
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.metrics import f1_score, roc_auc_score, precision_score, recall_score
-
-
 
 import torch
 # from torchmetrics import Accuracy, MeanSquaredError
@@ -27,12 +22,14 @@ import os
 import glob
 
 
-from utils import dasker, helper, config
+from utils import helper, config, logger
 import optuna
 
 
-
 optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+### change the logger type to save info logs
+customlogger = logger.logging.getLogger('console_info')
 
 
 
@@ -45,20 +42,14 @@ class SlugANN:
         self.random_state = 0
 
 
-        self.temp_path = config.main_dir + "/ml/models/saved/temp/ann"
-        self.model_save_path = config.main_dir + "/ml/models/saved/base/ann/slug"
-
-
-        # self.pred_class = "regression"
-                    
-        # ["reg:squarederror", "count:poisson", "binary:logistic",  "binary:hinge" ] check "Learning Task Parameters" section at https://xgboost.readthedocs.io/en/stable/parameter.html
-
-        # self.loss = "count:poisson" # ["reg:squarederror", "count:poisson", "binary:logistic",  "binary:hinge" ]
-
-        self.acceptance_threshold = 0.8
+        self.temp_path = config.main_dir + config.project_name + "/tmp/ann/slug"
+        self.model_save_path = config.main_dir + config.project_name  + "/base/ann/slug"
+        
+        self.pred_class = "regression"        
+        
         self.best_fit = None
-
-
+        self.score = None        
+        
         self.X_train = None
         self.X_test = None
         self.X_val = None
@@ -66,21 +57,36 @@ class SlugANN:
         self.y_test = None
         self.y_val = None
 
+        self.pred_train = None
+        self.pred_test = None        
+
 
 
 
     # Load pickled models
-    def load_model(self, file_name):
+    def __load_model__(self, file_name):
         with open(file_name, "rb") as fin:
             model = pickle.load(fin)
 
         return model
 
 
-    def save_model(self, model, file_name):
+    
+    def __save_model__(self, model, file_name):
         with open(file_name, "wb") as fout:
             pickle.dump(model, fout)
 
+
+            
+    def __load_best_fit__(self):        
+        if self.best_fit is None:            
+            model_files = glob.glob(self.model_save_path+'/*')
+            if len(model_files) == 0:
+                return None
+            else:
+                self.best_fit = self.__load_model__(model_files[0])      
+
+            
 
     def __create_slug_ann_model__(self, trial, input_dim):
 
@@ -90,20 +96,19 @@ class SlugANN:
 
         in_features = input_dim
 
-        # layers.append(nn.BatchNorm1d(num_features = in_features))
-        # layers.append(nn.ReLU())
         
         for i in range(n_layers):
             out_features = trial.suggest_int("n_units_l{}".format(i), 1, self.max_neurons_per_layer)
+            dropout = trial.suggest_float("dropout", 0.1, 0.5)
             layers.append(nn.Linear(in_features, out_features))
             layers.append(nn.ReLU())
-            # p = trial.suggest_uniform("dropout_l{}".format(i), 0.1, 0.5)
-            # layers.append(nn.Dropout(p))
-
+            layers.append(nn.Dropout(dropout))            
             in_features = out_features
 
+            
         layers.append(nn.Linear(in_features, 1))
         layers.append(nn.ReLU())
+
         # layers.append(torch.nn.Flatten(0, 1))
         # layers.append(nn.LogSoftmax(dim=1))
 
@@ -121,7 +126,6 @@ class SlugANN:
             'batch_size': trial.suggest_categorical("batch_size", [8, 16, 32, 64, 128, 512, 1024, 2048])
             }
 
-        # train_X, test_x, train_y, test_y= get_split_dataset()
 
         input_shape = self.X_train.shape[1]
     
@@ -129,11 +133,10 @@ class SlugANN:
 
         accuracy = self.train_and_evaluate(params, model, trial)
 
-
-        file_name =  self.temp_path + "/brisk_ann_{}.pickle".format(trial.number)
+        file_name =  self.temp_path + "/slug_ann_{}.pickle".format(trial.number)
         
         # save model in temp folder
-        self.save_model(model, file_name)
+        self.__save_model__(model, file_name)
 
 
 #        with open(TEMP_PATH+"{}.pickle".format(trial.number), "wb") as fout:
@@ -164,8 +167,10 @@ class SlugANN:
 
         for epoch_num in range(self.epochs):
 
-                total_err_train = 0
+                # total_err = 0
+                
                 total_loss_train = 0
+                total_loss_val = 0
 
                 for X_train, y_train in train_dataloader:
 
@@ -190,8 +195,6 @@ class SlugANN:
                     batch_loss.backward()
                     optimizer.step()
                 
-                total_err_val = 0
-                total_loss_val = 0
 
                 with torch.no_grad():
 
@@ -209,22 +212,26 @@ class SlugANN:
                         # err = np.round_(mean_squared_error(output, val_y), decimals=2, out=None)
                         #total_acc_val += err
                 
-                accuracy = total_loss_val
+                val_loss = total_loss_val
                 
+                # print(f'val loss {val_loss}')
                 # Add prune mechanism
-                trial.report(accuracy, epoch_num)
+                trial.report(val_loss, epoch_num)
 
     #            if trial.should_prune():
     #                raise optuna.exceptions.TrialPruned()
 
-        return accuracy
+        return val_loss
 
 
 
     def __discover_model__(self):
 
-        print(f'Starting train for trials:{self.n_trials} with epochs:{self.epochs}')
+        customlogger.info('slug ann: Starting train for trials:%d with epochs: %d', self.n_trials, self.epochs)
 
+        customlogger.info('slug ann: Cleared previous models in the model save path')        
+        config.clear_temp_folder(self.model_save_path)        
+        
         storage = dask_optuna.DaskStorage()
         study = optuna.create_study(storage=storage, direction="minimize", sampler=optuna.samplers.TPESampler(), pruner=optuna.pruners.MedianPruner())
 
@@ -232,68 +239,121 @@ class SlugANN:
         with joblib.parallel_backend("dask"):
             study.optimize(self.__objective__, n_trials=self.n_trials, n_jobs=-1)
 
-        print("Number of trials: {}".format(len(study.trials)))
-
-        print("Best trial:")
+            
+        customlogger.info('slug xgboost: Number of trials: %d', len(study.trials))
+                   
+        customlogger.info('Best trial: %s', study.best_trial.number)
         trial = study.best_trial
 
 
         # load model from temp folder
-        file_name =   "/brisk_ann_{}.pickle".format(study.best_trial.number)
-        best_model = self.load_model(self.temp_path + file_name)
+        file_name =   "/slug_ann_{}.pickle".format(study.best_trial.number)
+        best_model = self.__load_model__(self.temp_path + file_name)
 
         ### eval the model first
         best_model.eval()
 
 
         # save it to permanent folder
-        print(f"Model saved at:{self.model_save_path + file_name}")
-        self.save_model(best_model, self.model_save_path + file_name)
+        customlogger.info('slug ann: Model saved at %s', self.model_save_path + file_name)
+        self.__save_model__(best_model, self.model_save_path + file_name)
 
         config.clear_temp_folder(self.temp_path)
-
-
         return best_model
 
 
-    def fetch_model(self):
 
-        client = dasker.get_dask_client()
-        print(f"Dask dashboard is available at {client.dashboard_link}")
+    ### perform hyper-parameter search on xgboost model
+    def fetch_model(self, retrain = True):
+    
+        if retrain:                
+            self.best_fit = self.__discover_model__()
+        else:
+            self.__load_best_fit__()
+            if self.best_fit is None:
+                customlogger.info("slug ann: no saved models found, please rerun the 'fetch_model' first.")
+                return None
 
-        self.best_fit = self.__discover_model__()
-
-        return self.best_fit
-
-
+            
+        self.get_model_score()                
+        return self.best_fit    
+    
 
 
 
     ### return score on test dataset
-    def get_model_score(self, score_func=None):
+    def get_model_score(self, score_func=None, persist_pred=True):
+        
+        self.__load_best_fit__()
+                        
+        if self.best_fit is None:
+            customlogger.info("xgboost: no saved models found, please rerun the 'fetch_model' first.")
+            return None
+        
+        X_train_tensor = helper.df_to_tensor(self.X_train)
+        X__tensor = helper.df_to_tensor(self.X_train)
+        X_test_tensor = helper.df_to_tensor(self.X_test)
 
-        metirc_scores = []
-        model_files = glob.glob(self.model_save_path+'/*')
+        pred_train = self.best_fit(X_train_tensor)
+        pred_train = helper.torch_tensor_to_numpy(pred_train)
+        pred_train = pred_train.reshape(pred_train.shape[0], )
+
+        
+        pred_test = self.best_fit(X_test_tensor)
+        pred_test = helper.torch_tensor_to_numpy(pred_test)
+        pred_test = pred_test.reshape(pred_test.shape[0], )
         
 
-        model = self.load_model(model_files[0])    
-
-
-        X_test_tensor = helper.df_to_tensor(self.X_test)
-        pred = model(X_test_tensor)
-        pred = helper.torch_tensor_to_numpy(pred)
-
+        if persist_pred:
+            self.pred_train = pred_train
+            self.pred_test = pred_test
+        
         
         if score_func is None:                
             if self.pred_class == 'regression':
-                metirc_score = r2_score(pred, self.y_test)
-
+                metirc_score_train = r2_score(pred_train, self.y_train)
+                metirc_score_test = r2_score(pred_test, self.y_test)
             else:
-                metirc_score = f1_score(pred, self.y_test)
+                metirc_score_train = f1_score(pred_train, self.y_train)
+                metirc_score_test = f1_score(pred_test, self.y_test)                
         else:
-            for func in score_func:
-                metirc_score = func(pred, self.y_test)
-                metirc_scores.append(metirc_score)
+            metirc_score_train = score_func(pred_train, self.y_train)
+            metirc_score_test = score_func(pred_test, self.y_test)            
 
-        return metirc_scores
-      
+        self.score = [metirc_score_train, metirc_score_test]
+        return self.score
+
+
+          
+    def get_predictions(self, model):
+
+        X_train = pd.concat([self.X_train, self.X_val])
+        y_train = pd.concat([self.y_train, self.y_val])
+        
+        X_train_tensor = helper.df_to_tensor(X_train)
+        X_test_tensor = helper.df_to_tensor(self.X_test)
+
+        pred_train = model(X_train_tensor)
+        pred_train = helper.torch_tensor_to_numpy(pred_train)
+        pred_train = pred_train.reshape(pred_train.shape[0], )        
+
+        pred_test = model(X_test_tensor)
+        pred_test = helper.torch_tensor_to_numpy(pred_test)
+        pred_test = pred_test.reshape(pred_test.shape[0], )        
+
+        return pred_train, pred_test, y_train, self.y_test        
+    
+        
+    ### predict 
+    def predict(self, df_X):                
+        
+        self.__load_best_fit__()        
+        if self.best_fit is None:
+            customlogger.info("xgboost: no saved models found, please rerun the 'fetch_model' first.")            
+            return None
+            
+        X_test_tensor = helper.df_to_tensor(df_X)
+        pred = self.best_fit(X_test_tensor)
+        pred = helper.torch_tensor_to_numpy(pred)
+        pred = pred.reshape(pred.shape[0], )
+        return pred
