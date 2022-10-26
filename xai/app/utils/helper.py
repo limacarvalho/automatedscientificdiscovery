@@ -1,5 +1,14 @@
 import torch
 import numpy as np
+import pandas as pd
+
+
+def get_covid_dataset():
+    df = pd.read_csv('/home/wasif/python-asd/xai/app/test/data/20220319_covid_merge_processed.csv', sep=",")
+    X = df[df.columns[df.columns!='y']]
+    # X = X.drop(DROP_LIST, axis = 1)
+    y = df[df.columns[df.columns=='y']]
+    return X, y
 
 
 # determine the supported device
@@ -25,6 +34,16 @@ def tensor_to_df(tensor):
 
 def torch_tensor_to_numpy(tensor_array):
     return tensor_array.cpu().detach().numpy()
+
+
+def check_if_all_same(list_of_elem, item):
+    """ Check if all elements in list are same and matches
+     the given item"""
+    result = True
+    for elem in list_of_elem:
+        if elem != item:
+            return False
+    return result
 
 
 def custom(train_score, test_score):

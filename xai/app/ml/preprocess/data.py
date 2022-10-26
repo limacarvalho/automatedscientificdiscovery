@@ -4,7 +4,7 @@ from sklearn.utils.class_weight import compute_class_weight
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
-from utils.logger import logging
+# from utils.logger import logging
 import traceback
 
 
@@ -79,7 +79,7 @@ def get_dataset(f_name, sep):
 
         return X, y
     except Exception as e:
-        logging.error(traceback.format_exc())
+        #logging.error(traceback.format_exc())
         return None
 
 

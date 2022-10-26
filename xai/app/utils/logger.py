@@ -1,12 +1,10 @@
 import logging
- 
-logging.basicConfig(filename = 'file.log',
-                    level = logging.DEBUG,
-                    format = '%(asctime)s:%(levelname)s:%(name)s:%(message)s')
- 
+import logging.config
+import yaml
 
-# logging.debug('Debug message')
-# logging.info('Info message')
-# logging.warning('Warning message')
-# logging.error('Error message')
-# logging.critical('Critical message')
+with open('/home/wasif/python-asd/xai/app/utils/config.yaml', 'r') as f:
+    config = yaml.safe_load(f.read())
+    logging.config.dictConfig(config)
+
+
+

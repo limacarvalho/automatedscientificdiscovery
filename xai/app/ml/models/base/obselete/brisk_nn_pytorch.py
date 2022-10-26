@@ -37,8 +37,6 @@ DROP_LIST = ['location']
 STD_DEMON = 3
 NUM_RERUNS = 5
 
-
-
 def get_dataset():
     df = pd.read_csv('/mnt/c/Users/rwmas/GitHub/xai/xai_api/app/test/data/20220319_covid_merge_processed.csv', sep=",")
 
