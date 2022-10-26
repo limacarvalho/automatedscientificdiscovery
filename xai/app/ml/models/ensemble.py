@@ -186,7 +186,7 @@ class BaseUnify:
             return self.best_base_model.predict(df_X)
         else:
             for base_model in self.base_models:
-                pred = base_model.predic(df_X)
+                pred = base_model.predict(df_X)
                 list_preds.append(pred)
             
             df_pred = pd.DataFrame(list_preds)

@@ -39,6 +39,16 @@ class AutoFit:
         self.slug_xgb.y_test = y_test
         self.slug_xgb.n_trials = 20
 
+        self.slug_xgb = BriskXGBoost()
+        self.slug_xgb.pred_class = 'regression'
+        self.slug_xgb.objective = 'count:poisson'
+        self.slug_xgb.X_train = X_train
+        self.slug_xgb.X_test = X_test
+        self.slug_xgb.y_train = y_train
+        self.slug_xgb.y_test = y_test
+        self.slug_xgb.n_trials = 20
+
+        
         base_models = [self.slug_ann, self.slug_xgb]
         
         self.base_unify = BaseUnify(timer=20, base_models=base_models, callback_timer_expired=None)
