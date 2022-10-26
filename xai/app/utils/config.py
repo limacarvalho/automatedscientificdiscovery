@@ -9,7 +9,7 @@ rand_state = 0
 
 main_dir = '/home/wasif/python-asd/xai/app/ml/models/saved'
 dataset_dir = "/home/wasif/python-asd/xai/app/test/data"
-project_name = '/covid'
+project_name = '/covid_autolearn'
 
 
 
