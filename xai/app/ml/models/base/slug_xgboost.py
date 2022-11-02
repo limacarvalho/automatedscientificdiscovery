@@ -1,5 +1,8 @@
-
+from .base_model import BaseModel
+from ml.models import common
 from utils import config, logger
+
+
 
 import numpy as np
 import pandas as pd
@@ -20,14 +23,24 @@ import dask_optuna
 import joblib
 import pickle
 
+
+
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 ### change the logger type to save info logs
 customlogger = logger.logging.getLogger('console_info')
 
 
-class SlugXGBoost:
-    def __init__(self) -> None:
+class SlugXGBoost(BaseModel):
+    def __init__(self,
+                    name,
+                    X_train,
+                    X_test,
+                    y_train,
+                    y_test,
+                    timeout=None,
+                ) -> None:
+
         # ["reg:squarederror", "count:poisson", "binary:logistic",  "binary:hinge" ] check "Learning Task Parameters" section at https://xgboost.readthedocs.io/en/stable/parameter.html
         self.pred_class = "regression"                    
     
@@ -40,49 +53,18 @@ class SlugXGBoost:
         self.cv_splits = 3 # number of folds    
         self.rand_state = 0
         
-        self.best_fit = None
-        self.score = None        
-        
-        self.X_train = None
-        self.X_test = None
-        self.y_train = None
-        self.y_test = None
+        self.score_func = None
 
-        self.pred_train = None
-        self.pred_test = None        
-                
-        self.temp_path = config.main_dir + config.project_name + "/tmp/xgboost/slug"
-        self.model_save_path = config.main_dir + config.project_name  + "/base/xgboost/slug"
+        self.timeout = timeout
+
+        temp_path, model_save_path = config.create_dir_structure(name)
+        
+        super().__init__( X_train, X_test, y_train, y_test, temp_path, model_save_path, name)
 
         
 
-
-
-    # Load pickled models
-    def __load_model__(self, file_name):
-        with open(file_name, "rb") as fin:
-            model = pickle.load(fin)
-
-        return model
-
-
-    
-    def __save_model__(self, model, file_name):
-        with open(file_name, "wb") as fout:
-            pickle.dump(model, fout)
-
-
             
-    def __load_best_fit__(self):        
-        if self.best_fit is None:            
-            model_files = glob.glob(self.model_save_path+'/*')
-            if len(model_files) == 0:
-                return None
-            else:
-                self.best_fit = self.__load_model__(model_files[0])                
-
-            
-    def __objective__(self, trial):
+    def __objective_cv__(self, trial):
 
         # X_train, X_test, y_train, y_test = train_test_split(df_X, df_y, test_size=0.25)
         param = {
@@ -136,118 +118,156 @@ class SlugXGBoost:
 
 
 
-    def __discover_model__(self):
-
-        customlogger.info('slug xgboost: Starting train for trials:%d with boosted rounds: %d', self.n_trials, self.boosted_round)
-
-        customlogger.info('slug xgboost: Cleared previous models in the model save path')        
-        config.clear_temp_folder(self.model_save_path)
-
-        
-        storage = dask_optuna.DaskStorage()
-        study = optuna.create_study(storage=storage, direction="minimize", sampler=optuna.samplers.TPESampler(), pruner=optuna.pruners.MedianPruner())
-
-        with joblib.parallel_backend("dask"):
-            study.optimize(self.__objective__, n_trials=self.n_trials, n_jobs=-1)
-
-        customlogger.info('xgboost: Number of trials: %d', len(study.trials))
-                   
-        customlogger.info('Best trial:')
-        trial = study.best_trial
-
-
-        customlogger.info('  xgboost Params: ')
-        for key, value in trial.params.items():
-            customlogger.info('    %s %s', key, value)
-
-
-
-        # load model from temp folder
-        file_name =  "/slug_xgboost_{}.pickle".format(study.best_trial.number)
-        best_model = self.__load_model__(self.temp_path + file_name)
-
-        # save it to permanent folder
-        customlogger.info('xgboost: Model saved at %s', self.model_save_path + file_name)
-        self.__save_model__(best_model, self.model_save_path + file_name)
-
-        config.clear_temp_folder(self.temp_path)
-        return best_model
-
-
-    
-    ### perform hyper-parameter search on xgboost model
-    def fetch_model(self, retrain = True):
-    
-        if retrain:                
-            self.best_fit = self.__discover_model__()
-        else:
-            self.__load_best_fit__()
-            if self.best_fit is None:
-                customlogger.info("xgboost: no saved models found, please rerun the 'fetch_model' first.")
-                return None
-            
-        self.get_model_score()
-                
-        return self.best_fit
-
-
-    
-    ### score_func: any sklearn score function, choose in accordance with self.pred_class
-    ### persist: save predictions on test and train datasets, accessible via self.pred_train/test, otherwise null
-    def get_model_score(self, score_func=None, persist_pred=True):
-        
-        self.__load_best_fit__()
-        
-        if self.best_fit is None:
-            customlogger.info("xgboost: no saved models found, please rerun the 'fetch_model' first.")
-            return None
 
             
+    def __objective__(self, trial):
+
+        # X_train, X_test, y_train, y_test = train_test_split(df_X, df_y, test_size=0.25)
+        param = {
+            "objective": self.objective,
+            "booster": "gbtree",
+            "lambda": trial.suggest_float("lambda", 1e-3, 1.0, log=True),
+            "alpha": trial.suggest_float("alpha", 1e-3, 1.0, log=True),
+            "eta":  trial.suggest_float("eta", 1e-3, 1.0, log=True),
+            "gamma": trial.suggest_float("gamma", 1e-6, 10.0, log=True),
+            "grow_policy": trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"]),
+            "max_depth": trial.suggest_int("max_depth", 1, self.max_depth),
+            # "max_delta_step": trial.suggest_int("max_delta_step", 0, Params.max_delta_step),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 1e-3, 1.0, log=True),
+            "colsample_bylevel": trial.suggest_float("colsample_bylevel", 1e-3, 1.0, log=True),
+            "colsample_bynode": trial.suggest_float("colsample_bynode", 1e-3, 1.0, log=True),        
+            "max_bin": trial.suggest_categorical("max_bin", [64, 128, 512, 1024, 2048, 3072, 4096, 8192])
+        }
+
         dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
         dtest = xgb.DMatrix(self.X_test, label=self.y_test)
-        
-        pred_train = self.best_fit.predict(dtrain)
-        pred_test = self.best_fit.predict(dtest)
-                
-        if persist_pred:
-            self.pred_train = pred_train
-            self.pred_test = pred_test
-        
-        
-        if score_func is None:                
-            if self.pred_class == 'regression':
-                metirc_score_train = r2_score(pred_train, self.y_train)
-                metirc_score_test = r2_score(pred_test, self.y_test)
-            else:
-                metirc_score_train = f1_score(pred_train, self.y_train)
-                metirc_score_test = f1_score(pred_test, self.y_test)                
-        else:
-            metirc_score_train = score_func(pred_train, self.y_train)
-            metirc_score_test = score_func(pred_test, self.y_test)            
 
-        self.score = [metirc_score_train, metirc_score_test]
-
-        return self.score
-
-    
-    def get_predictions(self, model):
-        dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
-        dtest = xgb.DMatrix(self.X_test, label=self.y_test)
+        model = xgb.train(param, dtrain, num_boost_round = self.boosted_round, verbose_eval = 1)
 
         pred_train = model.predict(dtrain)
         pred_test = model.predict(dtest)
 
-        return pred_train, pred_test, self.y_train, self.y_test    
+        metirc_score_train, metirc_score_test, weighted_score = self.__get_model_score__(pred_train, pred_test)
+        
+        # save model in temp folder
+        file_anme =  self.temp_path + "/" + self.model_file_name + '_' + str(trial.number) +'.pickle'
+        self.__save_model__(model, file_anme)
+
+        return weighted_score
+
+
+
+    def __discover_model__(self):
+        
+        customlogger.info( self.model_file_name + ': Starting training for trials:%d, boosted rounds: %d, max depth: %d', self.n_trials, self.boosted_round, self.max_depth)
+
+        storage = dask_optuna.DaskStorage()
+
+        study = optuna.create_study( study_name=config.create_study_name(),
+                                            storage=storage, direction="minimize", 
+                                            sampler=optuna.samplers.TPESampler(),
+                                            pruner=optuna.pruners.MedianPruner()                                                              
+                                            )
+
+        with joblib.parallel_backend("dask"):
+            study.optimize(self.__objective__, n_trials=self.n_trials, n_jobs=-1, timeout=self.timeout)
+
+        customlogger.info( self.model_file_name + ': Number of trials: %d', len(study.trials))                   
+        
+        customlogger.info('Best trial:%d', study.best_trial.number)
+
+        customlogger.info('  Params: ')
+        for key, value in study.best_trial.params.items():
+            customlogger.info('    %s %s', key, value)
+
+        file_name =  "/" + self.model_file_name + '_' + str(study.best_trial.number) +'.pickle'
+        best_model = self.__load_model__(self.temp_path + file_name)
+
+        dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
+        dtest = xgb.DMatrix(self.X_test, label=self.y_test)
+
+
+        pred_train = best_model.predict(dtrain)
+        pred_test = best_model.predict(dtest)
+
+        metirc_score_train, metirc_score_test, weighted_score = self.__get_model_score__(pred_train, pred_test)
+
+        self.score = [metirc_score_train, metirc_score_test]
+
+        customlogger.info('  test r2 score: %s', metirc_score_test)
+
+        # save it to permanent folder
+        customlogger.info( self.model_file_name + ': Model saved at %s', self.model_save_path + file_name)
+        self.__save_model__(best_model, self.model_save_path + file_name)
+
+        config.clear_temp_folder(self.temp_path)
+
+        return best_model
+
+
+    
+    
+    
+    ### perform hyper-parameter search on xgboost model
+    def fetch_model(self, retrain = True):
+    
+        self.best_fit = self.__discover_model__()
+        self.model = self.best_fit
+                
+        return self.best_fit
+
+    
+    ### score_func: any sklearn score function, choose in accordance with self.pred_class
+    ### persist: save predictions on test and train datasets, accessible via self.pred_train/test, otherwise null
+    def load_score(self, score_func=None, persist_pred=True, threshold=None):
+        
+
+        if self.model is None:
+            customlogger.info("No trained models found, pls rerun 'fetch_models'")
+            return None
+
+        if self.X_train is None:
+            customlogger.info("No train/test dataset found, pls explicity set the parameters.")
+            return None
+            
+        dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
+        dtest = xgb.DMatrix(self.X_test, label=self.y_test)
+        
+        pred_train = self.model.predict(dtrain)
+        pred_test = self.model.predict(dtest)
+                
+        if persist_pred:
+            self.pred_train = pred_train
+            self.pred_test = pred_test
+
+        metirc_score_train, metirc_score_test, weighted_score = self.__get_model_score__(pred_train, pred_test)
+
+        if threshold:
+            if metirc_score_test > threshold:
+                self.best_fit = self.model
+                self.score = [metirc_score_train, metirc_score_test]
+            else:
+                self.best_fit = None
+                self.score = None
+        else:
+            self.best_fit = self.model
+            self.score = [metirc_score_train, metirc_score_test]
+
+        
+        return self.score
     
     
     ### predict 
     def predict(self, df_X):
 
-        self.__load_best_fit__()        
         if self.best_fit is None:
-            customlogger.info("xgboost: no saved models found, please rerun the 'fetch_model' first.")            
+            customlogger.info("no model attached as per your selection threshold. Lower the threshold in the 'load_score' function.")  
+            return None        
+        
+        if self.X_train is None:
+            customlogger.info("No train/test dataset found, pls explicity set the parameters.")
             return None
-        
-        
+
+
         ddf_X = xgb.DMatrix(df_X.copy())
         return self.best_fit.predict(ddf_X)
