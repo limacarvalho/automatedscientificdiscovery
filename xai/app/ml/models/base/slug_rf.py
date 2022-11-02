@@ -9,7 +9,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold, KFold
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.metrics import f1_score, roc_auc_score, precision_score, recall_score
-
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 import optuna
 import xgboost as xgb
@@ -28,7 +28,7 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 customlogger = logger.logging.getLogger('console_info')
 
 
-class BriskXGBoost(BaseModel):
+class SlugRF(BaseModel):
     def __init__(self,
                     name,
                     X_train,
@@ -43,9 +43,8 @@ class BriskXGBoost(BaseModel):
                     
         self.objective = "count:poisson" # ["reg:squarederror", "count:poisson", "binary:logistic",  "binary:hinge" ]
 
-        self.max_depth  = 10
+        self.max_depth  = 30
         self.max_delta_step = 10 # recommended by the algo. documentation
-        self.boosted_round = 250
         self.n_trials = 300
         self.cv_splits = 3 # number of folds    
         self.rand_state = 0
@@ -63,51 +62,47 @@ class BriskXGBoost(BaseModel):
 
             
     def __objective__(self, trial):
-        
-        param = {
-            "objective": self.objective,
-            "booster": trial.suggest_categorical("booster", ["gbtree", "dart"]),
-            "lambda": trial.suggest_float("lambda", 1e-3, 1.0, log=True),
-            "alpha": trial.suggest_float("alpha", 1e-3, 1.0, log=True),
+
+        # criterion = “gini” [“gini”, “entropy”, “log_loss”]
+    
+        params = {
+            'n_estimators': trial.suggest_int('n_estimators', 50, 1000),
+            'max_depth': trial.suggest_int('max_depth', 10, self.max_depth),
+            'min_samples_split': trial.suggest_int('min_samples_split', 2, 150),
+            'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 60),
         }
 
 
-        if param["booster"] == "gbtree" or param["booster"] == "dart":
-            param["max_depth"] = trial.suggest_int("max_depth", 1, self.max_depth)
-            param["eta"] = trial.suggest_float("eta", 1e-3, 1.0, log=True)
-            param["gamma"] = trial.suggest_float("gamma", 1e-3, 1.0, log=True)
-            param["grow_policy"] = trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"])
+        if self.pred_class == 'regression':
+            cv = KFold(n_splits=self.cv_splits, shuffle=True, random_state=config.rand_state)
+            score_func = mean_squared_error
+            model_rf = RandomForestRegressor(random_state=config.rand_state, **params)
 
-        if param["booster"] == "dart":
-            param["sample_type"] = trial.suggest_categorical("sample_type", ["uniform", "weighted"])
-            param["normalize_type"] = trial.suggest_categorical("normalize_type", ["tree", "forest"])
-            param["rate_drop"] = trial.suggest_float("rate_drop", 1e-3, 1.0, log=True)
-            param["skip_drop"] = trial.suggest_float("skip_drop", 1e-3, 1.0, log=True)
+        else:
+            cv = StratifiedKFold(n_splits=self.cv_splits, shuffle=True, random_state=config.rand_state)
+            score_func = f1_score
+            model_rf =  RandomForestClassifier(random_state=config.rand_state, **params)
 
 
+        model_rf.fit(self.X_train, self.y_train.values.ravel())
+        metirc_score_train = model_rf.score(self.X_train, self.y_train)
+        metirc_score_test = model_rf.score(self.X_test, self.y_test)
 
-        dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
-        dtest = xgb.DMatrix(self.X_test, label=self.y_test)
 
-        model = xgb.train(param, dtrain, num_boost_round = self.boosted_round, verbose_eval = 1)
+        weighted_score = common.get_weighted_score(metirc_score_train, metirc_score_test, self.pred_class)
 
-        pred_train = model.predict(dtrain)
-        pred_test = model.predict(dtest)
-
-        metirc_score_train, metirc_score_test, weighted_score = self.__get_model_score__(pred_train, pred_test)
-
+        file_anme =  self.temp_path + "/" + self.model_file_name + '_' + str(trial.number) +'.pickle'
 
         # save model in temp folder
-        file_anme =  self.temp_path + "/" + self.model_file_name + '_' + str(trial.number) +'.pickle'
-        self.__save_model__(model, file_anme)
-
+        self.__save_model__(model_rf, file_anme)
+        
         return weighted_score
 
 
 
     def __discover_model__(self):
-        
-        customlogger.info( self.model_file_name + ': Starting training for trials:%d, boosted rounds: %d, max depth: %d', self.n_trials, self.boosted_round, self.max_depth)
+
+        customlogger.info( self.model_file_name + ': Starting training for trials:%d, max depth: %d', self.n_trials, self.max_depth)
 
         storage = dask_optuna.DaskStorage()
 
@@ -117,6 +112,12 @@ class BriskXGBoost(BaseModel):
                                             sampler=optuna.samplers.TPESampler(),
                                             pruner=optuna.pruners.MedianPruner()                                                              
                                             )
+
+#        study.enqueue_trial({"max_depth": 10,
+#                            "n_estimators": 100,
+#                            "min_samples_leaf": 1,
+#                            "min_samples_split": 2,}
+
 
         with joblib.parallel_backend("dask"):
             study.optimize(self.__objective__, n_trials=self.n_trials, n_jobs=-1, timeout=self.timeout)
@@ -129,20 +130,18 @@ class BriskXGBoost(BaseModel):
         for key, value in study.best_trial.params.items():
             customlogger.info('    %s %s', key, value)
 
+
+        # load model from temp folder
+        # file_name =  "/slug_xgboost_lightgbm_{}.pickle".format(study.best_trial.number)
         file_name =  "/" + self.model_file_name + '_' + str(study.best_trial.number) +'.pickle'
         best_model = self.__load_model__(self.temp_path + file_name)
 
-        dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
-        dtest = xgb.DMatrix(self.X_test, label=self.y_test)
-
-
-        pred_train = best_model.predict(dtrain)
-        pred_test = best_model.predict(dtest)
+        pred_train = best_model.predict(self.X_train)
+        pred_test = best_model.predict(self.X_test)
 
         metirc_score_train, metirc_score_test, weighted_score = self.__get_model_score__(pred_train, pred_test)
 
         self.score = [metirc_score_train, metirc_score_test]
-
         customlogger.info('  test r2 score: %s', metirc_score_test)
 
         # save it to permanent folder
@@ -161,8 +160,6 @@ class BriskXGBoost(BaseModel):
     
         self.best_fit = self.__discover_model__()
         self.model = self.best_fit
-
-        # self.load_score()
                 
         return self.best_fit
 
@@ -179,13 +176,13 @@ class BriskXGBoost(BaseModel):
         if self.X_train is None:
             customlogger.info("No train/test dataset found, pls explicity set the parameters.")
             return None
-            
-        dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
-        dtest = xgb.DMatrix(self.X_test, label=self.y_test)
         
-        pred_train = self.model.predict(dtrain)
-        pred_test = self.model.predict(dtest)
-                
+        pred_train = self.model.predict(self.X_train)
+        pred_test = self.model.predict(self.X_test)
+                                    
+            
+        metirc_score_train, metirc_score_test, weighted_score = self.__get_model_score__(pred_train, pred_test, score_func=score_func)
+
         if persist_pred:
             self.pred_train = pred_train
             self.pred_test = pred_test
@@ -219,6 +216,5 @@ class BriskXGBoost(BaseModel):
             customlogger.info("No train/test dataset found, pls explicity set the parameters.")
             return None
 
-
-        ddf_X = xgb.DMatrix(df_X.copy())
-        return self.best_fit.predict(ddf_X)
+        
+        return self.best_fit.predict(df_X)

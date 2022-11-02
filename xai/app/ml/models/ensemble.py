@@ -1,13 +1,13 @@
 
-from utils import helper, config, logger
-import os
 
+from ml.models import common
+from utils import helper, config, logger, dasker
 
-
-import xgboost as xgb
-from ml.models.base.slug_ann import SlugANN
-from ml.models.base.slug_xgboost import SlugXGBoost
 from ml.models.base.brisk_xgboost import BriskXGBoost
+from ml.models.base.slug_ann import SlugANN
+from ml.models.base.slug_lightgbm import SlugLGBM
+from ml.models.base.slug_xgboost import SlugXGBoost
+from ml.models.base.slug_rf import SlugRF
 
 
 from dask_ml.preprocessing import StandardScaler
@@ -22,182 +22,173 @@ import pandas as pd
 
 import signal
 import dask
-import glob
 
-import asyncio
+
 
 
 ### change the logger type to save info logs
 customlogger = logger.logging.getLogger('console_info')
 
+class Ensemble:
+    def __init__(self, 
+                 df_X,
+                 df_y,
+                 project_name,
+                 num_reruns=5,
+                 epochs=150,
+                 boosted_round=100,
+                 ensemble_boosted_round=100,
+                 ensemble_num_reruns=5,
+                 timeout=7200) -> None:
 
 
-class BaseUnify:
-    def __init__(self, base_models, callback_timer_expired=None, timer=7200) -> None:
+        self.score = None
+        self.base_model_scores = []
+        self.slug_rf = None
+        self.ensemble_boosted_round = ensemble_boosted_round
+        self.ensemble_num_reruns = ensemble_num_reruns
+
+
+        self.df_X_train_ensemble = pd.DataFrame()
+        self.df_X_test_ensemble = pd.DataFrame() 
+
         
-        self.final_models_path = config.main_dir + '/ml/models/saved/final_models/'
-        self.model_save_path = config.main_dir + config.project_name  + "/base/ann/slug"
+        config.project_name = '/' + project_name #house_prices_advanced_regression_techniques_ensemble'
 
-        if timer < 0:
-            timer = 3600
 
-        self.timer = timer ### default is two hours
-        self.ensemble_models = None
-        self.__callback_timer_expired__ = callback_timer_expired
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(df_X, 
+                                                                                                                                df_y, test_size=0.33,
+                                                                                                                                random_state=config.rand_state)
+
+
+        self.X_train_scalar = StandardScaler().fit_transform(self.X_train.copy())
+        self.X_test_scalar = StandardScaler().fit_transform(self.X_test.copy())
+
+
+
+        self.brisk_xgb = BriskXGBoost('brisk_xgb', self.X_train, self.X_test, self.y_train, self.y_test, timeout=timeout)
+        self.brisk_xgb.boosted_round = boosted_round
+
+
+        self.slug_xgb = SlugXGBoost('slug_xgb', self.X_train, self.X_test, self.y_train, self.y_test, timeout=timeout)
+        self.slug_xgb.boosted_round = boosted_round
+
+
+        self.slug_ann = SlugANN('slug_ann', self.X_train_scalar, self.X_test_scalar, self.y_train, self.y_test, timeout=timeout)
+        self.slug_ann.epochs = epochs
+
+
+        self.base_models = [self.slug_ann, self.brisk_xgb, self.slug_xgb]
+
+
+
+
+    def fetch_models(self):
         
-        self.scores = None
-        self.df_pred_train = None
-        self.df_pred_test = None
-        
-        self.best_base_model = None
-        
-        self.base_models = base_models
-        self.ensemble_n_trials = 100
-        self.scores = []        
-
-
-
-    def fetch_models(self, retrain):
-        
-        self.scores = []
         lazy_results = []
         results = None
 
-        
-        #Sets an alarm in t seconds
-        #If uncaught will terminate your process.        
-        if self.__callback_timer_expired__ is not None:
-            signal.signal(signal.SIGALRM, self.__callback_timer_expired__)
-            signal.alarm(self.timer)         
-        
-        
-        if not retrain:
-            for base_model in self.base_models:
-                res = __run_discoveries__(base_model, retrain)
-                lazy_results.append(res)
-            
-            self.base_models = lazy_results
-            
 
-        else:
-            customlogger.info('ensemble: base models discovery started')
-
-            for base_model in self.base_models:
-                res = dask.delayed(__run_discoveries__)(base_model, retrain)
-                lazy_results.append(res)
-
-            results = dask.compute(*lazy_results, scheduler='distributed')
-
-            self.base_models = results
-
-        
         for base_model in self.base_models:
-            self.scores.append(base_model.score)
-    
-        result = helper.check_if_all_same(self.scores, None)            
-        
-        if result:
-            customlogger.info('ensemble: no trained base models found')
-            return None
-        
-        self.__get_best_base_model__()
+            res = dask.delayed(__run_discoveries__)(base_model)
+            lazy_results.append(res)
 
-                
-    def fit_ensemble(self, retrain=False):
-        
-        brisk_xgb = BriskXGBoost()
+        results = dask.compute(*lazy_results, scheduler='distributed')
 
-        brisk_xgb.n_trials = self.ensemble_n_trials
-        brisk_xgb.temp_path = config.main_dir + config.project_name + "/tmp/xgboost/brisk"
-        brisk_xgb.model_save_path = config.main_dir + config.project_name + "/base/xgboost/brisk"
+        # self.base_models = results
 
-         
-        brisk_xgb.X_train, brisk_xgb.X_test, brisk_xgb.y_train, brisk_xgb.y_test = self.__consolidate_predictions__()
-        
-        #brisk_xgb.X_train = slug_xgboost.df_pred_train.loc[:, slug_xgboost.df_pred_train.columns.values != 'y']
-        #brisk_xgb.X_test = slug_xgboost.df_pred_test.loc[:, slug_xgboost.df_pred_test.columns.values != 'y']
-        #brisk_xgb.y_train = slug_xgboost.df_pred_train['y']
-        #brisk_xgb.y_test = slug_xgboost.df_pred_test['y']
+        customlogger.info("Ensemble training completed")
+        self.load_scores()
 
-        if not retrain:
-            brisk_xgb.get_model_score()
-            # brisk_xgb.__load_best_fit__()
-            if brisk_xgb.best_fit is None:
-                customlogger.info("No BaseUnify model found, please run 'fit_ensemble(retrain=True)'")
-                return None
-        
-        else:    
-            customlogger.info("fitting ensemble model using brisk xgboost")              
-            brisk_xgb.fetch_model(retrain=True)
-            
-                
-        sum_scores_ensemble_model = sum(brisk_xgb.score)
-        sum_scores_base_models = max([sum(i) for i in self.scores])
 
-        customlogger.info("Best score from base models: %s compared to ensemble score:%s",sum_scores_base_models, sum_scores_ensemble_model)                      
 
-        # ensemble model has worst score then any of the final_models, choose the final model as ensemble
-        if sum_scores_ensemble_model > sum_scores_base_models:
-            self.ensemble_model = brisk_xgb
-            customlogger.info("Ensemble selected")  
-        else:
-            customlogger.info(f'No improvements with Ensemble')
-            config.clear_temp_folder(brisk_xgb.model_save_path)
-            self.ensemble_model = None                
-                
+    def load_scores(self, score_func=None, persist_pred=True, threshold=None):
+        self.base_model_scores = []
+        for base_model in self.base_models:        
+            base_model.load_scores(score_func, persist_pred, threshold)
+            if not helper.check_if_all_same(base_model.scores, None):
+                temp_scores = base_model.scores
+                temp_scores.append(base_model)
+                self.base_model_scores.append(temp_scores)
 
-    def __consolidate_predictions__(self):
-        slug_xgboost = self.__get_base_model__('SlugXGBoost')
-        
-        list_preds_train = []
-        list_preds_test = []
+        customlogger.info("please re-run 'fit' model")
+        self.score = None
+
+
+    def fit(self):
+
         for base_model in self.base_models:
-            pred_train = base_model.predict(slug_xgboost.X_train)
-            pred_test = base_model.predict(slug_xgboost.X_test)
-            list_preds_train.append(pred_train)
-            list_preds_test.append(pred_test)
+            temp_X_train = base_model.df_pred_train #.loc[:, base_model.df_pred_train.columns!='y']
+            temp_X_test = base_model.df_pred_test #.loc[:, base_model.df_pred_test.columns!='y']
 
-        
-        df_train = pd.DataFrame(list_preds_train)
-        df_train = df_train.T
+            self.df_X_train_ensemble = pd.concat([self.df_X_train_ensemble, temp_X_train], axis=1)
+            self.df_X_test_ensemble = pd.concat([self.df_X_test_ensemble, temp_X_test], axis=1 )
 
-        df_test = pd.DataFrame(list_preds_test)
-        df_test = df_test.T
-        
-        return df_train, df_test, slug_xgboost.y_train, slug_xgboost.y_test
-        
-                
-                
-    def __get_base_model__(self, base_model_name):
+
+
+        ### rename cols
+        col_range = range(0, self.df_X_train_ensemble.shape[1])
+        col_ids = []
+
+        for i in col_range:
+            col_ids.append(str(i))
+        self.df_X_train_ensemble.columns = col_ids
+        self.df_X_test_ensemble.columns = col_ids
+
+
+        ### fit Random forest on the all the base models to get one single outcome
+        self.slug_rf = SlugRF('slug_rf', self.df_X_train_ensemble, self.df_X_test_ensemble, self.y_train, self.y_test)
+        self.slug_rf.num_reruns = self.ensemble_num_reruns
+
+        self.slug_rf.fetch_models()
+
+        self.slug_rf.persist_best()
+
+        self.score = self.slug_rf.scores[0]
+
+
+
+    def predict(self, df_X, df_y) :
+
+        df_pred = pd.DataFrame()
+        df_X_scalar = StandardScaler().fit_transform(df_X.copy())
+
+
         for base_model in self.base_models:
-            if base_model_name in str(base_model):
-                return base_model
-                
-
-    def __get_best_base_model__(self):        
-        best_model_idx = np.argmax([sum(i) for i in self.scores])
-        self.best_base_model = self.base_models[best_model_idx]
-
-        
-                
-    def predict(self, df_X):        
-        list_preds = []
-        if self.ensemble_model is None:
-            return self.best_base_model.predict(df_X)
-        else:
-            for base_model in self.base_models:
+            if 'SlugANN' in str(base_model):
+                pred = base_model.predict(df_X_scalar)
+            else:
                 pred = base_model.predict(df_X)
-                list_preds.append(pred)
+
+            #print(str(base_model))
+            #for col in pred:
+            #    print(r2_score(pred[col], df_y.values))                
+                
+            #print(pred.shape)
+            #print(df_y.shape)
             
-            df_pred = pd.DataFrame(list_preds)
-            df_pred = df_pred.T
-            return self.ensemble_model.predict(df_pred)
+            df_pred = pd.concat([df_pred, pred], axis=1)
 
-                
-                
+
+
+        ### rename cols
+        col_range = range(0, df_pred.shape[1])
+        col_ids = []
+
+        for i in col_range:
+            col_ids.append(str(i))
+        df_pred.columns = col_ids
+        df_pred.columns = col_ids
+
+        
+
+        return self.slug_rf.predict(df_pred)
+
+
+    
+
 ### not a class method, throws error when made otherwise
-def __run_discoveries__(base_model, retrain):
-
-    base_model.fetch_model(retrain)
-    # base_model.get_model_score()
+def __run_discoveries__(base_model):
+    base_model.fetch_models()
     return base_model
+

@@ -1,7 +1,3 @@
-from .base_model import BaseModel
-from ml.models import common
-from utils import config, logger, helper
-
 
 from ml.models.base.tabular_dataset import TabularDataset
 
@@ -18,14 +14,16 @@ import torch
 # from torchmetrics import Accuracy, MeanSquaredError
 from torch import nn
 import torch.optim as optim
-import optuna
 
 import pandas as pd
+import numpy as np
+
+import os
+import glob
 
 
-
-
-
+from utils import helper, config, logger
+import optuna
 
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -35,34 +33,58 @@ customlogger = logger.logging.getLogger('console_info')
 
 
 
-class SlugANN(BaseModel):
-    def __init__(self,
-                    name,
-                    X_train,
-                    X_test,
-                    y_train,
-                    y_test,
-                    timeout=None,
-                ) -> None:
-
-        self.pred_class = "regression"        
-
+class SlugANN:
+    def __init__(self) -> None:
         self.n_layers = 8
         self.max_neurons_per_layer = 256
         self.epochs = 300
         self.n_trials = 100
         self.random_state = 0
 
-        self.score_func = None
 
-        self.timeout = timeout
-
-        temp_path, model_save_path = config.create_dir_structure(name)
+        self.temp_path = config.main_dir + config.project_name + "/tmp/ann/slug"
+        self.model_save_path = config.main_dir + config.project_name  + "/base/ann/slug"
         
-        super().__init__( X_train, X_test, y_train, y_test, temp_path, model_save_path, name)
+        self.pred_class = "regression"        
+        
+        self.best_fit = None
+        self.score = None        
+        
+        self.X_train = None
+        self.X_test = None
+        self.X_val = None
+        self.y_train = None
+        self.y_test = None
+        self.y_val = None
+
+        self.pred_train = None
+        self.pred_test = None        
 
 
 
+
+    # Load pickled models
+    def __load_model__(self, file_name):
+        with open(file_name, "rb") as fin:
+            model = pickle.load(fin)
+
+        return model
+
+
+    
+    def __save_model__(self, model, file_name):
+        with open(file_name, "wb") as fout:
+            pickle.dump(model, fout)
+
+
+            
+    def __load_best_fit__(self):        
+        if self.best_fit is None:            
+            model_files = glob.glob(self.model_save_path+'/*')
+            if len(model_files) == 0:
+                return None
+            else:
+                self.best_fit = self.__load_model__(model_files[0])      
 
             
 
@@ -109,15 +131,20 @@ class SlugANN(BaseModel):
     
         model = self.__create_slug_ann_model__(trial, input_shape)
 
-        weighted_score = self.train_and_evaluate(params, model, trial)
+        accuracy = self.train_and_evaluate(params, model, trial)
+
+        file_name =  self.temp_path + "/slug_ann_{}.pickle".format(trial.number)
+        
+        # save model in temp folder
+        self.__save_model__(model, file_name)
 
 
-        file_anme =  self.temp_path + "/" + self.model_file_name + '_' + str(trial.number) +'.pickle'
-        self.__save_model__(model, file_anme)
+#        with open(TEMP_PATH+"{}.pickle".format(trial.number), "wb") as fout:
+#            pickle.dump(model, fout)
 
-        return weighted_score
-
+        return accuracy
       
+
 
     # Train and evaluate the accuracy of neural network with the addition of pruning mechanism
     def train_and_evaluate(self, param, model, trial):
@@ -125,43 +152,39 @@ class SlugANN(BaseModel):
         #X_base, X_val, y_base, y_val = train_test_split(df_X, df_y, random_state=RANDOM_STATE, shuffle=True, test_size=0.2)
 
         # train_data, val_data = train_test_split(df_, test_size = 0.2, random_state = 42)
-        train, test = TabularDataset(self.X_train, self.y_train, self.pred_class), TabularDataset(self.X_test, self.y_test, self.pred_class)
+        train, val = TabularDataset(self.X_train, self.y_train), TabularDataset(self.X_val, self.y_val)
 
         train_dataloader = torch.utils.data.DataLoader(train, batch_size=param['batch_size'], shuffle=True)
-        test_dataloader = torch.utils.data.DataLoader(test, batch_size=param['batch_size'])
+        val_dataloader = torch.utils.data.DataLoader(val, batch_size=param['batch_size'])
 
         criterion = nn.MSELoss()
         optimizer = getattr(optim, param['optimizer'])(model.parameters(), lr= param['learning_rate'])
 
     #    if use_cuda:
+
     #            model = model.cuda()
     #            criterion = criterion.cuda()
 
         for epoch_num in range(self.epochs):
 
-                loss_train = 0
-                loss_test = 0
+                # total_err = 0
+                
+                total_loss_train = 0
+                total_loss_val = 0
 
                 for X_train, y_train in train_dataloader:
 
                     # train_label = train_label.to(device)
                     # train_input = train_input.to(device)
-                    y_train = y_train.reshape(y_train.shape[0], 1)
+                    # train_y = train_y.reshape(train_y.shape[0], )
                     output = model(X_train.float())
                     
-                    # print(output - y_train) 
-                    # print(y_train[0:5]) 
-
-                    #y_train = y_train.reshape(y_train.shape[0], )
-#                    y_train = y_train.values
-
-#                    print(output)
-#                    print(y_test)
-
+                    # print(output.shape)
+                    # print(f'y: {train_y.shape}')
 
                     batch_loss = criterion(output, y_train)
                     # print(batch_loss)
-                    loss_train += batch_loss.item()
+                    total_loss_train += batch_loss.item()
                     
                     # acc = (output.argmax(dim=1) == train_label).sum().item()
 
@@ -172,61 +195,33 @@ class SlugANN(BaseModel):
                     batch_loss.backward()
                     optimizer.step()
                 
-                
 
                 with torch.no_grad():
 
-                    for X_test, y_test in test_dataloader:
+                    for X_val, y_val in val_dataloader:
 
                         # val_label = val_label.to(device)
                         # val_input = val_input.to(device)
                         # val_y = val_y.reshape(val_y.shape[0], )
-                        output = model(X_test.float())
+                        output = model(X_val.float())
 
-                        # y_test = y_test.reshape(-1, 1)
-                        y_test = y_test.reshape(y_test.shape[0], 1)
-                        #y_test = y_test.values
-
-                        batch_loss = criterion(output, y_test)
-                        loss_test += batch_loss.item()
+                        batch_loss = criterion(output, y_val)
+                        total_loss_val += batch_loss.item()
                         
                         # acc = (output.argmax(dim=1) == val_label).sum().item()
                         # err = np.round_(mean_squared_error(output, val_y), decimals=2, out=None)
                         #total_acc_val += err
                 
-                accuracy = loss_test
+                val_loss = total_loss_val
                 
-                # print(loss_test)
-                # print(loss_train)
-
-                weighted_score = common.get_weighted_score(loss_train, loss_test, self.pred_class)                
-
-                
-
+                # print(f'val loss {val_loss}')
                 # Add prune mechanism
-                trial.report(weighted_score, epoch_num)
+                trial.report(val_loss, epoch_num)
 
     #            if trial.should_prune():
     #                raise optuna.exceptions.TrialPruned()
 
-        # customlogger.info( self.model_file_name + ': weighted score: %f', weighted_score)
-        return weighted_score
-
-
-
-    def __predict__(self, model):
-
-        X_train_tensor = helper.df_to_tensor(self.X_train)        
-        pred_train = model(X_train_tensor)
-        pred_train = helper.torch_tensor_to_numpy(pred_train)
-        pred_train = pred_train.reshape(pred_train.shape[0], )        
-
-        X_test_tensor = helper.df_to_tensor(self.X_test)
-        pred_test = model(X_test_tensor)
-        pred_test = helper.torch_tensor_to_numpy(pred_test)
-        pred_test = pred_test.reshape(pred_test.shape[0], )        
-
-        return pred_train, pred_test
+        return val_loss
 
 
 
@@ -248,6 +243,7 @@ class SlugANN(BaseModel):
         customlogger.info('slug xgboost: Number of trials: %d', len(study.trials))
                    
         customlogger.info('Best trial: %s', study.best_trial.number)
+        trial = study.best_trial
 
 
         # load model from temp folder
@@ -257,19 +253,12 @@ class SlugANN(BaseModel):
         ### eval the model first
         best_model.eval()
 
-        pred_train, pred_test = self.__predict__(best_model)
-
-        metirc_score_train, metirc_score_test, weighted_score = self.__get_model_score__(pred_train, pred_test)
-
-        self.score = [metirc_score_train, metirc_score_test]
-        customlogger.info('  test r2 score: %s', metirc_score_test)
 
         # save it to permanent folder
-        customlogger.info( self.model_file_name + ': Model saved at %s', self.model_save_path + file_name)
+        customlogger.info('slug ann: Model saved at %s', self.model_save_path + file_name)
         self.__save_model__(best_model, self.model_save_path + file_name)
 
         config.clear_temp_folder(self.temp_path)
-
         return best_model
 
 
@@ -277,47 +266,62 @@ class SlugANN(BaseModel):
     ### perform hyper-parameter search on xgboost model
     def fetch_model(self, retrain = True):
     
-        self.best_fit = self.__discover_model__()
-        self.model = self.best_fit
-                
-        return self.best_fit 
+        if retrain:                
+            self.best_fit = self.__discover_model__()
+        else:
+            self.__load_best_fit__()
+            if self.best_fit is None:
+                customlogger.info("slug ann: no saved models found, please rerun the 'fetch_model' first.")
+                return None
+
+            
+        self.get_model_score()                
+        return self.best_fit    
     
 
 
 
     ### return score on test dataset
-    def load_score(self, score_func=None, persist_pred=True, threshold=None):
+    def get_model_score(self, score_func=None, persist_pred=True):
         
-        if self.model is None:
-            customlogger.info("No trained models found, pls rerun 'fetch_models'")
+        self.__load_best_fit__()
+                        
+        if self.best_fit is None:
+            customlogger.info("xgboost: no saved models found, please rerun the 'fetch_model' first.")
             return None
+        
+        X_train_tensor = helper.df_to_tensor(self.X_train)
+        X__tensor = helper.df_to_tensor(self.X_train)
+        X_test_tensor = helper.df_to_tensor(self.X_test)
 
-        if self.X_train is None:
-            customlogger.info("No train/test dataset found, pls explicity set the parameters.")
-            return None
+        pred_train = self.best_fit(X_train_tensor)
+        pred_train = helper.torch_tensor_to_numpy(pred_train)
+        pred_train = pred_train.reshape(pred_train.shape[0], )
 
-        pred_train, pred_test = self.__predict__(self.model)
-                
+        
+        pred_test = self.best_fit(X_test_tensor)
+        pred_test = helper.torch_tensor_to_numpy(pred_test)
+        pred_test = pred_test.reshape(pred_test.shape[0], )
+        
+
         if persist_pred:
             self.pred_train = pred_train
             self.pred_test = pred_test
-
-        metirc_score_train, metirc_score_test, weighted_score = self.__get_model_score__(pred_train, pred_test)
-
-        if threshold:
-            if metirc_score_test > threshold:
-                self.best_fit = self.model
-                self.score = [metirc_score_train, metirc_score_test]
-            else:
-                self.best_fit = None
-                self.score = None
-        else:
-            self.best_fit = self.model
-            self.score = [metirc_score_train, metirc_score_test]
-
         
-        return self.score
+        
+        if score_func is None:                
+            if self.pred_class == 'regression':
+                metirc_score_train = r2_score(pred_train, self.y_train)
+                metirc_score_test = r2_score(pred_test, self.y_test)
+            else:
+                metirc_score_train = f1_score(pred_train, self.y_train)
+                metirc_score_test = f1_score(pred_test, self.y_test)                
+        else:
+            metirc_score_train = score_func(pred_train, self.y_train)
+            metirc_score_test = score_func(pred_test, self.y_test)            
 
+        self.score = [metirc_score_train, metirc_score_test]
+        return self.score
 
 
           
@@ -340,18 +344,13 @@ class SlugANN(BaseModel):
         return pred_train, pred_test, y_train, self.y_test        
     
         
-
     ### predict 
     def predict(self, df_X):                
         
+        self.__load_best_fit__()        
         if self.best_fit is None:
-            customlogger.info("no model attached as per your selection threshold. Lower the threshold in the 'load_score' function.")  
-            return None        
-        
-        if self.X_train is None:
-            customlogger.info("No train/test dataset found, pls explicity set the parameters.")
+            customlogger.info("xgboost: no saved models found, please rerun the 'fetch_model' first.")            
             return None
-
             
         X_test_tensor = helper.df_to_tensor(df_X)
         pred = self.best_fit(X_test_tensor)
