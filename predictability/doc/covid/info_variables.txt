@@ -1,0 +1,106 @@
+Enclose there are 2 datasets for 2020 and two for 2021.
+A) 159 countries and 52 columns (covid, cause of death, population density, obesity, air quality)
+B) 113 countries and 62 columns ( A +people per household, +smoking_ratios)
+
+Please note that the dataset B) has data from the smoking and household datasets. They are missing some important countries such as Denmark, or Algeria.
+
+
+WHAT I HAVE DONE
+Data were preprocessed (homogenize country names, special characters etc.).
+Then data merged by country and I evaluated how many countries were lost in each step
+because they were not in the new dataset.
+1) remove column if too many NaNs
+2) remove rows with NaNs after merging all data together
+
+
+## HERE ARE THE COLUMNS OF THE DATASET AND DATA REFERENCES
+## https://covid.ourworldindata.org/data/owid-covid-data.csv
+## https://github.com/owid/covid-19-data
+## this are the columns with less than 20% NaNs 
+location
+new_cases_per_million
+new_deaths_per_million
+stringency_index_cov
+population_density_cov
+population_cov
+median_age_cov
+aged_65_older_cov
+aged_70_older_cov
+gdp_per_capita_cov
+cardiovasc_death_rate_cov
+diabetes_prevalence_cov
+life_expectancy_cov
+human_development_index_cov
+
+
+## POPULATION DENSITY
+## https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population_density
+Population
+Area_km2
+Density_km2
+Year_x
+
+
+## CAUSE OF DEATH 2019
+## https://ourworldindata.org/grapher/annual-number-of-deaths-by-cause
+## data are calculated from raw data as: deaths per cause / population * 100
+Meningitis
+Neoplasms
+Fire, heat, and hot substances
+Malaria
+Drowning
+Interpersonal violence
+HIV/AIDS
+Drug use disorders
+Tuberculosis
+Road injuries
+Maternal disorders
+Lower respiratory infections
+Neonatal disorders
+Alcohol use disorders
+Exposure to forces of nature
+Diarrheal diseases
+Environmental heat and cold exposure
+Nutritional deficiencies
+Self-harm
+Conflict and terrorism
+Diabetes mellitus
+Poisonings
+Protein-energy malnutrition
+Cardiovascular diseases
+Chronic kidney disease
+Chronic respiratory diseases
+Cirrhosis and other chronic liver diseases
+Digestive diseases
+Acute hepatitis
+Alzheimer's disease and other dementias
+Parkinson's disease
+Total_death_ratio ### sum of all deaths(year) / population * 100
+
+
+## AIR POLUTION [ug per m3)
+## https://data.oecd.org/air/air-pollution-exposure.htm
+air_polution
+
+
+## OBESITY RATE
+## https://en.wikipedia.org/wiki/List_of_countries_by_obesity_rate
+Obesity_rate
+
+
+## PEOPLE PER HOUSEHOLD only in the 62 column dataset
+## https://en.wikipedia.org/wiki/List_of_countries_by_number_of_households
+Number In Household
+Households
+1 Member
+2-3 Members
+4-5 Members
+6+ Members
+Year  ### year of people per household statistics
+
+
+## SMOKING RATIOS only in the 62 column dataset
+## https://worldpopulationreview.com/country-rankings/smoking-rates-by-country
+smoking_ratio_both_sexes
+smoking_ratio_males
+smoking_ratio_females
