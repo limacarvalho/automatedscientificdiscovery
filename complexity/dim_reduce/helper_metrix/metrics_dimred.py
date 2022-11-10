@@ -2,7 +2,7 @@ from sklearn.manifold import trustworthiness
 import numpy as np
 from scipy.spatial import distance
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-import traceback
+from utils_logger import logger
 
 '''
 - T&C and MRREs try to detect what goes wrong in a given embedding, 
@@ -24,19 +24,26 @@ def fun_kmax(data_high: np.array) -> int:
 
 
 class Metrics:
+    '''
+    collection of functions to asses the quality of reduced dataset.
+    high and low data are compared with a coranking matrix Q:
+    1) distances among datapoints
+    2) ranking of distances (closest is 0, farest is data.shape[0]
+    3) difference between rankings of high and low data
+    4) sum for each difference (for example there are 4 datapoints with a high data rank
+       of 20 and a ranking difference of +10 ranks. so the position x=20,y=30 will be 4.
+    From this matrix we asses some Q ranking specific measures: lcmc, trustworthiness and
+    continuity. and some common measures such as mae, r2 etc.
+    kmax is the number of neighbors to take into account.
+    We use the mae_norm as a measurment.
+    '''
 
-    def __init__(self,
-                 fun_id: str,
-                 data_high: np.array,
-                 data_low: np.array,
-                 kmax: int = None
-                 ):
+    def __init__(self, fun_id: str, data_high: np.array, data_low: np.array, kmax: int=None):
         '''
-
-        :param fun_id: function identifier (only used for error messages)
-        :param data_high: high_dimensional data
-        :param data_low: low dimensional data
-        :param kmax: kmax if customized, else its 5 percent of the number of rows
+        :param fun_id: str, function identifier (only used for error messages)
+        :param data_high: np.array, high_dimensional data
+        :param data_low: np.array, low dimensional data
+        :param kmax: int, max number of neighbors, if customized, else its 5 percent of the number of rows
         '''
         if fun_id:
             self.fun_id = fun_id
@@ -49,14 +56,13 @@ class Metrics:
             self.kmax = kmax
 
 
-
-    def adjust_data_size(self):
+    def adjust_data_size(self) -> int:
         '''
         Coranking matrix Q is very slow for huge datasets.
-        If has more then 3000 rows, every nth row will be selected.
+        If has more then 2000 rows, every nth row will be selected.
         Thereefore it is important to know that the coranking matrix and metrizes
-        for large datasets > 3000 rows are estimates.
-        returns: the number of every which row is selected
+        for large datasets > 2000 rows are estimates.
+        :returns: int, the number of every which row is selected
         '''
         length = self.data_high.shape[0]
         step   = 2000
@@ -65,16 +71,18 @@ class Metrics:
 
 
 
-    def coranking_matrix(self,
-                         data_high: np.array,
-                         data_low: np.array
-                         ) -> (np.array, np.array, np.array):
+    def coranking_matrix(
+         self,
+         data_high: np.array,
+         data_low: np.array
+         ) -> (np.array, np.array, np.array):
         '''
         check if this is licenced!
         Generates a co-ranking matrix and arrays of flat rankings for high and low dimensional data.
-        :param high_data: DataFrame containing the higher dimensional data.
-        :param low_data: DataFrame containing the lower dimensional data.
-        :returns: the co-ranking matrix, flattened rankings of low and high data
+        :param data_high: np.array, containing the higher dimensional data.
+        :param data_low: np.array, containing the lower dimensional data.
+        :returns: (np.array, np.array, np.array), the co-ranking matrix, flattened ranking matrix of
+            low and high data
         '''
         n, m = data_high.shape
         high_distance = distance.squareform(distance.pdist(data_high))
@@ -87,13 +95,11 @@ class Metrics:
         high_ranking_flat = high_ranking.flatten() + 1
         low_ranking_flat  = low_ranking.flatten() + 1
 
-        Q, xedges, yedges = np.histogram2d(high_ranking_flat, # high_ranking.flatten(),
-                                           low_ranking_flat,  # low_ranking.flatten(),
-                                           bins=n)
-        return Q[1:, 1:], high_ranking_flat, low_ranking_flat
+        Q, xedges, yedges = np.histogram2d(high_ranking_flat, low_ranking_flat, bins=n)
+        return Q[1:,1:], high_ranking_flat, low_ranking_flat
 
 
-    def trustworthiness_(self, data_high: np.array, data_low:np.array, kmax: int) -> float:
+    def trustworthiness_(self, data_high: np.array, data_low: np.array, kmax: int) -> float:
         '''
         Quality of dim reduction: parameter
         Expresses to what extent the local structure is retained. eg: false positives
@@ -102,13 +108,17 @@ class Metrics:
         rank in the input space. n_neighbors (default) = 5, we use kmax which is 5 percent of n-rows
         --- INFORMATION ---
         https://scikit-learn.org/stable/modules/generated/sklearn.manifold.trustworthiness.html
+        :param data_high: np.array, containing the higher dimensional data.
+        :param data_low: np.array, containing the lower dimensional data.
+        :param kmax: int, maximum number of neighbors
+        :return: float, trustworthiness value
         '''
         trust = trustworthiness(data_high, data_low, n_neighbors=kmax, metric='euclidean')
         return round(trust, 3)
 
 
-    def lcmc_(self, Q):
-        """
+    def lcmc_(self, Q: np.array) -> float:
+        '''
         The local continuity meta-criteria measures the number of mild
         intrusions and extrusions. This can be thought of as a measure of the
         number of true postives.
@@ -123,12 +133,10 @@ class Metrics:
         lcmc = (K / (1. - n)) + (1. / (n*K)) * summation
         lcmc = 1 / (n*K) * np.sum(li)
 
-        Args:
-            Q: the co-ranking matrix to calculate continuity from
-            k (int): the number of neighbours to use.
-        Returns:
             The LCMC metric for the given K
-        """
+        :param Q: np.array, the co-ranking matrix to calculate continuity from
+        :return: float, lcmc value
+        '''
         n = Q.shape[0]
         li = [Q[k, l] for l in range(self.kmax) for k in range(self.kmax)] # 2 x quicker than loop
         lcmc = round(1 / (n*self.kmax) * np.sum(li), 3)
@@ -137,15 +145,15 @@ class Metrics:
 
     def mean_squared_error_(self, high_data_flat: np.array, low_data_flat: np.array, mse_=True) -> float:
         '''
-        calculates the mean_sqauerd error.
+         calculates the mean_squared error.
         --- INFORMATION ---
         https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html#
-        :param mse: if True: se is returned, if False: rmse is returned
-        :return: mse or rmse
+        :param high_data_flat: np.array, flattened high data
+        :param low_data_flat: np.array, flattened high data
+        :param mse_: bool, if True: se is returned, if False: rmse is returned
+        :return: float, se or mse
         '''
-        mse = mean_squared_error(y_true=high_data_flat,
-                                 y_pred=low_data_flat,
-                                 squared=mse_)
+        mse = mean_squared_error(y_true=high_data_flat, y_pred=low_data_flat, squared=mse_)
         return np.round(mse, 3)
 
 
@@ -154,12 +162,11 @@ class Metrics:
         calculates the mean absolute error
         --- INFORMATION ---
         https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html#
-        :param high_data_flat: flattened high data
-        :param low_data_flat: flattened low data
-        :return: mae
+        :param high_data_flat: np.array, flattened high data
+        :param low_data_flat: np.array, flattened low data
+        :return: float, mae
         '''
-        mae = mean_absolute_error(y_true = high_data_flat,
-                                  y_pred = low_data_flat)
+        mae = mean_absolute_error(y_true = high_data_flat, y_pred = low_data_flat)
         return np.round(mae, 3)
 
 
@@ -168,48 +175,53 @@ class Metrics:
         calculates the r2 score.
          --- INFORMATION ---
         https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html#
-        :return: r2 score
+        :param high_data_flat: np.array, flattened high data
+        :param low_data_flat: np.array, flattened high data
+        :return: float, R2
         '''
         r2 = r2_score(y_true=high_data_flat, y_pred=low_data_flat)
         return np.round(r2, 3)
 
 
-    def empty_array(self):
+    def empty_array(self) -> np.array:
         '''
         empty array for try catch exceptions
-        :return:
+        :return: np.array, empty array with dummy values
         '''
         return np.array([[1, 2], [1, 2]])
 
 
-    def metrix_all(self):
+    def metrix_all(self) -> dict:
         '''
         here we collect several coranking based metrizes and return them in a dictionary.
-        :return:
+        :return: dict, dictionary with Q matrix and loss measurements
         '''
         error_messages = '! errors ' + str(self.fun_id) + ' '
 
+        #nth row for reducing the size of the dataset
         try:
             nth_row = self.adjust_data_size()
         except:
             nth_row = 1
             error_messages = error_messages + 'nth_row '
 
+        # reduce the high_data and low_data size to save time
         try:
             data_high_reduced = self.data_high[::nth_row]
         except:
             data_high_reduced = self.empty_array()
             error_messages = error_messages + 'data_high '
 
-        # kmax based on nth_row, nrows reduced based on shape of reduced dataset
-        kmax_ = int(self.kmax / nth_row)
-        nrows_reduced = data_high_reduced.shape[0]
-
         try:
             data_low_reduced  = self.data_low[::nth_row]
         except:
             data_low_reduced = self.empty_array()
             error_messages = error_messages + 'data_low '
+
+        # kmax adjusted to the nth_row parameter
+        kmax_ = int(self.kmax / nth_row)
+        # nrows of reduced dataset
+        nrows_reduced = data_high_reduced.shape[0]
 
         # trustworthiness
         try:
@@ -249,6 +261,7 @@ class Metrics:
             # mean absolute error, normalized by number of rows, in this way we get
             # a measure between 0...1 which can be compared to the others (R2, trust, continuity...)
             mae_norm = self.mean_absolute_error_(high_data_flat, low_data_flat)
+            # TODO remove print('high', self.data_high.shape, self.data_high.shape[0]**2, 'flat', high_data_flat.shape)
             mae_norm = np.round(1-(mae_norm / nrows_reduced), 3)
         except:
             mae_norm = 0
@@ -264,7 +277,8 @@ class Metrics:
 
         # Print Error messages, we collect the error messages, because when one measure fails we
         # usulaly have several failures, and too many error messages.
-        if len(error_messages) > 10 + len(self.fun_id): print(error_messages)
+        if len(error_messages) > 10 + len(self.fun_id):
+            logger.error(msg=error_messages) # here we dont want the exact description, thats too much information.
 
         dict_results = {'Q': Q, # np.array of coranking matrix
                         'kmax': self.kmax, # kmax
@@ -277,12 +291,7 @@ class Metrics:
         return dict_results
 
 
-
-
-
-
-
-    # other metrizes which are not used above:
+    # other metrizes which are not used:
 
     # MAE
     # try:
