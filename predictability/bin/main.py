@@ -4,24 +4,101 @@ import ray
 import numpy as np
 
 from src.ASD_predictability_utils.utils import get_column_combinations, parallel_pred_step_MLP, \
-    parallel_pred_step_kNN, parallel_refinement_step
-
-# map scoring to possible options
-scoring_dict = {
-    "r2": "r2",
-    "MAPE": "neg_mean_absolute_percentage_error",
-    "neg_mean_absolute_percentage_error": "neg_mean_absolute_percentage_error",
-    "RMSE": "neg_root_mean_squared_error",
-    "neg_root_mean_squared_error": "neg_root_mean_squared_error",
-    "MAE": "neg_mean_absolute_error",
-    "neg_mean_absolute_error": "neg_mean_absolute_error"
-}
+    parallel_pred_step_kNN, refinement_step, parallel_refinement_step, scoring_dict
 
 
 def predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols=None, targets=None,
-                   method="kNN", hidden_layers=None, alphas=None, scoring="r2", scaling=True,
-                   max_iter=10000, n_jobs=-1, verbose=1,  # bayes_optimisation=False,
+                   method="kNN", hidden_layers=None, alphas=None, scoring="r2", scaling="test",
+                   max_iter=10000, n_jobs=-1, verbose=1,
                    random_state_split=1):
+    """
+    The main predictability routine. The routine runs over all column combinations and uses the method `method` to
+    determine the predictability of the `output_cols`-many target columns given the `input_cols`-many input values.
+    Running through the set of all the column combinations is done using Ray.
+    The run's parameters can be modified according to the following list.
+    :param data: pandas DataFrame
+        dataframe containing all the necessary data in its columns.
+    :param input_cols: int
+        The number of input columns for the fit. For a 4-1 fit, input_cols = 4.
+    :param output_cols: int
+        The number of target columns for the fit. For a 4-1 fit, output_cols = 1.
+    :param col_set: list, default=None
+        The (sub-)set of columns that should be considered. Default `None` corresponds to considering all
+        columns (except for `primkey_cols`, if set).
+    :param primkey_cols: list, default=None
+        The subset of columns corresponding to primary keys. These will neither be used as inputs nor outputs.
+    :param targets: list, default=None
+        The subset of columns that should be treated exclusively as targets.
+        `len(targets) >= output_cols`
+    :param method: str, default="kNN"
+        The method used within the predictability routine. Default is kNN (k-nearest-neighbours), possible
+        other choice is MLP (Multi-Layer Perceptron).
+    :param hidden_layers: list, default=[(12,), (50,), (70, 5,)]
+        If method="MLP". Specifies choices for sklearn's `hidden_layer_sizes` during CV fit.
+        If not specified, [(12,), (50,), (70, 5,)] is used.
+    :param alphas: list, default=[0.001, 0.0001, 0.00001]
+        If method="MLP". Specifies choices for sklearn's `alpha` during CV fit.
+        If not specified, [0.001, 0.0001, 0.00001] is used.
+    :param scoring: str
+        Scoring for the CV fit. Choices are (mapping automatically to the respective `sklearn.metrics` metric):
+
+            - "r2": `r2`,
+            - "MAPE": `neg_mean_absolute_percentage_error`,
+            - "neg_mean_absolute_percentage_error": `neg_mean_absolute_percentage_error`,
+            - "RMSE": `neg_root_mean_squared_error`,
+            - "neg_root_mean_squared_error": `neg_root_mean_squared_error`,
+            - "MAE": `neg_mean_absolute_error`,
+            - "neg_mean_absolute_error": `neg_mean_absolute_error`
+
+    :param scaling: str, default="test"
+        Specifies usage of `sklearn.preprocessing`'s `StandardScaler` before fit. Default is "test", can be set to
+        "yes" or "no". If "test", `StandardScaler` becomes part of fitting pipeline and benefit of usage / skipping
+        will be evaluated.
+    :param max_iter: int, default=10000
+        If `method="MLP"`. Specifies maximum number of iterations during fit. Corresponds to `max_iter` within
+        `sklearn.model_selection`'s `GridSearchCV`.
+    :param n_jobs: int, default=-1
+        Specifies number of jobs to run in parallel. Choose -1 to use all processors. Corresponds to `n_jobs` within
+        `sklearn.model_selection`'s `GridSearchCV`.
+    :param verbose: int, default=1
+        Specifies the verbosity level. Corresponds to `verbose` within `sklearn.model_selection`'s `GridSearchCV`.
+    :param random_state_split: int, default=1
+        Specifies shuffling during `sklearn.model_selection`'s `train_test_split`. Set to a specific integer value for
+        reproducibility.
+    :return: dict, dict
+        First dict contains all evaluation metrics, the second one all data (train, test, predict
+        values, GridSearch parameters, CV scores). Both are nested dictionaries, where the outermost keys correspond to
+        the respective combination tuples ("input column 1", ..., "input column `input_cols`", "target column 1", ...,
+        "target column `output_cols`").
+
+        For each combination, the inner dictionaries are then composed of the following keys with the corresponding
+        values:
+
+        metric dict:
+
+            - "TYPE r2",
+            - "TYPE RMSE",
+            - "TYPE RMSE/std",
+            - "TYPE MAPE",
+            - "TYPE rae",
+            - "TYPE dcor"
+
+            for TYPE in ["kNN", "linear", "mean", "pow. law"]
+            (all `None` for "pow. law" if no power law fit performed)
+
+         data dict:
+
+            - "X_train",
+            - "X_test",
+            - "y_train",
+            - "y_test",
+            - "y_test_pred",
+            - "y_test_pred_linear",
+            - "y_test_pred_pl", (if power law fit performed)
+            - "y_test_pred_mean",
+            - "GridSearchParams",
+            - "scores"
+    """
 
     if targets is None:
         targets = []
@@ -29,51 +106,47 @@ def predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols
         primkey_cols = []
     scoring = scoring_dict[scoring]
 
-    # if we want to measure the overall time
+    # to measure the overall time
     start = time.time()
-
-    # initialise the dictionary that is going to save the metrics per tuple
-    metric_dict = {}
-
-    # dict to save x-/y-train/-test and predicted values for subsequent plotting
-    data_dict = {}
 
     # if primary keys are fed in, data columns should not contain these
     data_cols = [col for col in data.columns.to_list() if col not in primkey_cols]
 
-    # if set of columns that should be considered is fed in, use this
+    # if set of columns that should be considered is fed in, use it
     if col_set is not None:
         data_cols = list(set(col_set))
 
-    # get the list of tuples of input and output columns
+    # get the list of possible combination tuples of input and output columns
     data_tuples = get_column_combinations(data_cols, input_cols, output_cols, targets)
 
     # for printing the progress of the analysis
+    # TODO: fix the counting – needs to be adapted for parallel Ray usage
     counter_tuples = 0
 
-    # go through all tuples
+    # initialise lists for results
     metrics_list = []
     datas_list = []
+
+    # put data into ray for speed-up
+    data_id = ray.put(data)
+
+    # go through all tuples
     for curr_tuple in data_tuples:
-        '''
-        if bayes_optimisation:
-             curr_metrics, curr_datas = parallel_pred_step_bayes.remote(data, curr_tuple, input_cols, hidden_layers, alphas, scaling,
-                                                              max_iter, scoring, verbose, n_jobs, counter_tuples, data_tuples,
-                                                              random_state_split)
-         else:
-         '''
         if method == "MLP":
-            curr_metrics, curr_datas = parallel_pred_step_MLP.remote(data, curr_tuple, input_cols, hidden_layers,
+            curr_metrics, curr_datas = parallel_pred_step_MLP.remote(data_id, curr_tuple, input_cols, hidden_layers,
                                                                      alphas,
                                                                      scaling,
                                                                      max_iter, scoring, verbose, n_jobs, counter_tuples,
-                                                                     data_tuples,
+                                                                     len(data_tuples),
                                                                      random_state_split)
         elif method == "kNN":
-            curr_metrics, curr_datas = parallel_pred_step_kNN.remote(data, curr_tuple, input_cols,
+            curr_metrics, curr_datas = parallel_pred_step_kNN.remote(data_id, curr_tuple, input_cols,
                                                                      scaling, scoring, verbose, n_jobs, counter_tuples,
-                                                                     data_tuples,
+                                                                     len(data_tuples),
                                                                      random_state_split)
+        else:
+            print("Unknown method specified. Options are 'kNN' and 'MLP'; or keep unspecified")
+
         metrics_list.append(curr_metrics)
         datas_list.append(curr_datas)
 
@@ -94,17 +167,21 @@ def tuple_selection(all_metrics, n_best=None):
     """
     Routine to select which of the previously analysed combination tuples will be sent into the next step of a refined
     analysis.
-    :param n_best:
-    :param all_metrics: metrics dictionary that was the output of the predictability-run
-    :return:
+    :param all_metrics: dict
+        Metrics dictionary that was the output of a predictability run
+    :param n_best: int
+        Specifies how many combination tuples should be selected according to the `tuple_selection` logic.
+    :return: list
+        List of the `n_best`-many combination tuples that shall be further investigated.
     """
 
+    # first sort predictability results by r2-score of kNN regressor
     metrics_df = pd.DataFrame.from_dict(all_metrics).transpose().sort_values(by="kNN r2", ascending=False)
-    initial_number = len(metrics_df)
 
-    # for first setup, just use best 10%, 20 max – if not set via argument
+    # for first setup, just use best 10%, 20 max – if not explicitly specified via argument n_best
+    initial_number = len(metrics_df)
     if not n_best:
-        limited_number = np.floor(0.1*initial_number)
+        limited_number = np.floor(0.1 * initial_number)
         if limited_number == 0:
             limited_number = 1
         elif limited_number > 20:
@@ -120,37 +197,47 @@ def tuple_selection(all_metrics, n_best=None):
 
 
 def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, time_left_for_this_task=120,
-                          per_run_time_limit=30):
+                          per_run_time_limit=30, use_ray=False):
     """
     Routine to run a refined analysis on the previously obtained best results of the predictability routine
     :param best_tuples:
     :param data_dict:
+    :param n_jobs:
+    :param data_name:
+    :param time_left_for_this_task:
+    :param per_run_time_limit:
+    :param use_ray:
     :return:
     """
 
-    #data_df = pd.DataFrame.from_dict(data_dict).transpose()
-    #data_df = data_df.loc[best_tuples]
+    # data_df = pd.DataFrame.from_dict(data_dict).transpose()
+    # data_df = data_df.loc[best_tuples]
 
     metrics_list = []
     datas_list = []
 
+    # put data into ray for speed-up
+    if use_ray:
+        data_dict_id = ray.put(data_dict)
+
     for curr_tuple in best_tuples:
-        '''curr_metrics, curr_datas = parallel_refinement_step.remote(data_dict=data_dict, curr_tuple=curr_tuple,
-                                                                   data_name=data_name,
-                                                                   time_left_for_this_task=time_left_for_this_task,
-                                                                   per_run_time_limit=per_run_time_limit,
-                                                                   n_jobs=n_jobs)'''
-        curr_metrics, curr_datas = parallel_refinement_step(data_dict=data_dict, curr_tuple=curr_tuple,
-                                                                   data_name=data_name,
-                                                                   time_left_for_this_task=time_left_for_this_task,
-                                                                   per_run_time_limit=per_run_time_limit,
-                                                                   n_jobs=n_jobs)
+        if use_ray:
+            curr_metrics, curr_datas = parallel_refinement_step.remote(data_dict=data_dict_id, curr_tuple=curr_tuple,
+                                                                       data_name=data_name,
+                                                                       time_left_for_this_task=time_left_for_this_task,
+                                                                       per_run_time_limit=per_run_time_limit,
+                                                                       n_jobs=n_jobs)
+        else:
+            curr_metrics, curr_datas = refinement_step(data_dict=data_dict, curr_tuple=curr_tuple, data_name=data_name,
+                                                       time_left_for_this_task=time_left_for_this_task,
+                                                       per_run_time_limit=per_run_time_limit, n_jobs=n_jobs)
         metrics_list.append(curr_metrics)
         datas_list.append(curr_datas)
 
-    # let Ray collect the results
-    #metrics_list = ray.get(metrics_list)
-    #datas_list = ray.get(datas_list)
+    if use_ray:
+        # let Ray collect the results
+        metrics_list = ray.get(metrics_list)
+        datas_list = ray.get(datas_list)
 
     # save results in respective dicts
     refined_metric_dict = dict((key, d[key]) for d in metrics_list for key in d)
@@ -160,6 +247,8 @@ def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, tim
 
 
 if __name__ == "__main__":
+
+    # some command line way for running the predictability routine
 
     # ask for data file
     data_file = input("Which data shall be analysed?")
