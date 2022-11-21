@@ -6,6 +6,7 @@ import numpy as np
 from src.ASD_predictability_utils.utils import get_column_combinations, parallel_pred_step_MLP, \
     parallel_pred_step_kNN, refinement_step, parallel_refinement_step, scoring_dict
 
+from utils_logger import logger
 
 def predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols=None, targets=None,
                    method="kNN", hidden_layers=None, alphas=None, scoring="r2", scaling="test",
@@ -119,7 +120,7 @@ def predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols
     # get the list of possible combination tuples of input and output columns
     data_tuples = get_column_combinations(data_cols, input_cols, output_cols, targets)
 
-    # for printing the progress of the analysis
+    # for logging the progress of the analysis
     # TODO: fix the counting – needs to be adapted for parallel Ray usage
     counter_tuples = 0
 
@@ -145,7 +146,8 @@ def predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols
                                                                      len(data_tuples),
                                                                      random_state_split)
         else:
-            print("Unknown method specified. Options are 'kNN' and 'MLP'; or keep unspecified")
+            logger.error("The specified method '", method, "' is not an allowed option. Allowed options are 'kNN' and "
+                                                           "'MLP'; or keep unspecified.", exc_info=True)
 
         metrics_list.append(curr_metrics)
         datas_list.append(curr_datas)
@@ -158,7 +160,7 @@ def predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols
     metric_dict = dict((key, d[key]) for d in metrics_list for key in d)
     data_dict = dict((key, d[key]) for d in datas_list for key in d)
 
-    print("The whole run took " + str(round(time.time() - start, 2)) + "s.")
+    logger.info("The whole run took " + str(round(time.time() - start, 2)) + "s.")
 
     return metric_dict, data_dict
 

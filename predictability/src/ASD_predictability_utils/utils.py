@@ -24,6 +24,8 @@ from autosklearn.metrics import r2, mean_squared_error as mse
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from utils_logger import logger
+
 # dict for mapping the scoring input strings to the respective sklearn options
 scoring_dict = {
     "r2": "r2",
@@ -65,9 +67,22 @@ def get_column_combinations(all_cols, inputs, outputs, targets=[], amount_only=F
     """
 
     # assertion to check that the numbers can be matched
-    assert inputs + outputs <= len(all_cols), "More input and output columns specified than there are columns."
+    #
+    # inputs & outputs vs. given columns
+    try:
+        assert inputs + outputs <= len(all_cols)
+    except AssertionError as err:
+        logger.error("Assertion failed: More input and output columns specified than there are columns.", exc_info=True)
+        raise err
+    #
+    # outputs vs. targets
     if targets:
-        assert outputs <= len(targets), "More output columns specified than there are in the targets list."
+        try:
+            assert outputs <= len(targets)
+        except AssertionError as err:
+            logger.error("Assertion failed: More output columns specified than there are in the targets list.",
+                         exc_info=True)
+            raise err
 
     # get the combination tuples
     if not amount_only:
@@ -243,7 +258,7 @@ def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, 
     # to measure the current tuple's analysis time
     curr_start = time.time()
 
-    print("Analysing " + str(curr_tuple) + " now.")
+    logger.info("Analysing " + str(curr_tuple) + " now.")
 
     # get current inputs and outputs
     curr_inputs = list(curr_tuple[:input_cols])
@@ -376,8 +391,9 @@ def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, 
                            )
     else:
         if scaling != "test":
-            print("Specified usage of scaling ('", scaling, "') is not an allowed option ('yes', 'no', 'test'). "
-                                                            "Using 'test' now.")
+            logger.error("The specified usage of scaling ('", scaling, "') is not an allowed option. Allowed options "
+                                                                       "are 'yes', 'no', 'test'. Using 'test' now.",
+                         exc_info=True)
 
         pipe = Pipeline([
             ('scaler', StandardScaler()),
@@ -407,6 +423,10 @@ def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, 
     curr_mlp_mape = mean_absolute_percentage_error(curr_y_test, curr_y_test_pred)
     curr_mlp_rae = rae(curr_y_test, curr_y_test_pred)
     curr_mlp_dcor = dcor.distance_correlation(curr_y_test, curr_y_test_pred)
+
+    # log results
+    logger.info(f'{curr_tuple}: \n Train R2 score: {r2_score(curr_y_train, clf.predict(curr_X_train))} \n '
+                f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
 
     # save metrics into dict
     curr_metric_dict = {curr_tuple: {"MLP r2": curr_mlp_r2, "linear r2": curr_lin_r2,
@@ -444,10 +464,10 @@ def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, 
                                        }
                           }
 
-    print("The analysis of this tuple took " + str(round(time.time() - curr_start, 2)) + "s.")
-    # for printing the progress of the analysis
+    logger.info("The analysis of this tuple took " + str(round(time.time() - curr_start, 2)) + "s.")
+    # for logging the progress of the analysis
     counter_tuples += 1
-    print("-----" + str(counter_tuples) + "/" + str(len_data_tuples) + "-----")
+    logger.info("-----" + str(counter_tuples) + "/" + str(len_data_tuples) + "-----")
 
     return curr_metric_dict, curr_data_dict
 
@@ -525,7 +545,7 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
     # if we want to measure the current tuple's analysis time
     curr_start = time.time()
 
-    print("Analysing " + str(curr_tuple) + " now.")
+    logger.info("Analysing " + str(curr_tuple) + " now.")
 
     # get current inputs and outputs
     curr_inputs = list(curr_tuple[:input_cols])
@@ -605,7 +625,6 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
 
     #
     # kNN regression
-    print("start kNN routine")
     #
     # list of k neighbour values for GridSearch
     k_list = [3, 8, 15]
@@ -637,7 +656,6 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
                         'knn__n_neighbors': k_list}]
         clf = GridSearchCV(pipe,
                            param_grid=pipe_params,
-
                            cv=3,
                            scoring=scoring,
                            return_train_score=True,
@@ -654,7 +672,6 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
                        {'knn__n_neighbors': k_list}]
         clf = GridSearchCV(pipe,
                            param_grid=pipe_params,
-
                            cv=3,
                            scoring=scoring,
                            return_train_score=True,
@@ -672,6 +689,10 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
     curr_knn_mape = mean_absolute_percentage_error(curr_y_test, curr_y_test_pred)
     curr_knn_rae = rae(curr_y_test, curr_y_test_pred)
     curr_knn_dcor = dcor.distance_correlation(curr_y_test, curr_y_test_pred)
+
+    # log results
+    logger.info(f'{curr_tuple}: \n Train R2 score: {r2_score(curr_y_train, clf.predict(curr_X_train))} \n '
+                f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
 
     # save metrics into dict
     curr_metric_dict = {curr_tuple:
@@ -709,10 +730,10 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
                                        }
                           }
 
-    print("The analysis of this tuple took " + str(round(time.time() - curr_start, 2)) + "s.")
-    # for printing the progress of the analysis
+    logger.info("The analysis of this tuple took " + str(round(time.time() - curr_start, 2)) + "s.")
+    # for logging the progress of the analysis
     counter_tuples += 1
-    print("-----" + str(counter_tuples) + "/" + str(len_data_tuples) + "-----")
+    logger.info("-----" + str(counter_tuples) + "/" + str(len_data_tuples) + "-----")
 
     return curr_metric_dict, curr_data_dict
 
@@ -757,8 +778,8 @@ def refinement_step(data_dict, curr_tuple,
 
     curr_y_train_pred = automl.predict(curr_X_train)
     curr_y_test_pred = automl.predict(curr_X_test)
-    print(f'{curr_tuple}: \n Train R2 score: {r2_score(curr_y_train, curr_y_train_pred)} \n '
-          f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
+    logger.info(f'{curr_tuple}: \n Train R2 score: {r2_score(curr_y_train, curr_y_train_pred)} \n '
+                f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
 
     # metrics
     curr_knn_r2 = r2_score(curr_y_test, curr_y_test_pred)
@@ -849,7 +870,8 @@ def plot_result(input_datas_dict, plot_comb, plot_along=[]):
             # even if power law is chosen as additional method, some tuples may not have been fitted via power law
             # due to non-positive values:
             if (comparison == "pl") and ("y_test_pred_pl" not in input_datas_dict[plot_comb].keys()):
-                print("no power law fit performed, some columns did not include positive values only")
+                logger.error("no power law fit performed, some columns did not include positive values only",
+                             exc_info=True)
             else:
                 # load data, compute error
                 results_df["pred_" + comparison] = input_datas_dict[plot_comb]["y_test_pred_" + comparison]
