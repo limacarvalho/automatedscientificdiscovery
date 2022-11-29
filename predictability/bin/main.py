@@ -4,9 +4,11 @@ import ray
 import numpy as np
 
 from src.ASD_predictability_utils.utils import get_column_combinations, parallel_pred_step_MLP, \
-    parallel_pred_step_kNN, refinement_step, parallel_refinement_step, scoring_dict
+    parallel_pred_step_kNN, refinement_step_autosklearn, parallel_refinement_step_autosklearn, scoring_dict, \
+    refinement_step_hyperopt, parallel_refinement_step_hyperopt, refinement_step_tpot, parallel_refinement_step_tpot
 
 from utils_logger import logger
+
 
 def predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols=None, targets=None,
                    method="kNN", hidden_layers=None, alphas=None, scoring="r2", scaling="test",
@@ -198,8 +200,25 @@ def tuple_selection(all_metrics, n_best=None):
     return best_tuples
 
 
+'''
+@ray.remote(num_returns=2)
+def main_parallel_refinement_step(data_dict, curr_tuple,
+                                  data_name,
+                                  time_left_for_this_task,
+                                  per_run_time_limit,
+                                  n_jobs):
+    metr, dat = parallel_refinement_step.remote(data_dict, curr_tuple,
+                                                data_name,
+                                                time_left_for_this_task,
+                                                per_run_time_limit,
+                                                n_jobs)
+    return metr, dat
+'''
+
+
+# @ray.remote(num_returns=2)
 def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, time_left_for_this_task=120,
-                          per_run_time_limit=30, use_ray=False):
+                          per_run_time_limit=30, use_ray=False, package="hyperopt"):
     """
     Routine to run a refined analysis on the previously obtained best results of the predictability routine
     :param best_tuples:
@@ -209,6 +228,7 @@ def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, tim
     :param time_left_for_this_task:
     :param per_run_time_limit:
     :param use_ray:
+    :param package:
     :return:
     """
 
@@ -224,15 +244,56 @@ def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, tim
 
     for curr_tuple in best_tuples:
         if use_ray:
-            curr_metrics, curr_datas = parallel_refinement_step.remote(data_dict=data_dict_id, curr_tuple=curr_tuple,
+            if package == "autosklearn":
+                curr_metrics, curr_datas = parallel_refinement_step_autosklearn.remote(data_dict=data_dict_id,
+                                                                                       curr_tuple=curr_tuple,
+                                                                                       data_name=data_name,
+                                                                                       time_left_for_this_task=time_left_for_this_task,
+                                                                                       per_run_time_limit=per_run_time_limit,
+                                                                                       n_jobs=n_jobs)
+                # curr_metrics = ray.get(curr_metrics)
+                # curr_datas = ray.get(curr_datas)
+            elif package == "hyperopt":
+                curr_metrics, curr_datas = parallel_refinement_step_hyperopt.remote(data_dict=data_dict_id,
+                                                                                    curr_tuple=curr_tuple,
+                                                                                    time_left_for_this_task=time_left_for_this_task,
+                                                                                    per_run_time_limit=per_run_time_limit,
+                                                                                    # n_jobs=n_jobs
+                                                                                    )
+            elif package == "tpot":
+                curr_metrics, curr_datas = parallel_refinement_step_tpot.remote(data_dict=data_dict_id,
+                                                                                curr_tuple=curr_tuple,
+                                                                                time_left_for_this_task=time_left_for_this_task,
+                                                                                per_run_time_limit=per_run_time_limit,
+                                                                                n_jobs=n_jobs
+                                                                                )
+            else:
+                logger.error("The specified package '", package, "' is not an allowed option. Allowed options are "
+                                                                 "'autosklearn' or 'hyperopt'.", exc_info=True)
+        else:
+            if package == "autosklearn":
+                curr_metrics, curr_datas = refinement_step_autosklearn(data_dict=data_dict, curr_tuple=curr_tuple,
                                                                        data_name=data_name,
                                                                        time_left_for_this_task=time_left_for_this_task,
                                                                        per_run_time_limit=per_run_time_limit,
                                                                        n_jobs=n_jobs)
-        else:
-            curr_metrics, curr_datas = refinement_step(data_dict=data_dict, curr_tuple=curr_tuple, data_name=data_name,
-                                                       time_left_for_this_task=time_left_for_this_task,
-                                                       per_run_time_limit=per_run_time_limit, n_jobs=n_jobs)
+            elif package == "hyperopt":
+                curr_metrics, curr_datas = refinement_step_hyperopt(data_dict=data_dict,
+                                                                    curr_tuple=curr_tuple,
+                                                                    time_left_for_this_task=time_left_for_this_task,
+                                                                    per_run_time_limit=per_run_time_limit,
+                                                                    # n_jobs=n_jobs
+                                                                    )
+            elif package == "tpot":
+                curr_metrics, curr_datas = refinement_step_tpot(data_dict=data_dict,
+                                                                curr_tuple=curr_tuple,
+                                                                time_left_for_this_task=time_left_for_this_task,
+                                                                per_run_time_limit=per_run_time_limit,
+                                                                n_jobs=n_jobs
+                                                                )
+            else:
+                logger.error("The specified package '", package, "' is not an allowed option. Allowed options are "
+                                                                 "'autosklearn', 'hyperopt' or 'tpot'.", exc_info=True)
         metrics_list.append(curr_metrics)
         datas_list.append(curr_datas)
 
@@ -333,3 +394,13 @@ if __name__ == "__main__":
                                     random_state_split=1)
     for key in metrics.keys():
         print(f'{key}: r2-score = {metrics[key]["kNN r2"]}')
+
+    best_tuples = tuple_selection(metrics, n_best=10)
+
+    ref_metrics, ref_datas = refine_predictability(
+        best_tuples, datas, n_jobs=-1, data_name=None, time_left_for_this_task=60,
+        per_run_time_limit=30, use_ray=True
+    )
+    for key in ref_metrics.keys():
+        print(
+            f'{key}: r2-score refined = {ref_metrics[key]["kNN r2"]} \t r2_score initially = {metrics[key]["kNN r2"]}')

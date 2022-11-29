@@ -21,10 +21,20 @@ import autosklearn.regression
 from autosklearn.ensembles import SingleBest
 from autosklearn.metrics import r2, mean_squared_error as mse
 
+from hpsklearn import HyperoptEstimator
+from hpsklearn import any_regressor
+from hpsklearn import any_preprocessing
+from hyperopt import tpe
+from hpsklearn.components import standard_scaler, min_max_scaler, normalizer
+
+from tpot import TPOTRegressor
+
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from utils_logger import logger
+
+from src.ASD_predictability_utils.tpot_config import regressor_config_dict_ASD
 
 # dict for mapping the scoring input strings to the respective sklearn options
 scoring_dict = {
@@ -691,6 +701,7 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
     curr_knn_dcor = dcor.distance_correlation(curr_y_test, curr_y_test_pred)
 
     # log results
+    # TODO: scores are not printed to logfile!
     logger.info(f'{curr_tuple}: \n Train R2 score: {r2_score(curr_y_train, clf.predict(curr_X_train))} \n '
                 f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
 
@@ -739,9 +750,9 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
 
 
 # @ray.remote(num_returns=2)
-def refinement_step(data_dict, curr_tuple,
-                    data_name, time_left_for_this_task,
-                    per_run_time_limit, n_jobs):
+def refinement_step_autosklearn(data_dict, curr_tuple,
+                                data_name, time_left_for_this_task,
+                                per_run_time_limit, n_jobs):
     # get current inputs and outputs
     # curr_inputs = list(curr_tuple[:input_cols])
     # curr_outputs = list(curr_tuple[input_cols:])
@@ -820,12 +831,201 @@ def refinement_step(data_dict, curr_tuple,
 
 
 @ray.remote(num_returns=2)
-def parallel_refinement_step(data_dict, curr_tuple,
-                             data_name, time_left_for_this_task,
-                             per_run_time_limit, n_jobs):
-    curr_metric_dict, curr_data_dict = refinement_step(data_dict=data_dict, curr_tuple=curr_tuple, data_name=data_name,
-                                                       time_left_for_this_task=time_left_for_this_task,
-                                                       per_run_time_limit=per_run_time_limit, n_jobs=n_jobs)
+def parallel_refinement_step_autosklearn(data_dict, curr_tuple,
+                                         data_name, time_left_for_this_task,
+                                         per_run_time_limit, n_jobs):
+    curr_metric_dict, curr_data_dict = refinement_step_autosklearn(data_dict=data_dict, curr_tuple=curr_tuple,
+                                                                   data_name=data_name,
+                                                                   time_left_for_this_task=time_left_for_this_task,
+                                                                   per_run_time_limit=per_run_time_limit, n_jobs=n_jobs)
+
+    return curr_metric_dict, curr_data_dict
+
+
+def refinement_step_hyperopt(data_dict,
+                             curr_tuple,
+                             time_left_for_this_task,
+                             per_run_time_limit,
+                             # n_jobs
+                             ):
+    # get current inputs and outputs
+    # curr_inputs = list(curr_tuple[:input_cols])
+    # curr_outputs = list(curr_tuple[input_cols:])
+
+    # reduce data to current columns and drop NAs
+    # curr_data = data[curr_inputs + curr_outputs].dropna()
+
+    # do data preparations and train-test-split
+    curr_X_train, curr_X_test, curr_y_train, curr_y_test = data_dict[curr_tuple]["X_train"], \
+                                                           data_dict[curr_tuple]["X_test"], \
+                                                           data_dict[curr_tuple]["y_train"], \
+                                                           data_dict[curr_tuple]["y_test"].ravel()
+
+    hypopt = HyperoptEstimator(regressor=any_regressor('reg'),
+                               preprocessing=[standard_scaler("standard"),  # min_max_scaler("minmax"),
+                                              # normalizer("normalizer")
+                                              ],
+                               # preprocessing=any_preprocessing('pre'),
+                               loss_fn=mean_squared_error,
+                               algo=tpe.suggest,
+                               max_evals=50,
+                               trial_timeout=time_left_for_this_task,
+                               # TODO: check whether time_left_for_this_task makes sense here
+                               # n_jobs=n_jobs # BUT should be a parameter according to https://github.com/hyperopt/hyperopt-sklearn/blob/a84603c5232e01a9edda961d9f8aba6ea0f3038a/hpsklearn/estimator/estimator.py
+                               )
+    hypopt.fit(curr_X_train, curr_y_train, random_state=np.random.default_rng(1))
+
+    curr_y_train_pred = hypopt.predict(curr_X_train)
+    curr_y_test_pred = hypopt.predict(curr_X_test)
+    logger.info(f'{curr_tuple}: \n Train R2 score: {r2_score(curr_y_train, curr_y_train_pred)} \n '
+                f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
+
+    # metrics
+    curr_knn_r2 = r2_score(curr_y_test, curr_y_test_pred)
+    curr_knn_rmse = mean_squared_error(curr_y_test, curr_y_test_pred, squared=False)
+    curr_knn_mape = mean_absolute_percentage_error(curr_y_test, curr_y_test_pred)
+    curr_knn_rae = rae(curr_y_test, curr_y_test_pred)
+    curr_knn_dcor = dcor.distance_correlation(curr_y_test, curr_y_test_pred)
+
+    # data / info about ensemble models
+    '''
+    ensemble_models_dict = automl.show_models()
+    curr_reduced_ensemble_models_dict = {}
+    for key in ensemble_models_dict.keys():
+        rank = ensemble_models_dict[key]["rank"]
+        ensemble_weight = ensemble_models_dict[key]["ensemble_weight"]
+        sklearn_regressor = ensemble_models_dict[key]["sklearn_regressor"]
+        curr_reduced_ensemble_models_dict[key] = {"rank": rank, "ensemble_weight": ensemble_weight,
+                                                  "sklearn_regressor": sklearn_regressor}
+    '''
+
+    # save metrics into dict
+    curr_metric_dict = {curr_tuple: {"r2": curr_knn_r2,
+                                     "RMSE": curr_knn_rmse,
+                                     "MAPE": curr_knn_mape,
+                                     "rae": curr_knn_rae,
+                                     "dcor": curr_knn_dcor
+                                     }
+                        }
+    curr_data_dict = {curr_tuple: {"ensemble": hypopt.best_model(),
+                                   # "ensemble_models": pd.DataFrame.from_dict(curr_reduced_ensemble_models_dict).transpose(),
+                                   "X_train": curr_X_train, "X_test": curr_X_test,
+                                   "y_train": curr_y_train, "y_test": curr_y_test,
+                                   "y_train_pred": curr_y_train_pred, "y_test_pred": curr_y_test_pred
+                                   }
+                      }
+
+    return curr_metric_dict, curr_data_dict
+
+
+@ray.remote(num_returns=2)
+def parallel_refinement_step_hyperopt(data_dict,
+                                      curr_tuple,
+                                      time_left_for_this_task,
+                                      per_run_time_limit,
+                                      # , n_jobs
+                                      ):
+    curr_metric_dict, curr_data_dict = refinement_step_hyperopt(data_dict=data_dict,
+                                                                curr_tuple=curr_tuple,
+                                                                time_left_for_this_task=time_left_for_this_task,
+                                                                per_run_time_limit=per_run_time_limit,
+                                                                # n_jobs=n_jobs
+                                                                )
+
+    return curr_metric_dict, curr_data_dict
+
+
+def refinement_step_tpot(data_dict,
+                         curr_tuple,
+                         time_left_for_this_task,
+                         per_run_time_limit,
+                         n_jobs
+                         ):
+    # get current inputs and outputs
+    # curr_inputs = list(curr_tuple[:input_cols])
+    # curr_outputs = list(curr_tuple[input_cols:])
+
+    # reduce data to current columns and drop NAs
+    # curr_data = data[curr_inputs + curr_outputs].dropna()
+
+    # do data preparations and train-test-split
+    curr_X_train, curr_X_test, curr_y_train, curr_y_test = data_dict[curr_tuple]["X_train"], \
+                                                           data_dict[curr_tuple]["X_test"], \
+                                                           data_dict[curr_tuple]["y_train"], \
+                                                           data_dict[curr_tuple]["y_test"].ravel()
+
+    tpot = TPOTRegressor(generations=100,
+                         population_size=100,
+                         # preprocessing=any_preprocessing('pre'),
+                         scoring="neg_mean_squared_error",
+                         config_dict=regressor_config_dict_ASD,  # "TPOT light",
+                         verbosity=1,
+                         max_time_mins=np.ceil(time_left_for_this_task / 60),
+                         # TODO: check whether time_left_for_this_task makes sense here
+                         # early_stop=3,
+                         n_jobs=n_jobs
+                         # BUT should be a parameter according to https://github.com/hyperopt/hyperopt-sklearn/blob/a84603c5232e01a9edda961d9f8aba6ea0f3038a/hpsklearn/estimator/estimator.py
+                         )
+    tpot.fit(curr_X_train, curr_y_train)
+
+    curr_y_train_pred = tpot.predict(curr_X_train)
+    curr_y_test_pred = tpot.predict(curr_X_test)
+    logger.info(f'{curr_tuple}: \n Train R2 score: {r2_score(curr_y_train, curr_y_train_pred)} \n '
+                f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
+
+    # metrics
+    curr_knn_r2 = r2_score(curr_y_test, curr_y_test_pred)
+    curr_knn_rmse = mean_squared_error(curr_y_test, curr_y_test_pred, squared=False)
+    curr_knn_mape = mean_absolute_percentage_error(curr_y_test, curr_y_test_pred)
+    curr_knn_rae = rae(curr_y_test, curr_y_test_pred)
+    curr_knn_dcor = dcor.distance_correlation(curr_y_test, curr_y_test_pred)
+
+    # data / info about ensemble models
+    '''
+    ensemble_models_dict = automl.show_models()
+    curr_reduced_ensemble_models_dict = {}
+    for key in ensemble_models_dict.keys():
+        rank = ensemble_models_dict[key]["rank"]
+        ensemble_weight = ensemble_models_dict[key]["ensemble_weight"]
+        sklearn_regressor = ensemble_models_dict[key]["sklearn_regressor"]
+        curr_reduced_ensemble_models_dict[key] = {"rank": rank, "ensemble_weight": ensemble_weight,
+                                                  "sklearn_regressor": sklearn_regressor}
+    '''
+
+    # save metrics into dict
+    curr_metric_dict = {curr_tuple: {"r2": curr_knn_r2,
+                                     "RMSE": curr_knn_rmse,
+                                     "MAPE": curr_knn_mape,
+                                     "rae": curr_knn_rae,
+                                     "dcor": curr_knn_dcor
+                                     }
+                        }
+    curr_data_dict = {curr_tuple: {"ensemble": tpot.fitted_pipeline_,
+                                   "pareto_pipelines": tpot.pareto_front_fitted_pipelines_,
+                                   "all_individuals": tpot.evaluated_individuals_,
+                                   # "ensemble_models": pd.DataFrame.from_dict(curr_reduced_ensemble_models_dict).transpose(),
+                                   "X_train": curr_X_train, "X_test": curr_X_test,
+                                   "y_train": curr_y_train, "y_test": curr_y_test,
+                                   "y_train_pred": curr_y_train_pred, "y_test_pred": curr_y_test_pred
+                                   }
+                      }
+
+    return curr_metric_dict, curr_data_dict
+
+
+@ray.remote(num_returns=2)
+def parallel_refinement_step_tpot(data_dict,
+                                  curr_tuple,
+                                  time_left_for_this_task,
+                                  per_run_time_limit,
+                                  n_jobs
+                                  ):
+    curr_metric_dict, curr_data_dict = refinement_step_tpot(data_dict=data_dict,
+                                                            curr_tuple=curr_tuple,
+                                                            time_left_for_this_task=time_left_for_this_task,
+                                                            per_run_time_limit=per_run_time_limit,
+                                                            n_jobs=n_jobs
+                                                            )
 
     return curr_metric_dict, curr_data_dict
 
