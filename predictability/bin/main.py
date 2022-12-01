@@ -69,7 +69,7 @@ def predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols
         Specifies shuffling during `sklearn.model_selection`'s `train_test_split`. Set to a specific integer value for
         reproducibility.
     :return: dict, dict
-        First dict contains all evaluation metrics, the second one all data (train, test, predict
+        First dict contains all evaluation metrics, the second one all data (train, test, predicted
         values, GridSearch parameters, CV scores). Both are nested dictionaries, where the outermost keys correspond to
         the respective combination tuples ("input column 1", ..., "input column `input_cols`", "target column 1", ...,
         "target column `output_cols`").
@@ -79,28 +79,29 @@ def predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols
 
         metric dict:
 
-            - "TYPE r2",
-            - "TYPE RMSE",
-            - "TYPE RMSE/std",
-            - "TYPE MAPE",
-            - "TYPE rae",
-            - "TYPE dcor"
+            - "TYPE r2", float
+            - "TYPE RMSE", float
+            - "TYPE RMSE/std", float
+            - "TYPE MAPE", float
+            - "TYPE rae", float
+            - "TYPE dcor", float
 
             for TYPE in ["kNN", "linear", "mean", "pow. law"]
-            (all `None` for "pow. law" if no power law fit performed)
+            (all `None` for "pow. law" if no power law fit performed; included for uniform outputs.)
 
-         data dict:
+        data dict:
 
-            - "X_train",
-            - "X_test",
-            - "y_train",
-            - "y_test",
-            - "y_test_pred",
-            - "y_test_pred_linear",
-            - "y_test_pred_pl", (if power law fit performed)
-            - "y_test_pred_mean",
-            - "GridSearchParams",
-            - "scores"
+            - "X_train", numpy.ndarray of shape (train_data_points, input_cols)
+            - "X_test", numpy.ndarray of shape (test_data_points, input_cols)
+            - "y_train", numpy.ndarray of shape (train_data_points, output_cols)
+            - "y_test", numpy.ndarray of shape (test_data_points, output_cols)
+            - "y_train_pred", numpy.ndarray of shape (train_data_points, output_cols)
+            - "y_test_pred", numpy.ndarray of shape (test_data_points, output_cols)
+            - "y_test_pred_linear", numpy.ndarray of shape (test_data_points, output_cols)
+            - "y_test_pred_mean", numpy.ndarray of shape (test_data_points, output_cols)
+            - "y_test_pred_pl", numpy.ndarray of shape (test_data_points, output_cols), (if power law fit performed)
+            - "GridSearchParams", dict corresponding to `best_params_'-dict of `sklearn.model_selection`'s `GridSearchCV'
+            - "scores", dict corresponding to `cv_results_'-dict of `sklearn.model_selection`'s `GridSearchCV'
     """
 
     if targets is None:
@@ -220,7 +221,7 @@ def main_parallel_refinement_step(data_dict, curr_tuple,
 def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, time_left_for_this_task=120,
                           per_run_time_limit=30, use_ray=False, package="hyperopt"):
     """
-    Routine to run a refined analysis on the previously obtained best results of the predictability routine
+
     :param best_tuples:
     :param data_dict:
     :param n_jobs:
@@ -229,7 +230,36 @@ def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, tim
     :param per_run_time_limit:
     :param use_ray:
     :param package:
-    :return:
+    :return:  dict, dict
+        First dict contains all evaluation metrics, the second one all data (train, test, predicted
+        values, `TPOT' / `sklearn' `Pipeline' etc. ). Both are nested dictionaries, where the outermost keys correspond
+        to the respective combination tuples ("input column 1", ..., "input column `input_cols`", "target column 1",
+        ..., "target column `output_cols`").
+
+        For each combination, the inner dictionaries are then composed of the following keys with the corresponding
+        values:
+
+        metric dict:
+
+            - "r2", float
+            - "RMSE", float
+            - "MAPE", float
+            - "rae", float
+            - "dcor", float
+
+        data dict:
+
+            - "X_train", numpy.ndarray of shape (train_data_points, input_cols)
+            - "X_test", numpy.ndarray of shape (test_data_points, input_cols)
+            - "y_train", numpy.ndarray of shape (train_data_points, output_cols)
+            - "y_test", numpy.ndarray of shape (test_data_points, output_cols)
+            - "y_train_pred", numpy.ndarray of shape (train_data_points, output_cols)
+            - "y_test_pred", numpy.ndarray of shape (test_data_points, output_cols)
+            - "ensemble", `sklearn' `Pipeline' object
+            - "pareto_pipelines", dict directly from `TPOT': 'the key is the string representation of the pipeline and
+            the value is the corresponding pipeline fitted on the entire training dataset'
+            - "all_individuals", dict directly from `TPOT': 'the key is the string representation of the pipeline and
+            the value is a tuple containing (# of steps in pipeline, accuracy metric for the pipeline)'
     """
 
     # data_df = pd.DataFrame.from_dict(data_dict).transpose()
