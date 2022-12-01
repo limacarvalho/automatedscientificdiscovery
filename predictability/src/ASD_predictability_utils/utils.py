@@ -425,6 +425,7 @@ def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, 
 
     clf.fit(curr_X_train, curr_y_train)
     curr_best_params = clf.best_params_
+    curr_y_train_pred = clf.predict(curr_X_train)
     curr_y_test_pred = clf.predict(curr_X_test)
 
     # metrics
@@ -462,6 +463,7 @@ def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, 
                                        "y_train": curr_y_train, "y_test": curr_y_test,
                                        "y_test_pred": curr_y_test_pred, "y_test_pred_linear": curr_y_test_pred_linear,
                                        "y_test_pred_pl": curr_y_test_pred_pl, "y_test_pred_mean": curr_y_test_pred_mean,
+                                       "y_train_pred": curr_y_train_pred,
                                        "GridSearchParams": curr_best_params, "scores": clf.cv_results_
                                        }
                           }
@@ -470,6 +472,7 @@ def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, 
                                        "y_train": curr_y_train, "y_test": curr_y_test,
                                        "y_test_pred": curr_y_test_pred, "y_test_pred_linear": curr_y_test_pred_linear,
                                        "y_test_pred_mean": curr_y_test_pred_mean,
+                                       "y_train_pred": curr_y_train_pred,
                                        "GridSearchParams": curr_best_params, "scores": clf.cv_results_
                                        }
                           }
@@ -571,13 +574,13 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
     # compute standard deviation of curr_y_test for later scaling of the RMSE
     curr_y_test_std = np.std(curr_y_test)
 
-    curr_y_train = curr_y_train.ravel()
+    # curr_y_train = curr_y_train.ravel()
 
     #
     # y-mean "prediction"
     #
-    curr_y_train_mean = np.mean(curr_y_train)
-    curr_y_test_pred_mean = curr_y_train_mean * np.ones(len(curr_X_test))
+    curr_y_train_mean = np.mean(curr_y_train, axis=0)
+    curr_y_test_pred_mean = np.outer(np.ones(len(curr_X_test)), curr_y_train_mean)
     # metrics
     curr_mean_r2 = r2_score(curr_y_test, curr_y_test_pred_mean)
     curr_mean_rmse = mean_squared_error(curr_y_test, curr_y_test_pred_mean, squared=False)
@@ -691,6 +694,7 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
 
     clf.fit(curr_X_train, curr_y_train)
     curr_best_params = clf.best_params_
+    curr_y_train_pred = clf.predict(curr_X_train)
     curr_y_test_pred = clf.predict(curr_X_test)
 
     # metrics
@@ -727,14 +731,16 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
     if do_pl_fit:
         curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
                                        "y_train": curr_y_train, "y_test": curr_y_test,
+                                       "y_train_pred": curr_y_train_pred,
                                        "y_test_pred": curr_y_test_pred, "y_test_pred_linear": curr_y_test_pred_linear,
-                                       "y_test_pred_pl": curr_y_test_pred_pl, "y_test_pred_mean": curr_y_test_pred_mean,
+                                       "y_test_pred_mean": curr_y_test_pred_mean, "y_test_pred_pl": curr_y_test_pred_pl,
                                        "GridSearchParams": curr_best_params, "scores": clf.cv_results_
                                        }
                           }
     else:
         curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
                                        "y_train": curr_y_train, "y_test": curr_y_test,
+                                       "y_train_pred": curr_y_train_pred,
                                        "y_test_pred": curr_y_test_pred, "y_test_pred_linear": curr_y_test_pred_linear,
                                        "y_test_pred_mean": curr_y_test_pred_mean,
                                        "GridSearchParams": curr_best_params, "scores": clf.cv_results_
@@ -954,6 +960,11 @@ def refinement_step_tpot(data_dict,
                                                            data_dict[curr_tuple]["y_train"], \
                                                            data_dict[curr_tuple]["y_test"].ravel()
 
+    print("X_train", curr_X_train.shape)
+    print("X_test", curr_X_test.shape)
+    print("y_train", curr_y_train.shape)
+    print("y_test", curr_y_test.shape)
+
     tpot = TPOTRegressor(generations=100,
                          population_size=100,
                          # preprocessing=any_preprocessing('pre'),
@@ -1000,13 +1011,12 @@ def refinement_step_tpot(data_dict,
                                      "dcor": curr_knn_dcor
                                      }
                         }
-    curr_data_dict = {curr_tuple: {"ensemble": tpot.fitted_pipeline_,
-                                   "pareto_pipelines": tpot.pareto_front_fitted_pipelines_,
-                                   "all_individuals": tpot.evaluated_individuals_,
-                                   # "ensemble_models": pd.DataFrame.from_dict(curr_reduced_ensemble_models_dict).transpose(),
-                                   "X_train": curr_X_train, "X_test": curr_X_test,
+    curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
                                    "y_train": curr_y_train, "y_test": curr_y_test,
-                                   "y_train_pred": curr_y_train_pred, "y_test_pred": curr_y_test_pred
+                                   "y_train_pred": curr_y_train_pred, "y_test_pred": curr_y_test_pred,
+                                   "ensemble": tpot.fitted_pipeline_,
+                                   "pareto_pipelines": tpot.pareto_front_fitted_pipelines_,
+                                   "all_individuals": tpot.evaluated_individuals_,  # TODO: maybe not necessary
                                    }
                       }
 
@@ -1049,7 +1059,8 @@ def plot_result(input_datas_dict, plot_comb, plot_along=[]):
 
     # make dict a dataframe, name columns appropriately and compute error of kNN prediction
     results_df = pd.DataFrame(
-        [input_datas_dict[plot_comb]["y_test_pred"], input_datas_dict[plot_comb]["y_test"].flatten()]).transpose()
+        [input_datas_dict[plot_comb]["y_test_pred"].flatten(),
+         input_datas_dict[plot_comb]["y_test"].flatten()]).transpose()
     results_df.columns = ["pred", "true"]
     results_df["error"] = results_df["pred"] - results_df["true"]
 
