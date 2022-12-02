@@ -16,17 +16,6 @@ from sklearn.neighbors import KNeighborsRegressor
 
 from scipy.special import comb
 
-import autosklearn.regression
-
-from autosklearn.ensembles import SingleBest
-from autosklearn.metrics import r2, mean_squared_error as mse
-
-from hpsklearn import HyperoptEstimator
-from hpsklearn import any_regressor
-from hpsklearn import any_preprocessing
-from hyperopt import tpe
-from hpsklearn.components import standard_scaler, min_max_scaler, normalizer
-
 from tpot import TPOTRegressor
 
 import plotly.graph_objects as go
@@ -754,193 +743,6 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
 
     return curr_metric_dict, curr_data_dict
 
-
-# @ray.remote(num_returns=2)
-def refinement_step_autosklearn(data_dict, curr_tuple,
-                                data_name, time_left_for_this_task,
-                                per_run_time_limit, n_jobs):
-    # get current inputs and outputs
-    # curr_inputs = list(curr_tuple[:input_cols])
-    # curr_outputs = list(curr_tuple[input_cols:])
-
-    # reduce data to current columns and drop NAs
-    # curr_data = data[curr_inputs + curr_outputs].dropna()
-
-    # do data preparations and train-test-split
-    curr_X_train, curr_X_test, curr_y_train, curr_y_test = data_dict[curr_tuple]["X_train"], \
-                                                           data_dict[curr_tuple]["X_test"], \
-                                                           data_dict[curr_tuple]["y_train"], \
-                                                           data_dict[curr_tuple]["y_test"].ravel()
-
-    automl = autosklearn.regression.AutoSklearnRegressor(
-        time_left_for_this_task=time_left_for_this_task,
-        per_run_time_limit=per_run_time_limit,
-        # tmp_folder="/tmp/autosklearn_tmp",
-        n_jobs=n_jobs,
-        # metric=mean_squared_error,
-        resampling_strategy="cv",
-        resampling_strategy_arguments={"folds": 5},
-        include={  # "regressor": ["k_nearest_neighbors"],
-            "feature_preprocessor": ["no_preprocessing"]
-        },
-        # ensemble_class=SingleBest,
-        metric=mse  # r2
-        # ensemble_kwargs = {"ensemble_size": 1}, # size of the final ensemble
-        # ensemble_nbest=10 # choose candidates only from the n best models
-    )
-    automl.fit(X=curr_X_train, y=curr_y_train, X_test=curr_X_test, y_test=curr_y_test, dataset_name=data_name)
-
-    # now re-fit on whole training data as CV only fits fold-wise
-    automl.refit(curr_X_train.copy(), curr_y_train.copy())
-
-    curr_y_train_pred = automl.predict(curr_X_train)
-    curr_y_test_pred = automl.predict(curr_X_test)
-    logger.info(f'{curr_tuple}: \n Train R2 score: {r2_score(curr_y_train, curr_y_train_pred)} \n '
-                f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
-
-    # metrics
-    curr_knn_r2 = r2_score(curr_y_test, curr_y_test_pred)
-    curr_knn_rmse = mean_squared_error(curr_y_test, curr_y_test_pred, squared=False)
-    curr_knn_mape = mean_absolute_percentage_error(curr_y_test, curr_y_test_pred)
-    curr_knn_rae = rae(curr_y_test, curr_y_test_pred)
-    curr_knn_dcor = dcor.distance_correlation(curr_y_test, curr_y_test_pred)
-
-    # data / info about ensemble models
-    '''
-    ensemble_models_dict = automl.show_models()
-    curr_reduced_ensemble_models_dict = {}
-    for key in ensemble_models_dict.keys():
-        rank = ensemble_models_dict[key]["rank"]
-        ensemble_weight = ensemble_models_dict[key]["ensemble_weight"]
-        sklearn_regressor = ensemble_models_dict[key]["sklearn_regressor"]
-        curr_reduced_ensemble_models_dict[key] = {"rank": rank, "ensemble_weight": ensemble_weight,
-                                                  "sklearn_regressor": sklearn_regressor}
-    '''
-
-    # save metrics into dict
-    curr_metric_dict = {curr_tuple: {"r2": curr_knn_r2,
-                                     "RMSE": curr_knn_rmse,
-                                     "MAPE": curr_knn_mape,
-                                     "rae": curr_knn_rae,
-                                     "dcor": curr_knn_dcor
-                                     }
-                        }
-    curr_data_dict = {curr_tuple: {"ensemble": automl.leaderboard(ensemble_only=True),
-                                   # "ensemble_models": pd.DataFrame.from_dict(curr_reduced_ensemble_models_dict).transpose(),
-                                   "X_train": curr_X_train, "X_test": curr_X_test,
-                                   "y_train": curr_y_train, "y_test": curr_y_test,
-                                   "y_train_pred": curr_y_train_pred, "y_test_pred": curr_y_test_pred
-                                   }
-                      }
-
-    return curr_metric_dict, curr_data_dict
-
-
-@ray.remote(num_returns=2)
-def parallel_refinement_step_autosklearn(data_dict, curr_tuple,
-                                         data_name, time_left_for_this_task,
-                                         per_run_time_limit, n_jobs):
-    curr_metric_dict, curr_data_dict = refinement_step_autosklearn(data_dict=data_dict, curr_tuple=curr_tuple,
-                                                                   data_name=data_name,
-                                                                   time_left_for_this_task=time_left_for_this_task,
-                                                                   per_run_time_limit=per_run_time_limit, n_jobs=n_jobs)
-
-    return curr_metric_dict, curr_data_dict
-
-
-def refinement_step_hyperopt(data_dict,
-                             curr_tuple,
-                             time_left_for_this_task,
-                             per_run_time_limit,
-                             # n_jobs
-                             ):
-    # get current inputs and outputs
-    # curr_inputs = list(curr_tuple[:input_cols])
-    # curr_outputs = list(curr_tuple[input_cols:])
-
-    # reduce data to current columns and drop NAs
-    # curr_data = data[curr_inputs + curr_outputs].dropna()
-
-    # do data preparations and train-test-split
-    curr_X_train, curr_X_test, curr_y_train, curr_y_test = data_dict[curr_tuple]["X_train"], \
-                                                           data_dict[curr_tuple]["X_test"], \
-                                                           data_dict[curr_tuple]["y_train"], \
-                                                           data_dict[curr_tuple]["y_test"].ravel()
-
-    hypopt = HyperoptEstimator(regressor=any_regressor('reg'),
-                               preprocessing=[standard_scaler("standard"),  # min_max_scaler("minmax"),
-                                              # normalizer("normalizer")
-                                              ],
-                               # preprocessing=any_preprocessing('pre'),
-                               loss_fn=mean_squared_error,
-                               algo=tpe.suggest,
-                               max_evals=50,
-                               trial_timeout=time_left_for_this_task,
-                               # TODO: check whether time_left_for_this_task makes sense here
-                               # n_jobs=n_jobs # BUT should be a parameter according to https://github.com/hyperopt/hyperopt-sklearn/blob/a84603c5232e01a9edda961d9f8aba6ea0f3038a/hpsklearn/estimator/estimator.py
-                               )
-    hypopt.fit(curr_X_train, curr_y_train, random_state=np.random.default_rng(1))
-
-    curr_y_train_pred = hypopt.predict(curr_X_train)
-    curr_y_test_pred = hypopt.predict(curr_X_test)
-    logger.info(f'{curr_tuple}: \n Train R2 score: {r2_score(curr_y_train, curr_y_train_pred)} \n '
-                f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
-
-    # metrics
-    curr_knn_r2 = r2_score(curr_y_test, curr_y_test_pred)
-    curr_knn_rmse = mean_squared_error(curr_y_test, curr_y_test_pred, squared=False)
-    curr_knn_mape = mean_absolute_percentage_error(curr_y_test, curr_y_test_pred)
-    curr_knn_rae = rae(curr_y_test, curr_y_test_pred)
-    curr_knn_dcor = dcor.distance_correlation(curr_y_test, curr_y_test_pred)
-
-    # data / info about ensemble models
-    '''
-    ensemble_models_dict = automl.show_models()
-    curr_reduced_ensemble_models_dict = {}
-    for key in ensemble_models_dict.keys():
-        rank = ensemble_models_dict[key]["rank"]
-        ensemble_weight = ensemble_models_dict[key]["ensemble_weight"]
-        sklearn_regressor = ensemble_models_dict[key]["sklearn_regressor"]
-        curr_reduced_ensemble_models_dict[key] = {"rank": rank, "ensemble_weight": ensemble_weight,
-                                                  "sklearn_regressor": sklearn_regressor}
-    '''
-
-    # save metrics into dict
-    curr_metric_dict = {curr_tuple: {"r2": curr_knn_r2,
-                                     "RMSE": curr_knn_rmse,
-                                     "MAPE": curr_knn_mape,
-                                     "rae": curr_knn_rae,
-                                     "dcor": curr_knn_dcor
-                                     }
-                        }
-    curr_data_dict = {curr_tuple: {"ensemble": hypopt.best_model(),
-                                   # "ensemble_models": pd.DataFrame.from_dict(curr_reduced_ensemble_models_dict).transpose(),
-                                   "X_train": curr_X_train, "X_test": curr_X_test,
-                                   "y_train": curr_y_train, "y_test": curr_y_test,
-                                   "y_train_pred": curr_y_train_pred, "y_test_pred": curr_y_test_pred
-                                   }
-                      }
-
-    return curr_metric_dict, curr_data_dict
-
-
-@ray.remote(num_returns=2)
-def parallel_refinement_step_hyperopt(data_dict,
-                                      curr_tuple,
-                                      time_left_for_this_task,
-                                      per_run_time_limit,
-                                      # , n_jobs
-                                      ):
-    curr_metric_dict, curr_data_dict = refinement_step_hyperopt(data_dict=data_dict,
-                                                                curr_tuple=curr_tuple,
-                                                                time_left_for_this_task=time_left_for_this_task,
-                                                                per_run_time_limit=per_run_time_limit,
-                                                                # n_jobs=n_jobs
-                                                                )
-
-    return curr_metric_dict, curr_data_dict
-
-
 def refinement_step_tpot(data_dict,
                          curr_tuple,
                          time_left_for_this_task,
@@ -959,11 +761,6 @@ def refinement_step_tpot(data_dict,
                                                            data_dict[curr_tuple]["X_test"], \
                                                            data_dict[curr_tuple]["y_train"], \
                                                            data_dict[curr_tuple]["y_test"].ravel()
-
-    print("X_train", curr_X_train.shape)
-    print("X_test", curr_X_test.shape)
-    print("y_train", curr_y_train.shape)
-    print("y_test", curr_y_test.shape)
 
     tpot = TPOTRegressor(generations=100,
                          population_size=100,
@@ -1097,7 +894,7 @@ def plot_result(input_datas_dict, plot_comb, plot_along=[]):
                 ),
                     row=1, col=1
                 )
-    # add autosklearn / refined plot
+    # add refined TPOT plot
     fig.add_trace(go.Scatter(
         x=results_df["true"],
         y=results_df["pred"],
@@ -1130,7 +927,7 @@ def plot_result(input_datas_dict, plot_comb, plot_along=[]):
                     ),
                     row=1, col=2
                 )
-    # add autosklearn / refined plot
+    # add refined TPOT plot
     fig.add_trace(
         go.Scatter(
             x=results_df["error"],
@@ -1163,7 +960,7 @@ def plot_result(input_datas_dict, plot_comb, plot_along=[]):
                     ),
                     row=1, col=3
                 )
-    # add autosklearn / refined plot
+    # add refined TPOT plot
     fig.add_trace(
         go.Histogram(
             y=results_df["error"],
