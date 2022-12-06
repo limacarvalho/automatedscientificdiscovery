@@ -34,4 +34,4 @@ def handle_click_without():
         st.empty()
 
 st.sidebar.markdown("***")
-column_type = st.sidebar.radio("Which kind of machine learning task do you prefer?", ["Complexity", "Predictability", "Auto-ML"], on_change=handle_click_without, key="column_kind")
+column_type = st.sidebar.radio("Discovery task:", ["Predictability", "Relevance", "Grouping", "Complexity"], on_change=handle_click_without, key="column_kind")
