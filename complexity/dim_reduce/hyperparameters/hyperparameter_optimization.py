@@ -1,32 +1,30 @@
-from ..dim_reduction.dimred_main import Dimreduction
-from ..helper_data.global_vars import *
-from ..helper_data.helper_data import empty_dict
-from ..helper_data.helper_data import check_dim
-from ..helper_metrix.loss_functions import fun_kmax
+from dim_reduction.dimred_main import Dimreduction
+from helper_data.global_vars import *
+from helper_data.utils_data import empty_dict, check_dim
+from utils_logger import logger
+from helper_metrix.metrics_dimred import fun_kmax
 from bayes_opt import BayesianOptimization
-import traceback
 import numpy as np
 
 
 class Hyperparameter_optimization:
-    '''
-    opt
-
-    '''
+    ''' hyperparameter optimization with the bayes-opt package '''
 
     def __init__(self, cutoff_loss):
         self.loss_fun = globalvar_loss_function
         self.cutoff_loss = cutoff_loss
 
 
-    def black_box_reduce(self, **params: dict):
+    def black_box_dimreduce(self, **params: dict):
         '''
-        Black box function run within the BayesianOptimization function.
-        It receives hyperparameters from the bayes optimization package and returns a
-        quality loss which is maximized during the optimization process.
+        Black box function to run within the BayesianOptimization method.
+        Performs dimesnionality reduction with hyperparameters provided b bayes-opt.
+        The loss of the dim-reduction (default: 'mae_norm') is measured and returned
+        to the package.
+        Bayes opt aims to maximize the loss
         The results of all dim reductions are stored in self.list_of_dict_results .
-        :param params: dict parameters provided by the bayesian optimization method
-        :return: float mae_norm 0.0 ... 1.0
+        :param params: dict, parameters provided by the bayesian optimization method
+        :return: float, mae_norm 0.0 ... 1.0
         '''
         # dim reduction and quality measurement
         dimred = Dimreduction(self.fun_id, self.data_high, self.dim_low)
@@ -37,7 +35,7 @@ class Hyperparameter_optimization:
             dict_results['init_steps'] = self.init_steps
             dict_results['iter_steps'] = self.iter_steps
         except:
-            print(globalstring_error + 'adding init steps or iter steps to dict')
+            logger.error(msg='adding init steps or iter steps to dict', exc_info=False)
             dict_results['init_steps'] = 0
             dict_results['iter_steps'] = 0
 
@@ -57,13 +55,39 @@ class Hyperparameter_optimization:
         :param hyperparameters: dictionary with hyperparameter, value range items
         :return: init steps, iter steps
         '''
-        if ('empty' in hyperparameters) or ('empty_py' in hyperparameters):
+        # n_hps, init, iterations = 1, 1, 0
+        # try:
+        #     n_hps = len(hyperparameters)
+        #     if n_hps == 1:
+        #         for key, value in hyperparameters.items():
+        #             if isinstance(value, list):
+        #                 init = 3 + (n_hps * 2)
+        #                 iterations = n_hps * 5
+        #             else:
+        #                 init, iterations = 1, 0
+        #     else:
+        #         init = 3 + (n_hps * 2)
+        #         iterations = n_hps * 5
+        n_hps, init, iterations = 0, [], []
+        try:
+            for key, value in hyperparameters.items():
+                if isinstance(value, list):
+                    # TODO: easier formula !!
+                    if not init:
+                        init.append(3 + 2)
+                    else:
+                        init.append(2)
+                    iterations.append(5)
+                else:
+                    init.append(1)
+                    iterations.append(0)
+            # sum lists
+            init = sum(init)
+            iterations = sum(iterations)
+        except:
             init, iterations = 1, 0
-        else:
-            n_hps = len(hyperparameters)
-            init = 3 + (n_hps * 2)
-            iterations = n_hps * 5
-        print(globalstring_info + self.fun_id, ' init:', init, ' iterations:', iterations)
+            logger.error(msg=(self.fun_id + ' n_hyperpars:' + str(n_hps)), exc_info=True)
+        logger.info(msg=(self.fun_id+' n_hyperpars:'+str(n_hps)+' init:'+str(init)+' iterations:'+str(iterations)))
         return init, iterations
 
 
@@ -75,14 +99,14 @@ class Hyperparameter_optimization:
         :return: object optimizer.max
         '''
         optimizer = BayesianOptimization(
-            f = self.black_box_reduce,
+            f = self.black_box_dimreduce,
             pbounds = hyperparameters,
             random_state = 1,
             verbose = 0)
         try:
             optimizer.maximize(init_points=self.init_steps, n_iter=self.iter_steps)
         except:
-            print(globalstring_warning + 'NO CHANGE WITH HYPERPARAMETER TUNING', self.fun_id)
+            logger.info(msg=('no loss change with hyperparameter tuning ', self.fun_id))
             pass
         return optimizer
 
@@ -97,8 +121,8 @@ class Hyperparameter_optimization:
         optimizer.max)
         The hyperparameters are floats with a lot of float values, so its very unlikely to have the
         same combination of hyperparamters.
-        :param optimizer: dict optimizer
-        :return: dict of best results
+        :param optimizer: optimizer object
+        :return: dict, dictionary with best results of all dim reductions
         '''
         best_result = {}
         try:
@@ -108,8 +132,7 @@ class Hyperparameter_optimization:
                     best_result = self.list_of_dict_results[i]
         except:
             best_result = {}
-            print(globalstring_error + 'FINDING BEST RESULTS', self.fun_id)
-            print(traceback.format_exc())
+            logger.error(msg=('find best results ' + self.fun_id), exc_info=True)
         return best_result
 
 
@@ -141,7 +164,12 @@ class Hyperparameter_optimization:
 
         - - - INFORMATION - - -
         https://github.com/fmfn/BayesianOptimization
-
+        :param fun_id: str, function identifier
+        :param hyperparameters: dict, parameters, values of hyperparameters
+        :param data: np.array, high dimensional data
+        :param ndim: int, low dimension
+        :return: (dict,list), dict of best dim reduction results, list of dicts with all
+            dim reduction results.
         '''
         self.fun_id = fun_id
         self.data_high = data
@@ -161,9 +189,9 @@ class Hyperparameter_optimization:
             self.list_of_dict_results = [empty_dict(self.fun_id, self.dim_low, kmax)]
             dict_best_results = self.list_of_dict_results[0]
 
-        # dim reduce functions without hyperparameters
-        elif ('empty' in hyperparameters) or ('empty_py' in hyperparameters):
-            _ = self.black_box_reduce(**hyperparameters)
+        # dim reduce functions without hyperparameters to tune.
+        elif (self.init_steps + self.iter_steps) == 1:
+            _ = self.black_box_dimreduce(**hyperparameters)
             # there is only one dict here
             dict_best_results = self.list_of_dict_results[0]
 
@@ -181,60 +209,3 @@ class Hyperparameter_optimization:
             # optimizer = self.fun_custom_maximize(hyperparameters) # funzt
 
         return dict_best_results, self.list_of_dict_results
-
-
-
-######## custom function, will substitute the optimizer function in the future
-# def fun_custom_maximize(self, hyperparameters):
-#     '''
-#     check also: bayesian theorem update - less iterations
-#
-#     :param hyperparameters:
-#     :return:
-#     '''
-#     optimizer = BayesianOptimization(
-#         f=None,
-#         pbounds=hyperparameters,
-#         verbose=2,
-#         random_state=1,
-#     )
-#
-#     utility = UtilityFunction(kind="ucb", kappa=2.5, xi=0.0)
-#
-#     next_point_to_probe = optimizer.suggest(utility)
-#
-#     target = self.black_box_reduce(**next_point_to_probe)
-#
-#     optimizer.register(
-#         params=next_point_to_probe,
-#         target=target,
-#     )
-#
-#     for i in range(self.init_steps + self.iter_steps):
-#         next_point = optimizer.suggest(utility)
-#         target = self.black_box_reduce(**next_point)
-#         if i == self.init_steps and target >= self.cutoff_loss:
-#             return optimizer
-#         else:
-#             optimizer.register(params=next_point, target=target)
-#     return optimizer
-
-
-
-
-'''
-functions with mae_norm < cutoff after init and mae_norm > cutoff after iter 
-*** top3 results    ** 3...10 top results    * no good results
-isomap ***
-pca_sparse **
-pca_sparse_mb **
-spmds *
-dictlearn_mb *
-mdproj *
-lmds *
-
-'''
-
-
-
-

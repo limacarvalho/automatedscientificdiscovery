@@ -21,7 +21,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-import eplot
+#import eplot
 
 st.set_page_config(layout="wide")
 st.set_option('deprecation.showPyplotGlobalUse', False)

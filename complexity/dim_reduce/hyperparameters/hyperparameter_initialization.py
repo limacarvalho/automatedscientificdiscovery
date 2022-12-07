@@ -1,16 +1,20 @@
-from ..helper_data import global_vars
+from helper_data import global_vars
 import numpy as np
 
-def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> (str, dict):
+
+def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array) -> (str, dict):
     '''
-    The bayes_opt package processes and returns only continuous values, not categorical values.
-    My work around is to convert the bayes_opt numeric output into integers or categories
+    The bayes_opt package processes and returns continuous values, not categorical values.
+    Our around is to convert the categorical input and numeric output into integers or categories
     that are used in some hyperparaeters.
     Example:  'eigen_solver': ['arpack','lobpcg','amg'] as [0, 2] and convert the bayes_opt
     output (1.66 for example) into: ['arpack','lobpcg','amg'][2] = 'amg'.
     Thats not optimal but the bayes_opt should learn from that.
-    :param params: dict with hyperparameters and values as floats
-    :return: updated hyperparameters as string (R) and dicionary (Python)
+    :param params: dict, dict with hyperparameters and values as floats
+    :param fun_id: str, function identifier
+    :param dim: int, low dimension
+    :param data_high: np.array, high dimensional data
+    :return: (str, dict), updated hyperparameters as string (R) and dicionary (Python)
     '''
     arg_string = ''
 
@@ -91,8 +95,8 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
             ### LLE
             if fun_id == 'py_lle':
                 # general condition: n_neighbors < n_samples
-                if params[key] >= data.shape[0]:
-                    params[key] = int(data.shape[0]-1)
+                if params[key] >= data_high.shape[0]:
+                    params[key] = int(data_high.shape[0]-1)
 
                 # n_neighbors of following condition is too high for many datasets
                 if params['method'] == 'hessian':
@@ -119,7 +123,7 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
         ######## PYTHON    NNF
         if key == 'init':
             if fun_id == 'py_nmf':
-                params[key] = ['random', 'nndsvd', 'nndsvda', 'nndsvdar'][int(round(value,0))]
+                params[key] = ['random', 'nndsvd', 'nndsvdar'][int(round(value,0))]
             # TSNE
             else:
                 params[key] = ['random','pca'][int(round(value,0))]
@@ -150,7 +154,7 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
             # only for arpack
             params[key] = ['full','arpack','randomized'][int(round(value,0))]
             if fun_id == 'py_pca' and params[key] == 'arpack':
-                if dim >= min(data.shape):
+                if dim >= min(data_high.shape):
                     pass
 
         ######## PYTHON    KERNEL-PCA
@@ -202,11 +206,15 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
             arg_string = arg_string + str(key) + '=' + str(value) + ', '
 
         ######## R  double functions: crca
-        if key == 'alpha' and (fun_id == 'r_crca' or fun_id == 'r_phate'):
+        if key == 'alpha':
             arg_string = arg_string + str(key) + '=' + str(round(value,1)) + ', '
 
         ######## R  double functions: llp, crca, rpca
         if key == 'lambda':
+            arg_string = arg_string + str(key) + '=' + str(value) + ', '
+
+        ######## R  double functions: crca
+        if key == 'tolerance':
             arg_string = arg_string + str(key) + '=' + str(value) + ', '
 
         ######## R  rndproj
@@ -253,9 +261,17 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
         if key == 'type':
             if fun_id == 'r_rndproj':
                 vals = ['"gaussian"','"achlioptas"','"sparse"']
+
+            elif fun_id == 'r_olpp' or fun_id ==  'r_spmds':
+                vals = ['c("knn",5)', 'c("proportion",0.3)']
+
+            elif fun_id == 'r_udp':
+                vals = ['c("knn",5)', 'c("enn",1)', 'c("proportion",0.1)']
+
             else:
-                vals = ['c("knn",5)', 'c("knn",50)',
-                       'c("enn",1)', 'c("enn",3)',
+                vals = [
+                       'c("knn",5)', 'c("knn",50)',
+                       'c("enn",1)', 'c("enn",3)', # nonpp
                        'c("proportion",0.1)', 'c("proportion",0.3)']
             val = str(vals[int(round(value,0))])
             arg_string = arg_string + str(key) + '=' + val + ', '
@@ -298,9 +314,10 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
         ######## R  ispe
         if key == 'proximity':
             # --- instead of = because its a split identifier in argstring_R_to_dict
+            # 'function(x){dist(x,method="manhattan")}' not working well for most datasets
             val = str(['function(x){dist(x,method="euclidean")}',
-                       'function(x){dist(x,method="manhattan")}',
-                       'function(x){dist(x,method="minkowski")}'][int(round(value,0))])
+                       'function(x){dist(x,method="minkowski", p=3)}',
+                       'function(x){dist(x,method="manhattan")}' ][int(round(value,0))])
             arg_string = arg_string + str(key) + '=' + val + ', '
 
         ######## R  ispe
@@ -327,7 +344,6 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
         if key == 'kernel' and fun_id == 'r_keca':
             val = str(['c("gaussian",5)',
                        'c("laplacian",1)',
-                       #'c("histintx")', only positive values
                        'c("chisq")',
                        'c("spline")'][int(round(value,0))])
             arg_string = arg_string + str(key) + '=' + val + ', '
@@ -368,7 +384,7 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
                        '"minkowski"'][int(round(value,0))])
             arg_string = arg_string + str(key) + '=' + val + ', '
 
-        ######## R  ree
+        ######## R  ree TODO: method not choosen, remove
         if key == 'initc':
             arg_string = arg_string + str(key) + '=' + str(value) + ', '
 
@@ -378,7 +394,9 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
 
         ######## R  sammon
         if key == 'initialize':
-            arg_string = arg_string + 'initialize="random", '
+            val = str(['"random"', '"pca"'][int(round(value, 0))])
+            arg_string = arg_string + str(key) + '=' + val + ', '
+            # arg_string = arg_string + 'initialize="random", ' TODO: remove
 
         ######## R  spmds
         if key == 'neigs':
@@ -392,7 +410,7 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
         if key == 'empty':
             arg_string = 'empty=empty'
 
-        # # tsne
+        # # tsne, not used, too many hyperparameters and low quality
         # if key == 'perplexity':
         #     arg_string = arg_string + str(key) + '=' + str(int(round(value,0))) + ', '
         #
@@ -438,182 +456,22 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data: np.array) -> 
     # R: arg_string  Python: params
     return arg_string, params
 
-
-def dict_to_r_string(dict_params):
-    '''
-
-    Parameters
-    ----------
-    dict_params :
-
-    Returns
-    -------
-
-    '''
-    arg_string = ''
-
-    for key, value in dict_params.items():
-        if key == 'empty':
-            return arg_string
-        else:
-            arg_string = arg_string + str(key) + '=' + str(value) + ', '
-
-    if arg_string.endswith(', '):
-        arg_string = arg_string[:-2]
-
-    return arg_string
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-kernel**
-    linear
-    c("linear",c)
-
-    polynomial
-    c("polynomial",c,d)
-
-    gaussian
-    c("gaussian",c)
-
-    laplacian
-    c("laplacian",c)
-
-    anova
-    c("anova",c,d)
-
-    sigmoid
-    c("sigmoid",a,b)
-
-    rational quadratic
-    c("rq",c)
-
-    multiquadric
-    c("mq",c)
-
-    inverse quadric
-    c("iq",c)
-
-    inverse multiquadric
-    c("imq",c)
-
-    circular
-    c("circular",c)
-
-    spherical
-    c("spherical",c)
-
-    power/triangular
-    c("power",d)
-
-    log
-    c("log",d)
-
-    spline
-    c("spline")
-
-    Cauchy
-    c("cauchy",c)
-
-    Chi-squared
-    c("chisq")
-
-    histogram intersection
-    c("histintx")
-
-    generalized histogram intersection
-    c("ghistintx",c,d)
-
-    generalized Student-t
-    c("t",d)
-
-eigen_solver{'auto', 'arpack', 'dense'}, default='auto'    -> finds eigenvalues/vectors
-    'auto' : Attempt to choose the most efficient solver for the given problem.
-    'arpack' : Use Arnoldi decomposition to find the eigenvalues and eigenvectors. (speed accuracy by tol and max_iter)
-    'dense' : Use a direct solver (i.e. LAPACK) for the eigenvalue decomposition.
-    - ARPACK 1 is a Fortran package which provides routines for quickly finding a few eigenvalues/eigenvectors 
-      of large sparse matrices. 
-    https://docs.scipy.org/doc/scipy/tutorial/arpack.html
-
-###############   
-neighbors_algorithm{'auto', 'brute', 'kd_tree', 'ball_tree'}, default='auto'
-    Algorithm to use for nearest neighbors search, passed to neighbors. NearestNeighbors instance.
-
-###############
-n_jobs int or None, default=None
-    The number of parallel jobs to run. None means 1 unless in a joblib.parallel_backend context. 
-    -1 means using all processors.
-
-###############
-metric str, or callable, default=”minkowski”
-    The metric to use when calculating distance between instances in a feature array. If metric is a string or callable, 
-    it must be one of the options allowed by sklearn.metrics.pairwise_distances for its metric parameter. 
-    If metric is “precomputed”, X is assumed to be a distance matrix and must be square.
-
-###############           
-p int, default=2
-    Parameter for the Minkowski metric from sklearn.metrics.pairwise.pairwise_distances. When p = 1, 
-    this is equivalent to using manhattan_distance (l1), and euclidean_distance (l2) for p = 2. 
-    For arbitrary p, minkowski_distance (l_p) is used.
-
-###############
-path_method{'auto', 'FW', 'D'}, default='auto'
-    Method to use in finding shortest path between all vertices in the weighted graph.
-    'auto' : attempt to choose the best algorithm automatically.
-    'FW' : Floyd-Warshall algorithm.
-    'D' : Dijkstra's algorithm.    
-     shortest path between all vertices in the weighted graph
-
-    https://pythonwife.com/all-pair-shortest-path-problem-in-python/
-    Dijkstra's Algorithm is one example of a single-source shortest or SSSP algorithm, i.e., given a source 
-        vertex it finds shortest path from source to all other vertices.
-    Floyd Warshall Algorithm is an example of all-pairs shortest path algorithm, meaning it computes the 
-        shortest path between all pair of nodes.
-
-    Time Complexity of Dijkstra's Algorithm: O(E log n)
-    Time Complexity of Floyd Warshall: O(n^3) - faster
-
-    We can use Dijskstra's shortest path algorithm for finding all pair shortest paths by running it for every vertex. 
-    But time complexity of this would be O(mn Log n) which can go (n^3 Log n) in worst case.
-    Another important differentiating factor between the algorithms is their working towards distributed systems. 
-    Unlike Dijkstra's algorithm, Floyd Warshall can be implemented in a distributed system, making it suitable for data 
-    structures such as Graph of Graphs (Used in Maps).
-    Lastly Floyd Warshall works for negative edge but no negative cycle, whereas Dijkstra's algorithm don't work for 
-    negative edges.   
-
-###############
-tolerance (Eigenvalue, Eigenvector)
-    ARPACK is a Fortran package which provides routines for quickly finding a few eigenvalues/eigenvectors of large sparse matrices.
-    Residual tolerances of the computed eigenvalues. 
-    less restrictive Tolerance e-2, e-6 more restrictive: e-15, 
-    https://docs.scipy.org/doc/scipy/tutorial/arpack.html
-
-
-
-R-FUNCTIONS
-###############
-maxiter
-    maximum number of iterations (default: 100).
-    -I tested 100 and 1000 with Covid (190rows), 1000 is much slower, same result.
-
-###############
-abstol
-     absolute tolerance stopping criterion (default: 1e-8).
-     -I tested -8 and -12 with Covid (190rows), -12 a bit faster, same result.
-
-'''
+# TODO: remove
+# def dict_to_r_string(dict_params):
+#     '''
+#     converts a dictionary to a string
+#     :param dict_params:
+#     :return:
+#     '''
+#     arg_string = ''
+#
+#     for key, value in dict_params.items():
+#         if key == 'empty':
+#             return arg_string
+#         else:
+#             arg_string = arg_string + str(key) + '=' + str(value) + ', '
+#
+#     if arg_string.endswith(', '):
+#         arg_string = arg_string[:-2]
+#
+#     return arg_string

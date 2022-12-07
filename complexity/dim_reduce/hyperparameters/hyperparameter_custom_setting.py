@@ -3,6 +3,8 @@ from dimension_tools.dimension_suite.dim_reduce.dim_reduction.dimred_main import
 from ..helper_data.global_vars import *
 
 
+
+# TODO: custom hyperparameter tuning function with early stop condition
 def custom_factor_analysis(data_high, dim_low, dict_params):
 
     fun_id = 'py_fa'
@@ -54,6 +56,39 @@ def custom_factor_analysis(data_high, dim_low, dict_params):
     #     self.list_of_dicts.append(results)
     #     return results[self.loss_fun]
 
-
+######## custom function, will substitute the optimizer function in the future
+# def fun_custom_maximize(self, hyperparameters):
+#     '''
+#     check also: bayesian theorem update - less iterations
+#
+#     :param hyperparameters:
+#     :return:
+#     '''
+#     optimizer = BayesianOptimization(
+#         f=None,
+#         pbounds=hyperparameters,
+#         verbose=2,
+#         random_state=1,
+#     )
+#
+#     utility = UtilityFunction(kind="ucb", kappa=2.5, xi=0.0)
+#
+#     next_point_to_probe = optimizer.suggest(utility)
+#
+#     target = self.black_box_dimreduce(**next_point_to_probe)
+#
+#     optimizer.register(
+#         params=next_point_to_probe,
+#         target=target,
+#     )
+#
+#     for i in range(self.init_steps + self.iter_steps):
+#         next_point = optimizer.suggest(utility)
+#         target = self.black_box_dimreduce(**next_point)
+#         if i == self.init_steps and target >= self.cutoff_loss:
+#             return optimizer
+#         else:
+#             optimizer.register(params=next_point, target=target)
+#     return optimizer
 
 
