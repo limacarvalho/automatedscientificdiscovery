@@ -432,3 +432,4 @@ xai/app/ml/models/saved/base/brisk_neural_net/*
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,linux,python,r,c,terraform
 xai/app/ml/models/saved/covid/tmp/xgboost/slug/slug_xgboost_67.pickle
+/dev/
