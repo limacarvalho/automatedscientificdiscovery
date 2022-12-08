@@ -19,6 +19,8 @@ import ray
 # customlogger = logger.logging.getLogger('console_info')
 
 class Ensemble:
+
+    
     def __init__(self, 
                  xgb_objective,
                  lgbm_objective,
@@ -246,6 +248,8 @@ class Ensemble:
 
         if len(self.base_models)==1:
             self.ensemble = self.base_models[0]
+            self.scores = self.base_models[0].scores
+            return None
 
 
         df_X_train_ensemble = pd.DataFrame()
@@ -290,6 +294,7 @@ class Ensemble:
 
         df_pred = pd.DataFrame()
         
+
         #ss = StandardScaler()
         # df_X_scalar = pd.DataFrame(ss.fit_transform(df_X), columns = df_X.columns)
         

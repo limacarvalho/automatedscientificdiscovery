@@ -11,28 +11,16 @@ from utils.asd_logging import logger as  customlogger
 
 
 
-def __simmulate__(param, index, X, y):
+def __simmulate__(fdr, fstat, itr, X, y):
 
     np.random.seed(knockoffsettings.SEED)
 
     Sigma = None
-    ksampler = param['ksampler']
-    fstat = param['fstat']
-    fdr = param['fdr']
     
-    #X = df_X
-    #y = df_y
-    #X = X.to_numpy()
-    #y = y.values.ravel()
-
-    print( 'itr: ' + str(index) + ', ksampler:' + str(ksampler) + ', fstat:' + str(fstat) )
-    
-    if ksampler == 'metro':
-        customlogger.error('knockoff: metro sampler is not implemented')
-        raise ValueError('knockoff: metro sampler is not implemented')    
+    print("itr: " + str(itr) + ", ksampler: 'gaussian',  fstat:" + str(fstat) )    
 
     kfilter = KnockoffFilter(
-        ksampler = ksampler,
+        ksampler = 'gaussian',
         fstat = fstat,
     )
 
@@ -43,7 +31,7 @@ def __simmulate__(param, index, X, y):
         fdr = fdr
     )
         
-    i = [index] * len(rejections)
+    i = [itr] * len(rejections)
     rejections_series = pd.Series(rejections)
     kfilter_W_series = pd.Series(kfilter.W)
     kfilter_W_series = kfilter_W_series.abs()
@@ -54,16 +42,24 @@ def __simmulate__(param, index, X, y):
     return df_res.values
 
 
+
 @ray.remote(num_returns=1)
-def __worker__(simmulate, param, index, X, y):
-    res = simmulate(param, index, X, y)
+def __worker__(fdr, fstat, itr, X_ref, y_ref):
+    res = __simmulate__(fdr, fstat, itr, X_ref, y_ref)
     return res
 
 
 
-
-def simulate_knockoffs(itr, df_X, df_y, fdr=None):
-
+def simulate_knockoffs(fdr, fstats, itr, df_X, df_y):
+    '''
+    Knockoff frame is the procedure to perform variable selection while controling false discovery rate (fdr). This is to estimate and eliminate
+    bad variables. See the details here:https://candes.su.domains/publications/downloads/MX_Knockoffs.pdf
+    :param fdr (int): False Discovery Rate. 
+    :param fstats (list): methods to calculate fstats, i.e., ['lasso', 'ridge', 'randomforest'] 
+    :param df_x (pd.DataFrame): input X 
+    :param df_x (pd.DataFrame): target column
+    :return pd.Series: list of varaibles sorted as per their importance, zeros equate to no importance at all.
+    '''
     columns = ['rejections', 'W', 'i']
     df_results = pd.DataFrame(columns = columns)
     rejections = []    
@@ -72,27 +68,14 @@ def simulate_knockoffs(itr, df_X, df_y, fdr=None):
     X = df_X.to_numpy()
     y = df_y.values.ravel()
 
-    
-    param = {}
-
-    if fdr is None:
-        param['fdr'] = knockoffsettings.FDR
-    else:
-        param['fdr'] = fdr
-
 
     X_ref = ray.put(X)
     y_ref = ray.put(y)
     
 
-
-    for ksampler in knockoffsettings.KSAMPLER:
-        param['ksampler'] = ksampler
-        for fstat in knockoffsettings.FSTATS:
-            for i in range(1, itr+1):
-                param['fstat'] = fstat                    
-                lazy_results.append(__worker__.remote(__simmulate__, param, i, X_ref, y_ref))
-
+    for fstat in fstats:
+        for i in range(1, itr+1):                
+            lazy_results.append(__worker__.remote(fdr, fstat, i, X_ref, y_ref))
 
 
     results = ray.get(lazy_results)
@@ -111,10 +94,27 @@ def simulate_knockoffs(itr, df_X, df_y, fdr=None):
     df_final = pd.DataFrame()
     df_final = pd.concat([rejections, ws, pd.Series(df_X.columns.values)], axis=1)
 
-    df_final.columns = ['rejections', 'W', 'attr']
+    df_final.columns = ['rejections', 'W', 'cols']
     
+    df_final['W'] = np.where(df_final['rejections']==1, 0, df_final['W'])
+
+    df_final = df_final[['W', 'cols']]
+
+    df_scores_ranked = pd.DataFrame()
+    for col in df_final:
+        if col != 'cols':
+            df_scores_ranked[col] = df_final[col].rank(na_option = 'bottom', ascending=True, method='max', pct=False)
+            df_scores_ranked.replace(to_replace = df_scores_ranked.min(), value = 0, inplace=True)
+
+
+
+    res = df_scores_ranked.mode(axis=1, numeric_only=True).mean(axis=1)
+    res.index = df_final['cols']        
+
+    res = res.sort_values(ascending=False)
+
     del X_ref
     del y_ref
     
-    return df_final.sort_values(['W'], ascending=False)
+    return res
     

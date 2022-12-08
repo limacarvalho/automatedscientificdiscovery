@@ -45,7 +45,13 @@ def relevance(df, input_columns, target, options) -> None:
     n_estimators = None
     n_neighbors = None
     
-    knockoff_num_runs = 1000
+    
+    attr_algos = ['IG', 'SHAP', 'GradientSHAP']
+    knockoff_runs = 1000
+    fdr=0.1
+    fstats = ['lasso', 'ridge', 'randomforest']
+
+
     ensemble_n_estimators = None
     ensemble_n_trials = None    
     
@@ -53,7 +59,9 @@ def relevance(df, input_columns, target, options) -> None:
     
     list_ensemble_base_models = ['briskxgboost', 'slugxgboost', 'slugann', 'slugrf', 'slugknn', 'briskbagging']
 
-    xai_attr_algos = ['ig', 'shap', 'gradientshap', 'knockoff']
+    xai_attr_algos = ['ig', 'shap', 'gradientshap', 'knockoffs']
+
+    list_fstats = ['lasso', 'ridge', 'randomforest']
 
     if 'threshold' in options:
         if options['threshold']:
@@ -84,6 +92,7 @@ def relevance(df, input_columns, target, options) -> None:
         if boosted_round < 0:
             raise ValueError("boosted_round > 0 required, you specified " + str(boosted_round))
 
+
     if 'epochs' in options:
         epochs = options['epochs']
         if epochs < 0:
@@ -94,13 +103,15 @@ def relevance(df, input_columns, target, options) -> None:
         max_n_estimators = options['max_n_estimators']
         if max_n_estimators < 0:
             raise ValueError("max_n_estimators > 0 required, you specified " + str(max_n_estimators))            
-            
+
+
     if 'n_estimators' in options:
         n_estimators = options['n_estimators']
         if n_estimators < 0:
             raise ValueError("n_estimators > 0 required, you specified " + str(n_estimators))
 
-            
+
+
     if 'n_neighbors' in options:
         n_neighbors = options['n_neighbors']
         if n_neighbors < 0:
@@ -113,13 +124,15 @@ def relevance(df, input_columns, target, options) -> None:
         if ensemble_n_estimators < 0:
             raise ValueError("ensemble_n_estimators > 0 required, you specified " + str(ensemble_n_estimators))            
             
-            
+
+
     if 'ensemble_n_trials' in options:
         ensemble_n_trials = options['ensemble_n_trials']
         if ensemble_n_trials < 0:
             raise ValueError("ensemble_n_trials > 0 required, you specified " + str(ensemble_n_trials))            
-            
-            
+
+
+
     if 'attr_algos' in options:
         attr_algos = options['attr_algos']
         attr_algos = [x.lower() for x in attr_algos]
@@ -127,19 +140,29 @@ def relevance(df, input_columns, target, options) -> None:
         if not result:
             raise ValueError("Pls select attr_algos from: " + str(xai_attr_algos))
 
+        if 'knockoffs' in attr_algos:
+            if 'fdr' in options:
+                fdr = options['fdr']
+                if (fdr < 0) or (fdr>1.0):
+                    raise ValueError(" 0 < fdr < 1 is required")
 
-    if 'knockoff_num_runs' in options:
-        knockoff_num_runs = options['knockoff_num_runs']
-        if knockoff_num_runs < 0:
-            raise ValueError("knockoff_num_runs > 0 required, you specified " + str(knockoff_num_runs))            
-            
-            
+            if 'fstats' in options:
+                fstats = options['fstats']
+                fstats = [x.lower() for x in fstats]
+                result =  all(elem in list_fstats for elem in fstats)                
+                if not result:
+                    raise ValueError("Pls select fstats from: " + str(fstats))
+    
+            if 'knockoff_runs' in options:
+                knockoff_runs = options['knockoff_runs']
+                if knockoff_runs < 0:
+                    raise ValueError("knockoff_runs > 0 required, you specified " + str(knockoff_runs))            
+
+
+
     if attr_algos is None:
         attr_algos = ['IG', 'SHAP', 'GradientSHAP']
         
-        
-    if knockoff_num_runs is None:
-        knockoff_num_runs = 1000
 
     if base_models is None:
         base_models = list_ensemble_base_models
@@ -200,11 +223,14 @@ def relevance(df, input_columns, target, options) -> None:
         X_test_scalar = pd.DataFrame(ss.fit_transform(X_test), columns = X_test.columns)
                     
 
-        if 'knockoff' in attr_algos:
-            param = {}
-            param['fdr'] = KnockoffSetting.FDR
-            df_knockoffs = simulate_knockoffs(param, knockoff_num_runs, df_X, df_y)
-            
+        if 'knockoffs' in attr_algos:
+            df_knockoffs = simulate_knockoffs(fdr, fstats, knockoff_runs, df_X, df_y)
+        
+        ret = {
+                'xai_non_model': df_knockoffs
+            }
+        return ret
+
 
         # list_base_models = ['briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf']
 
@@ -241,7 +267,7 @@ def relevance(df, input_columns, target, options) -> None:
                 
         
         customlogger.info('running xai on trained models')
-        ex = Explainable(ensemble_set, df_X)             
+        ex = Explainable(ensemble_set, df_X)   
         ex.get_attr(attr_algos)
         # json_scores = ex.df_scores.to_json(orient = 'columns')
         
