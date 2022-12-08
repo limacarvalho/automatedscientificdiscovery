@@ -14,7 +14,7 @@ st.markdown("")
 st.markdown("")
 st.subheader("Basic Analysis:")
      
-tab1, tab2, tab3, tab4 = st.tabs(["Data information", "Basic statistics", "NA values", "Duplicated values"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Data information", "Basic statistics", "NA values", "Duplicated values", "Report"])
 
 with tab1:
         buffer = io.StringIO()
@@ -30,10 +30,6 @@ with tab3:
 with tab4:
         duplicated_val = df_input.apply(lambda x: x.duplicated()).sum().to_frame('Duplicated values')
         st.write(duplicated_val)
-st.markdown("")
-st.markdown("")
-st.markdown("***")
-st.subheader("Exploratory Data Analysis:")
-if st.button('Generate EDA-Report'):
+with tab5:
         profile=ProfileReport(df_input, minimal=True, explorative=True, title="Uploaded dataset", progress_bar=True) 
         st_profile_report(profile)
