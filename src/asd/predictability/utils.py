@@ -716,7 +716,8 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
                                  "pow. law RMSE": curr_pl_rmse, "mean RMSE": curr_mean_rmse,
                                  "kNN RMSE/std": curr_knn_rmse / curr_y_test_std,
                                  "linear RMSE/std": curr_lin_rmse / curr_y_test_std,
-                                 "pow. law RMSE/std": curr_pl_rmse_std, "mean RMSE/std": curr_mean_rmse / curr_y_test_std,
+                                 "pow. law RMSE/std": curr_pl_rmse_std,
+                                 "mean RMSE/std": curr_mean_rmse / curr_y_test_std,
                                  "kNN MAPE": curr_knn_mape, "linear MAPE": curr_lin_mape,
                                  "pow. law MAPE": curr_pl_mape, "mean MAPE": curr_mean_mape,
                                  "kNN rae": curr_knn_rae, "linear rae": curr_lin_rae,
@@ -772,7 +773,8 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
 
     return curr_metric_dict, curr_data_dict
 
-def refinement_step_tpot(data_dict,
+
+def refinement_step(data_dict,
                          curr_tuple,
                          time_left_for_this_task,
                          per_run_time_limit,
@@ -850,18 +852,15 @@ def refinement_step_tpot(data_dict,
 
 
 @ray.remote(num_returns=2)
-def parallel_refinement_step_tpot(data_dict,
+def parallel_refinement_step(data_dict,
                                   curr_tuple,
                                   time_left_for_this_task,
                                   per_run_time_limit,
                                   n_jobs
                                   ):
-    curr_metric_dict, curr_data_dict = refinement_step_tpot(data_dict=data_dict,
-                                                            curr_tuple=curr_tuple,
-                                                            time_left_for_this_task=time_left_for_this_task,
-                                                            per_run_time_limit=per_run_time_limit,
-                                                            n_jobs=n_jobs
-                                                            )
+    curr_metric_dict, curr_data_dict = refinement_step(data_dict=data_dict, curr_tuple=curr_tuple,
+                                                       time_left_for_this_task=time_left_for_this_task,
+                                                       per_run_time_limit=per_run_time_limit, n_jobs=n_jobs)
 
     return curr_metric_dict, curr_data_dict
 

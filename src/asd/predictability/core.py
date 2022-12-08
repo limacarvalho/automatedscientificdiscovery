@@ -4,12 +4,12 @@ import ray
 import numpy as np
 
 from asd.predictability.utils import get_column_combinations, parallel_pred_step_MLP, \
-    parallel_pred_step_kNN, scoring_dict, refinement_step_tpot, parallel_refinement_step_tpot
+    parallel_pred_step_kNN, scoring_dict, refinement_step, parallel_refinement_step
 
 from utils_logger import logger
 
 
-def main_predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols=None, targets=None,
+def run_predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols=None, targets=None,
                    method="kNN", scoring="r2", scaling="test",
                    hidden_layers=None, alphas=None, max_iter=10000,
                    greedy=False,
@@ -148,6 +148,7 @@ def main_predictability(data, input_cols=1, output_cols=1, col_set=None, primkey
     # put data into ray for speed-up
     data_id = ray.put(data)
 
+    # run the routine over all available input-output-combinations if greedy is not set
     if not greedy:
         # get the list of possible combination tuples of input and output columns
         data_tuples = get_column_combinations(data_cols, input_cols, output_cols, targets)
@@ -178,6 +179,8 @@ def main_predictability(data, input_cols=1, output_cols=1, col_set=None, primkey
         metrics_list = ray.get(metrics_list)
         datas_list = ray.get(datas_list)
 
+    # if greedy is set, run the routine first on all targets and one input, then iteratively add one input to the
+    # respective best previous inputs per target choice
     else:
         initial_metrics_list = []
         initial_datas_list = []
@@ -210,8 +213,8 @@ def main_predictability(data, input_cols=1, output_cols=1, col_set=None, primkey
             best_initial_choices.append(curr_best_initial_choice)
 
             curr_best_initial_choice_metrics = \
-            initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
-                by="kNN r2", ascending=False).drop(columns="target").iloc[0].to_dict()
+                initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
+                    by="kNN r2", ascending=False).drop(columns="target").iloc[0].to_dict()
             metrics_list.append({curr_best_initial_choice: curr_best_initial_choice_metrics})
 
         # dict that collects the best choices
@@ -375,19 +378,16 @@ def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, tim
 
     for curr_tuple in best_tuples:
         if use_ray:
-            curr_metrics, curr_datas = parallel_refinement_step_tpot.remote(data_dict=data_dict_id,
-                                                                            curr_tuple=curr_tuple,
-                                                                            time_left_for_this_task=time_left_for_this_task,
-                                                                            per_run_time_limit=per_run_time_limit,
-                                                                            n_jobs=n_jobs
-                                                                            )
+            curr_metrics, curr_datas = parallel_refinement_step.remote(data_dict=data_dict_id,
+                                                                       curr_tuple=curr_tuple,
+                                                                       time_left_for_this_task=time_left_for_this_task,
+                                                                       per_run_time_limit=per_run_time_limit,
+                                                                       n_jobs=n_jobs
+                                                                       )
         else:
-            curr_metrics, curr_datas = refinement_step_tpot(data_dict=data_dict,
-                                                            curr_tuple=curr_tuple,
-                                                            time_left_for_this_task=time_left_for_this_task,
-                                                            per_run_time_limit=per_run_time_limit,
-                                                            n_jobs=n_jobs
-                                                            )
+            curr_metrics, curr_datas = refinement_step(data_dict=data_dict, curr_tuple=curr_tuple,
+                                                       time_left_for_this_task=time_left_for_this_task,
+                                                       per_run_time_limit=per_run_time_limit, n_jobs=n_jobs)
         metrics_list.append(curr_metrics)
         datas_list.append(curr_datas)
 
@@ -481,9 +481,9 @@ if __name__ == "__main__":
     print(col_set_)
     print(target_set)
 
-    metrics, datas = main_predictability(data_df, input_cols=input_cols_, output_cols=output_cols_, col_set=col_set_,
-                                         primkey_cols=primkey_cols_, targets=target_set, method=method_,
-                                         scoring=scoring_, n_jobs=n_jobs_, verbose=1, random_state_split=1)
+    metrics, datas = run_predictability(data_df, input_cols=input_cols_, output_cols=output_cols_, col_set=col_set_,
+                                        primkey_cols=primkey_cols_, targets=target_set, method=method_,
+                                        scoring=scoring_, n_jobs=n_jobs_, verbose=1, random_state_split=1)
     for key_ in metrics.keys():
         print(f'{key_}: r2-score = {metrics[key_]["kNN r2"]}')
 
