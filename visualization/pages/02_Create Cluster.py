@@ -21,6 +21,7 @@ if st.session_state["execution"] == "Remote machine":
     
     def handle_machine(new_machine):
         st.session_state.machine = new_machine
+        # integrate variable with connection to cluster
 
     machine_type = st.radio("Server options:", ["Small Instance (2 vCPUs / 8 GB RAM)", "Medium Instance (4 vCPUs / 16 GB RAM)", "Large Instance (8 vCPUs / 32 GB RAM)", "GPU Instance (8 vCPUs / 32 GB RAM and 1xGPU)"])
     st.markdown("***")
@@ -39,8 +40,9 @@ if st.session_state["execution"] == "Local machine":
     
     def handle_local(new_local):
         st.session_state.localOS = new_local
+        # integrate variable with connection to local anaconda env
 
-    local_type = st.radio("OS options:", ["MacOS without M1", "Linux"])
+    local_type = st.radio("OS options:", ["macOS without M1", "Linux"])
     local_change = st.button("Set OS", on_click=handle_local, args= [local_type])
     #st.write(st.session_state)
 
