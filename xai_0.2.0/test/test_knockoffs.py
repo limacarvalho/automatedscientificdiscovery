@@ -16,7 +16,7 @@ from ml.xai.non_model import KnockoffSetting, simulate_knockoffs
 
 
 from utils import helper, config, rayer, kaggle_dataset_helper
-
+import time
 
 
 
@@ -81,9 +81,11 @@ if __name__ == '__main__':
     
     print('########### Connecting ray cluster ###################')
 
-    rayer.get_global_cluster()
+    rayer.get_global_cluster(num_cpus=45)
 
     try:
+
+        st = time.time()
 
         df_X, df_y = use_covid_ds()
 
@@ -92,7 +94,25 @@ if __name__ == '__main__':
         X = df_X
         y = df_y
 
-        df = simulate_knockoffs( itr=2, df_X=X, df_y=y, fdr=KnockoffSetting.FDR)
+
+        itr = 100000
+        fdr = 0.1
+        fstats = ['lasso', 'ridge', 'randomforest']
+
+
+        for i in range(0, 2):
+            df_knockoffs = simulate_knockoffs(fdr, fstats, itr=itr, df_X=X, df_y=y)
+            file_name='df_knockoffs_' + str(i) + '_' +  str(fdr) +'.csv'
+            df_knockoffs.to_csv()
+
+
+        et = time.time()
+
+
+        # get the execution time
+        elapsed_time = et - st
+        print('########### Execution time ###################')
+        print(str(elapsed_time/60) + ' seconds')
 
 
     except:

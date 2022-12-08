@@ -49,6 +49,8 @@ if __name__ == '__main__':
     print('dataset id:' + str(inputfile))
     print('dataset shape:' + str(df.shape))
     
+
+    # list_fstats = ['lasso', 'ridge', 'randomforest']
     
     options = {
         'threshold': None,
@@ -70,8 +72,10 @@ if __name__ == '__main__':
 
         # 'attr_algos' : ['knockoff', 'SHAP'],
         
-        'knockoff_num_runs': 100, 
-        'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoff'],
+        'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoffs'], # if knockoff is given, fdr, fstats and knockoff_runs can also be provided, defaults are fdr=0.1, knockoff_runs=1000, fstats=['lasso', 'ridge', 'randomforest']
+        'fdr': 0.1,
+        'fstats': ['lasso', 'ridge', 'randomforest'],
+        'knockoff_runs' : 10000
     }        
     
     pprint(options)

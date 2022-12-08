@@ -17,7 +17,7 @@ from sklearn.metrics import f1_score, roc_auc_score, precision_score, recall_sco
 from ml.models import common
 
 
-import time
+
 import pandas as pd
 
 import time
@@ -45,7 +45,7 @@ def use_tokamat_ds():
                                 score_func=None,
                                 metric_func=None,
                                 list_base_models=[],
-                                n_trials=10,          ### common param
+                                n_trials=100,          ### common param
                                 epochs=15,             ### ANN param
                                 boosted_round=10,      ### boosting tree param
                                 max_depth=30,          ### boosting tree param
@@ -91,7 +91,7 @@ def use_house_pricing_ds():
                                 score_func=None,
                                 metric_func=None,
                                 list_base_models=[],
-                                n_trials=10,          ### common param
+                                n_trials=10,           ### common param
                                 epochs=15,             ### ANN param
                                 boosted_round=10,      ### boosting tree param
                                 max_depth=30,          ### boosting tree param
@@ -148,14 +148,15 @@ def use_transaction_predictions_ds():
 
 
 def main():
-    rayer.get_global_cluster()
+
+    rayer.get_global_cluster(num_cpus=45)
 
     # r2_scoring = make_scorer(score_func=r2_score, greater_is_better=False)
 
     st = time.time()
 
-    ens_mdl, X_train, X_test, y_train, y_test = use_transaction_predictions_ds()     
-    # ens_mdl, X_train, X_test, y_train, y_test = use_tokamat_ds()
+    # ens_mdl, X_train, X_test, y_train, y_test = use_transaction_predictions_ds()     
+    ens_mdl, X_train, X_test, y_train, y_test = use_tokamat_ds()
 
     ens_mdl.fetch_models(X_train, X_test, y_train, y_test)
 

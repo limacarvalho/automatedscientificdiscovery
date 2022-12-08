@@ -36,7 +36,7 @@ def get_local_cluster(working_dir=None, num_cpus=None, num_gpus=None):
         
     # runtime_env = {"working_dir": working_dir, "conda": {"dependencies": ["torch", "pip", {"pip": ["scipy", "scikit-learn"]}]}}
     
-    runtime_env = {"working_dir": working_dir, 'pip': config.pip, 'excludes': excludes}
+    runtime_env = {"working_dir": working_dir, 'excludes': excludes} #'pip': config.pip}
     
     # print(runtime_env)
     
