@@ -37,7 +37,8 @@ scoring_dict = {
 }
 
 
-def get_column_combinations(all_cols, inputs, outputs, targets=[], amount_only=False):
+def get_column_combinations(all_cols, inputs, outputs, targets=[], amount_only=False, return_targets=False):
+    # TODO: update return: different if amount_only or if return_targets
     """
     This function creates the list of all column combinations that should be analysed. It can also be used to determine
     the amount of combinations before the run in order to get a feeling for the runtime, e.g.
@@ -59,6 +60,8 @@ def get_column_combinations(all_cols, inputs, outputs, targets=[], amount_only=F
         Specify columns that should be treated exclusively as targets.
     :param amount_only: bool, default=False
         Specify whether only the amount of different column combinations should be returned.
+    :param return_targets: boolean, default=False
+        Specify whether the possible target combinations are returned.
     :return: list
         List of combination tuples. In each tuple, the first `inputs`-many are the inputs (4 in the example above)
         and the remaining `outputs`-many the outputs (2 in the example above). If `amount_only` is set, amount of
@@ -109,8 +112,10 @@ def get_column_combinations(all_cols, inputs, outputs, targets=[], amount_only=F
             # append all currently possible output combinations to the current input columns and save in final list
             for oc in output_combinations:
                 col_combinations.append(i + (*oc,))
-
-        return col_combinations
+        if not return_targets:
+            return col_combinations
+        else:
+            return col_combinations, output_combinations
 
     # only get the amount of combination tuples according to the formulae in the docstring description
     else:
@@ -476,7 +481,8 @@ def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, 
 
 @ray.remote(num_returns=2)
 def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
-                           scoring, verbose, n_jobs, counter_tuples, len_data_tuples, random_state_split):
+                           scoring, verbose, n_jobs, counter_tuples, len_data_tuples, random_state_split,
+                           greedy=False):
     """
     The explicit step of predictability prediction for one combination tuple if kNN is chosen as method. It performs
     several reference fits (linear, power law (if possible), mean) along a GridSearchCV of a kNN-regressor with
@@ -511,6 +517,9 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
     :param random_state_split: int
         Specifies shuffling during `sklearn.model_selection`'s `train_test_split`. Set to a specific integer value for
         reproducibility.
+    :param greedy: boolean, default=False
+        Specifies whether the function is run by the greedy predictability routine and then also includes the targets
+        in the metric dict
     :return: dict, dict
         First dict contains all evaluation metrics, the second one all data (train, test, predict
         values, GridSearch parameters, CV scores). Both are nested dictionaries, where the outermost key corresponds to
@@ -699,22 +708,42 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
                 f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
 
     # save metrics into dict
-    curr_metric_dict = {curr_tuple:
-                            {"kNN r2": curr_knn_r2, "linear r2": curr_lin_r2,
-                             "pow. law r2": curr_pl_r2, "mean r2": curr_mean_r2,
-                             "kNN RMSE": curr_knn_rmse, "linear RMSE": curr_lin_rmse,
-                             "pow. law RMSE": curr_pl_rmse, "mean RMSE": curr_mean_rmse,
-                             "kNN RMSE/std": curr_knn_rmse / curr_y_test_std,
-                             "linear RMSE/std": curr_lin_rmse / curr_y_test_std,
-                             "pow. law RMSE/std": curr_pl_rmse_std, "mean RMSE/std": curr_mean_rmse / curr_y_test_std,
-                             "kNN MAPE": curr_knn_mape, "linear MAPE": curr_lin_mape,
-                             "pow. law MAPE": curr_pl_mape, "mean MAPE": curr_mean_mape,
-                             "kNN rae": curr_knn_rae, "linear rae": curr_lin_rae,
-                             "pow. law rae": curr_pl_rae, "mean rae": curr_mean_rae,
-                             "kNN dcor": curr_knn_dcor, "linear dcor": curr_lin_dcor,
-                             "pow. law dcor": curr_pl_dcor, "mean dcor": curr_mean_dcor,
-                             }
-                        }
+    if not greedy:
+        curr_metric_dict = {curr_tuple:
+                                {"kNN r2": curr_knn_r2, "linear r2": curr_lin_r2,
+                                 "pow. law r2": curr_pl_r2, "mean r2": curr_mean_r2,
+                                 "kNN RMSE": curr_knn_rmse, "linear RMSE": curr_lin_rmse,
+                                 "pow. law RMSE": curr_pl_rmse, "mean RMSE": curr_mean_rmse,
+                                 "kNN RMSE/std": curr_knn_rmse / curr_y_test_std,
+                                 "linear RMSE/std": curr_lin_rmse / curr_y_test_std,
+                                 "pow. law RMSE/std": curr_pl_rmse_std, "mean RMSE/std": curr_mean_rmse / curr_y_test_std,
+                                 "kNN MAPE": curr_knn_mape, "linear MAPE": curr_lin_mape,
+                                 "pow. law MAPE": curr_pl_mape, "mean MAPE": curr_mean_mape,
+                                 "kNN rae": curr_knn_rae, "linear rae": curr_lin_rae,
+                                 "pow. law rae": curr_pl_rae, "mean rae": curr_mean_rae,
+                                 "kNN dcor": curr_knn_dcor, "linear dcor": curr_lin_dcor,
+                                 "pow. law dcor": curr_pl_dcor, "mean dcor": curr_mean_dcor,
+                                 }
+                            }
+    else:
+        curr_metric_dict = {curr_tuple:
+                                {"kNN r2": curr_knn_r2, "linear r2": curr_lin_r2,
+                                 "pow. law r2": curr_pl_r2, "mean r2": curr_mean_r2,
+                                 "kNN RMSE": curr_knn_rmse, "linear RMSE": curr_lin_rmse,
+                                 "pow. law RMSE": curr_pl_rmse, "mean RMSE": curr_mean_rmse,
+                                 "kNN RMSE/std": curr_knn_rmse / curr_y_test_std,
+                                 "linear RMSE/std": curr_lin_rmse / curr_y_test_std,
+                                 "pow. law RMSE/std": curr_pl_rmse_std,
+                                 "mean RMSE/std": curr_mean_rmse / curr_y_test_std,
+                                 "kNN MAPE": curr_knn_mape, "linear MAPE": curr_lin_mape,
+                                 "pow. law MAPE": curr_pl_mape, "mean MAPE": curr_mean_mape,
+                                 "kNN rae": curr_knn_rae, "linear rae": curr_lin_rae,
+                                 "pow. law rae": curr_pl_rae, "mean rae": curr_mean_rae,
+                                 "kNN dcor": curr_knn_dcor, "linear dcor": curr_lin_dcor,
+                                 "pow. law dcor": curr_pl_dcor, "mean dcor": curr_mean_dcor,
+                                 "target": curr_tuple[input_cols:]
+                                 }
+                            }
 
     # save values into dict
     if do_pl_fit:
