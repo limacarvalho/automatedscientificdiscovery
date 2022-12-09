@@ -8,11 +8,6 @@ import io
 # Set streamlit layout
 st.set_page_config(layout="wide")
 
-# Set streamlit session state
-if "df_input" not in st.session_state:
-    df_input = pd.read_csv(r"datasets/20220727_covid_159rows_52cols_2020.csv")    
-    st.session_state["df_input"] = df_input
-
 # Implement mainframe output
 st.title("Data summary of the input data")
 st.markdown("")
@@ -20,14 +15,11 @@ st.markdown("")
 
 # Implement sidebar user input
 st.sidebar.header("Data selection:")
-st.sidebar.markdown("""
-[The default dataset contains Covid 2020 data](https://gitlab.com/automatedscientificdiscovery/datasets/-/blob/Gtomi-main-patch-17962/covid/20220727_covid_159rows_52cols_2020.csv)
-""")
 
 # Implement sidebar upload button
 file_upload = st.sidebar.file_uploader("Please, open your .csv file", type=["csv"])
 
-# Implement if statement based on file uploader
+# Implement if statements based on file uploader
 if file_upload is not None:
     st.write("Your chosen dataset is used.")
     st.write("")
@@ -38,13 +30,22 @@ if file_upload is not None:
     st.dataframe(df_input)
     st.markdown("")
     st.markdown("")
-else:
-    st.write("The default dataset (Covid) is used. If you want a different dataset, please upload a .csv file.")
+elif "df_input" not in st.session_state:
+    st.write("The default dataset contains Covid 2020 data. If you want a different dataset, please upload a .csv file.")
     st.write("")
     st.write("")
     df_input = pd.read_csv(r"datasets/20220727_covid_159rows_52cols_2020.csv")
     st.session_state["df_input"] = df_input
     st.write("As a brief overview, the default dataset (Covid) is displayed:")  
+    st.dataframe(df_input)
+    st.markdown("")
+    st.markdown("")
+elif "df_input" in st.session_state:   
+    df_input = st.session_state["df_input"]
+    st.write("Your chosen dataset is used.")
+    st.write("")
+    st.write("")     
+    st.write("As a brief overview, your dataset si displayed:")
     st.dataframe(df_input)
     st.markdown("")
     st.markdown("")
