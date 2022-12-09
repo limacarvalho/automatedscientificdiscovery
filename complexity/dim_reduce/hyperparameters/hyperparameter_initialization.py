@@ -1,23 +1,31 @@
-from helper_data import global_vars
+from utils_logger import logger
 import numpy as np
-
 
 def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array) -> (str, dict):
     '''
-    The bayes_opt package processes and returns continuous values, not categorical values.
+    utility for initialization of hyperparameters in step2 hyperparameter optimization.
+    The bayes_opt package processes and returns float values, but not as requiered in many cases
+    categorical or integer values.
     Our around is to convert the categorical input and numeric output into integers or categories
     that are used in some hyperparaeters.
     Example:  'eigen_solver': ['arpack','lobpcg','amg'] as [0, 2] and convert the bayes_opt
     output (1.66 for example) into: ['arpack','lobpcg','amg'][2] = 'amg'.
-    Thats not optimal but the bayes_opt should learn from that.
-    :param params: dict, dict with hyperparameters and values as floats
-    :param fun_id: str, function identifier
-    :param dim: int, low dimension
-    :param data_high: np.array, high dimensional data
-    :return: (str, dict), updated hyperparameters as string (R) and dicionary (Python)
+    One of the benefits is that this method can be easily adapted to R functions (we use quite a few).
+    In order to make future implementations easier, we keep all hyperparameters and some comments
+    although they might not be used.
+    :param params: dict,
+        dictionary with hyperparameters (keys) and values as floats
+    :param fun_id: str,
+        function identifier
+    :param dim: int,
+        low dimension
+    :param data_high: np.array,
+        high dimensional data
+    :return: (str, dict),
+        converted hyperparameters as string (R) and dicionary (Python)
     '''
     arg_string = ''
-
+    # TODO
     for key, value in params.items():
 
         ########
@@ -65,11 +73,18 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array
         if key == 'neighbors_algorithm':
             params[key] = ['brute','kd_tree','ball_tree'][int(round(value,0))]
 
-        ######## PYTHON    tsne
+        ######## PYTHON    tsne, mds
         # default: 'minkowski' there are dozens of options, I just choose the two most common ones
         # also determined y 'p' in isomap
         if key == 'metric':
-            params[key] = ['minkowski','manhattan','euclidean'][int(round(value,0))]
+            if fun_id == 'py_mds':
+                params[key] = [False,True][int(round(value, 0))]
+            else:
+                params[key] = ['minkowski','manhattan','euclidean'][int(round(value,0))]
+
+        ######## PYTHON    mds
+        if key == 'n_init':
+            params[key] = int(value)
 
         ######## PYTHON    isomap
         if key == 'p':
@@ -120,13 +135,25 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array
         if key == 'method' and (fun_id == 'py_pca_sparse' or fun_id == 'py_pca_sparse_mb'):
             params[key] = ['lars','cd'][int(round(value,0))]
 
-        ######## PYTHON    NNF
+        ######## PYTHON    NNF, TSNE, SAMMON
         if key == 'init':
+            # non negative matrix factorization
             if fun_id == 'py_nmf':
                 params[key] = ['random', 'nndsvd', 'nndsvdar'][int(round(value,0))]
+            # sammon mapping
+            elif fun_id == 'py_sammon':
+                params[key] = ['pca','cmdscale','random'][int(round(value, 0))]
             # TSNE
             else:
                 params[key] = ['random','pca'][int(round(value,0))]
+
+        ######## PYTHON    sammon
+        if key == 'maxhalves':
+            params[key] = int(round(value, 0))
+
+        ######## PYTHON    sammon
+        if key == 'eps':
+            params[key] = value
 
         ######## PYTHON    NNF
         if key == 'solver':
@@ -178,20 +205,13 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array
             params[key] = [50,100,150,200,250,300,350,400,450,500][int(round(value,0))]
 
 
-        ######## PYTHON    MANY PYTHON FUNCTIONS
+        ######## PYTHON    USED BY MANY PYTHON FUNCTIONS
         if key == 'tol' and not fun_id == 'py_mve':
             params[key] = value
 
-        # incremental_pca
-        if key == 'empty_py':
-            # set a dump parameter
-            params['whiten'] = False
-            # remove empty key
-            try:
-                params.pop('empty_py')
-            except:
-                print(global_vars.globalstring_error + 'no such key: empty_py')
-                pass
+        ######## PYTHON    Sammon mapping
+        if key == 'lmbda':
+            params[key] = value
 
 
 
@@ -218,7 +238,7 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array
             arg_string = arg_string + str(key) + '=' + str(value) + ', '
 
         ######## R  rndproj
-        if key == 's':
+        if key == 's' and fun_id == 'r_rndproj':
             arg_string = arg_string + str(key) + '=' + str(value) + ', '
 
         ######## R  rpcag
@@ -257,13 +277,12 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array
             arg_string = arg_string + str(key) + '=' + val + ', '
 
         ######## R  lpp, nonpp, olpp, udp, iltsa, rndproj, mvu, spmds
-        # important: no spaces in c(...)
         if key == 'type':
             if fun_id == 'r_rndproj':
                 vals = ['"gaussian"','"achlioptas"','"sparse"']
 
-            elif fun_id == 'r_olpp' or fun_id ==  'r_spmds':
-                vals = ['c("knn",5)', 'c("proportion",0.3)']
+            elif fun_id == 'r_olpp' or fun_id == 'r_spmds':
+                vals = ['c("knn",5)', 'c("knn",20)', 'c("proportion",0.3)']
 
             elif fun_id == 'r_udp':
                 vals = ['c("knn",5)', 'c("enn",1)', 'c("proportion",0.1)']
@@ -337,10 +356,9 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array
             arg_string = arg_string + str(key) + '=' + str(value) + ', '
 
         ######## R  keca
-        # there are 20 types + parameters**,
+        # there are 20 types and some come with n-neighbor parameters
+        # we choose a few educated guesses here.
         # more kernels: https://kisungyou.com/Rdimtools/reference/aux_kernelcov.html
-        # how can we make bayesian search effective here? 2 searches?
-        # here I choose the 2 default options and the 3 w/o parameters
         if key == 'kernel' and fun_id == 'r_keca':
             val = str(['c("gaussian",5)',
                        'c("laplacian",1)',
@@ -357,7 +375,7 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array
         if key == 'kernelscale':
             arg_string = arg_string + str(key) + '=' + str(value) + ', '
 
-        ######## R  mve kwidth
+        ######## R  mve
         if key == 'knn':
             arg_string = arg_string + str(key) + '=' + str(int(round(value,0))) + ', '
 
@@ -384,7 +402,7 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array
                        '"minkowski"'][int(round(value,0))])
             arg_string = arg_string + str(key) + '=' + val + ', '
 
-        ######## R  ree TODO: method not choosen, remove
+        ######## R  ree
         if key == 'initc':
             arg_string = arg_string + str(key) + '=' + str(value) + ', '
 
@@ -392,11 +410,10 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array
         if key == 'mu':
             arg_string = arg_string + str(key) + '=' + str(round(value,1)) + ', '
 
-        ######## R  sammon
+        ######## R  sammon mapping
         if key == 'initialize':
             val = str(['"random"', '"pca"'][int(round(value, 0))])
             arg_string = arg_string + str(key) + '=' + val + ', '
-            # arg_string = arg_string + 'initialize="random", ' TODO: remove
 
         ######## R  spmds
         if key == 'neigs':
@@ -406,72 +423,52 @@ def hyperparameter_init(params: dict, fun_id: str, dim: int, data_high: np.array
         if key == 'ratio':
             arg_string = arg_string + str(key) + '=' + str(value) + ', '
 
-        ######## R  rpca
+        # tsne
+        if key == 'perplexity':
+            arg_string = arg_string + str(key) + '=' + str(int(round(value,0))) + ', '
+
+        # tsne
+        if key == 'eta':
+            arg_string = arg_string + str(key) + '=' + str(value) + ', '
+
+        # tsne
+        if key == 'jitter':
+            arg_string = arg_string + str(key) + '=' + str(value) + ', '
+
+        # tsne
+        if key == 'jitterdecay':
+            arg_string = arg_string + str(key) + '=' + str(value) + ', '
+
+        # tsne
+        if key == 'momentum':
+            arg_string = arg_string + str(key) + '=' + str(value) + ', '
+
+        # tsne
+        if key == 'pca':
+            val = str(['FALSE','TRUE'][int(round(value,0))])
+            arg_string = arg_string + str(key) + '=' + val + ', '
+
+        # tsne
+        if key == 'pcascale':
+            val = str(['FALSE','TRUE'][int(round(value,0))])
+            arg_string = arg_string + str(key) + '=' + val + ', '
+
+        # tsne
+        if key == 'BHuse':
+            val = str(['FALSE','TRUE'][int(round(value,0))])
+            arg_string = arg_string + str(key) + '=' + val + ', '
+
+        # tsne
+        if key == 'BHtheta':
+            val = str(['FALSE','TRUE'][int(round(value,0))])
+            arg_string = arg_string + str(key) + '=' + val + ', '
+
+        # in case there are no hyperparameters to tune we set a dummy variable: 'empty'
         if key == 'empty':
             arg_string = 'empty=empty'
-
-        # # tsne, not used, too many hyperparameters and low quality
-        # if key == 'perplexity':
-        #     arg_string = arg_string + str(key) + '=' + str(int(round(value,0))) + ', '
-        #
-        # # tsne
-        # if key == 'eta':
-        #     arg_string = arg_string + str(key) + '=' + str(value) + ', '
-        #
-        # # tsne
-        # if key == 'jitter':
-        #     arg_string = arg_string + str(key) + '=' + str(value) + ', '
-        #
-        # # tsne
-        # if key == 'jitterdecay':
-        #     arg_string = arg_string + str(key) + '=' + str(value) + ', '
-        #
-        # # tsne
-        # if key == 'momentum':
-        #     arg_string = arg_string + str(key) + '=' + str(value) + ', '
-        #
-        # # tsne
-        # if key == 'pca':
-        #     val = str(['FALSE','TRUE'][int(round(value,0))])
-        #     arg_string = arg_string + str(key) + '=' + val + ', '
-        #
-        # # tsne
-        # if key == 'pcascale':
-        #     val = str(['FALSE','TRUE'][int(round(value,0))])
-        #     arg_string = arg_string + str(key) + '=' + val + ', '
-        #
-        # # tsne
-        # if key == 'BHuse':
-        #     val = str(['FALSE','TRUE'][int(round(value,0))])
-        #     arg_string = arg_string + str(key) + '=' + val + ', '
-        #
-        # # tsne
-        # if key == 'BHtheta':
-        #     val = str(['FALSE','TRUE'][int(round(value,0))])
-        #     arg_string = arg_string + str(key) + '=' + val + ', '
 
     if arg_string.endswith(', '):
         arg_string = arg_string[:-2]
 
     # R: arg_string  Python: params
     return arg_string, params
-
-# TODO: remove
-# def dict_to_r_string(dict_params):
-#     '''
-#     converts a dictionary to a string
-#     :param dict_params:
-#     :return:
-#     '''
-#     arg_string = ''
-#
-#     for key, value in dict_params.items():
-#         if key == 'empty':
-#             return arg_string
-#         else:
-#             arg_string = arg_string + str(key) + '=' + str(value) + ', '
-#
-#     if arg_string.endswith(', '):
-#         arg_string = arg_string[:-2]
-#
-#     return arg_string

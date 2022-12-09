@@ -1,32 +1,39 @@
 from dim_reduction.dimred_main import Dimreduction
 from helper_data.global_vars import *
-from helper_data.utils_data import empty_dict, check_dim
+from helper_data.utils_data import empty_dict, check_low_dimension
 from utils_logger import logger
-from helper_metrix.metrics_dimred import fun_kmax
 from bayes_opt import BayesianOptimization
 import numpy as np
 
 
 class Hyperparameter_optimization:
-    ''' hyperparameter optimization with the bayes-opt package '''
+    '''
+    hyperparameter optimization of dimensionality reduction functions with the bayes-opt package.
+    thanks to Fernando Nogueira for the bayes_opt package.
+    repository:  https://github.com/fmfn/BayesianOptimization
+    '''
 
     def __init__(self, cutoff_loss):
+        '''
+        :param cutoff_loss: float, default=0.99
+            cutoff for loss function 0...1 (perfect dimensionality reduction)
+        '''
         self.loss_fun = globalvar_loss_function
         self.cutoff_loss = cutoff_loss
 
 
-    def black_box_dimreduce(self, **params: dict):
+    def black_box_dimreduce(self, **params: dict) -> float:
         '''
         Black box function to run within the BayesianOptimization method.
-        Performs dimesnionality reduction with hyperparameters provided b bayes-opt.
-        The loss of the dim-reduction (default: 'mae_norm') is measured and returned
-        to the package.
-        Bayes opt aims to maximize the loss
-        The results of all dim reductions are stored in self.list_of_dict_results .
-        :param params: dict, parameters provided by the bayesian optimization method
-        :return: float, mae_norm 0.0 ... 1.0
+        1) dimensionality reduction with hyperparameters calculated by bayes-opt.
+        2) qulaity measurement and returns the loss whcih is maximized by bayes-opt.
+        The results of all dim reductions are documented in list_of_dict_results.
+        :param params: dict,
+            parameters provided by the bayesian optimization method
+        :return: float,
+            loss value
         '''
-        # dim reduction and quality measurement
+        # dim reduction and measuring the loss
         dimred = Dimreduction(self.fun_id, self.data_high, self.dim_low)
         dict_results = dimred.exe_dimreduce(params, step=globalstring_step2)
 
@@ -39,40 +46,35 @@ class Hyperparameter_optimization:
             dict_results['init_steps'] = 0
             dict_results['iter_steps'] = 0
 
+        # update dictionary
         dict_results['dim_low'] = self.dim_low
-        # this dictionary is updated after every dim reduction
+
+        # append results to list
         self.list_of_dict_results.append(dict_results)
-        # return the loss value for hyperparameter optimization
+
+        # return the loss value
         return dict_results[self.loss_fun]
 
 
     def get_init_iterations(self, hyperparameters: dict) -> (int, int):
         '''
         BayesianOptimization function has two main steps: A) initialization, where the hyperparameters
-        are choosen randomly and B) iteration where the bayesian mthod is used to optimize the hyper
+        are choosen randomly and B) iteration where the bayesian mthod is used to optimize the hyper-
         parameters from step to step. here we calculate the number of initial steps and iterations.
-        Number depends on the number of hyperparameters.
-        :param hyperparameters: dictionary with hyperparameter, value range items
-        :return: init steps, iter steps
+        initial steps: adds 5 for the first hyperparameter and add 2 for any other hyperparameter.
+        iteration steps: adds 5 per hyperparameter.
+        :param hyperparameters:
+            dictionary with hyperparameters and values or value ranges
+        :return: int, int,
+            int:
+                number of initialization steps
+            int:
+                number of iteration steps
         '''
-        # n_hps, init, iterations = 1, 1, 0
-        # try:
-        #     n_hps = len(hyperparameters)
-        #     if n_hps == 1:
-        #         for key, value in hyperparameters.items():
-        #             if isinstance(value, list):
-        #                 init = 3 + (n_hps * 2)
-        #                 iterations = n_hps * 5
-        #             else:
-        #                 init, iterations = 1, 0
-        #     else:
-        #         init = 3 + (n_hps * 2)
-        #         iterations = n_hps * 5
         n_hps, init, iterations = 0, [], []
         try:
             for key, value in hyperparameters.items():
                 if isinstance(value, list):
-                    # TODO: easier formula !!
                     if not init:
                         init.append(3 + 2)
                     else:
@@ -95,8 +97,10 @@ class Hyperparameter_optimization:
         '''
         runs the BayesianOptimization function by maximizing the black box output (loss)
         in case of no changes after te init steps, the function breaks.
-        :param hyperparameters: dict hyperparameters, hyperparameter: value_range
-        :return: object optimizer.max
+        :param hyperparameters: dict,
+            dictionary with hyperparameters: 'hyperparameter': list(value_range)
+        :return: objec,
+            optimizer.max
         '''
         optimizer = BayesianOptimization(
             f = self.black_box_dimreduce,
@@ -113,16 +117,15 @@ class Hyperparameter_optimization:
 
     def get_best_optimizer_result(self, optimizer):
         '''
-        function to return the dictionary of the best dimesnionality reduction eg. the
-        optimizer.max function.
+        function to return the dictionary of the best dimesnionality reduction.
         The function loops through the optimizer results (optimizer.res) which are
         chronologically sorted. It searches for the n-th entry in list of results with the
         best result (hyperparameters of result == hyperparameters optimizer.res == hyperparameters
         optimizer.max)
-        The hyperparameters are floats with a lot of float values, so its very unlikely to have the
-        same combination of hyperparamters.
-        :param optimizer: optimizer object
-        :return: dict, dictionary with best results of all dim reductions
+        :param optimizer:
+            optimizer object
+        :return: dict,
+            dictionary with best result (highest loss)
         '''
         best_result = {}
         try:
@@ -160,16 +163,24 @@ class Hyperparameter_optimization:
         - - - COMMON ERRORS - - -
         Errors: 'StopIteration: Queue is empty, no more objects to retrieve.' AND connected:
                 'ValueError: array must not contain infs or NaNs'
-                    -> is raised in case of no change of loss in exploration phase.
+                -> is raised in case of no change of loss afer initialization phase. Ignore!
 
-        - - - INFORMATION - - -
+        - - - SOURCE / INFORMATION - - -
         https://github.com/fmfn/BayesianOptimization
-        :param fun_id: str, function identifier
-        :param hyperparameters: dict, parameters, values of hyperparameters
-        :param data: np.array, high dimensional data
-        :param ndim: int, low dimension
-        :return: (dict,list), dict of best dim reduction results, list of dicts with all
-            dim reduction results.
+
+        :param fun_id: str,
+            function identifier
+        :param hyperparameters: dict,
+            dictionaries with hyperparameters and values
+        :param data: np.array,
+            high dimensional data
+        :param ndim: int,
+            low dimension
+        :return: (dict,list),
+            dict:
+                dictionary of best dim reduction results
+            list:
+                list of dicts with results of all dimensionality reductions.
         '''
         self.fun_id = fun_id
         self.data_high = data
@@ -177,35 +188,27 @@ class Hyperparameter_optimization:
         self.list_of_dict_results = []
         self.init_steps, self.iter_steps = self.get_init_iterations(hyperparameters)
 
-        # checks if dimension is correct (True, False)
-        dimcheck = check_dim(self.dim_low, self.data_high.shape[1])
+        # checks if dimension has the correct format (returns: True or False)
+        dimcheck = check_low_dimension(self.dim_low, self.data_high.shape[1])
 
-        # dim sensitive functions
-        dimsensitive_py = [''] # 'py_truncated_svd'
-
-        # something is wrong with the dimension or function
-        if dimcheck == False or str(self.fun_id) in dimsensitive_py:
-            kmax = fun_kmax(self.data_high)
-            self.list_of_dict_results = [empty_dict(self.fun_id, self.dim_low, kmax)]
+        # dimension has incorrect format
+        if not dimcheck:
+            self.list_of_dict_results = [empty_dict(self.fun_id, self.dim_low)]
             dict_best_results = self.list_of_dict_results[0]
 
-        # dim reduce functions without hyperparameters to tune.
+        # dimensionality reduction of functions without hyperparameters.
         elif (self.init_steps + self.iter_steps) == 1:
             _ = self.black_box_dimreduce(**hyperparameters)
             # there is only one dict here
             dict_best_results = self.list_of_dict_results[0]
 
-        # optimize hyperparameters of functions with hyperparameters
+        # dimensionality reduction of functions with hyperparameters.
         else:
-            # optimize
             optimizer = self.fun_maximize_optimizer(hyperparameters)
             if not optimizer:
                 dict_best_results = {}
                 self.list_of_dict_results = []
             else:
                 dict_best_results = self.get_best_optimizer_result(optimizer)
-
-            # future function, will come with early stop condition
-            # optimizer = self.fun_custom_maximize(hyperparameters) # funzt
 
         return dict_best_results, self.list_of_dict_results
