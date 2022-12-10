@@ -15,7 +15,7 @@ if "execution" not in st.session_state and "machine" not in st.session_state:
 def handle_execution(new_execution):
     st.session_state.execution = new_execution
 
-# Set selection and button on the sidebar
+# Set user selection and button on the sidebar
 execution_type = st.sidebar.radio("Execution options:", ["Local machine", "Remote machine"])
 execution_change = st.sidebar.button("Set execution", on_click=handle_execution, args= [execution_type])
 

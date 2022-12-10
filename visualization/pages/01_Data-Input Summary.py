@@ -13,7 +13,7 @@ st.title("Data summary of the input data")
 st.markdown("")
 st.markdown("")
 
-# Implement sidebar user input
+# Implement sidebar output
 st.sidebar.header("Data selection:")
 
 # Implement sidebar upload button
