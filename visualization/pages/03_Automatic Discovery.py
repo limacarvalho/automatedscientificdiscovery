@@ -69,49 +69,55 @@ if st.session_state["discovery_type"] == "Predictability":
     pred_ml_method = st.selectbox("ML-method:", ("kNN", "linear", "mean", "pow. law"))
     pred_greedy = st.checkbox('Use greedy algorithm')
 
-    ###### Part 1, Predictability: get_column_combinations of ml-algorithm ###### 
-    st.markdown("***")
-    st.subheader("Get combinations of your data")
-    st.markdown("""
-    This function can be used to determine the overall number of combinations the predictability routine analyses
-    given the number of data columns, fitting type etc. This allows to estimate the overall runtime of the predictability
-    routine.
-    """)
-    pred_comb_start = st.button("Get combinations")
-    
-    if pred_comb_start == True:
-        # Implement tbe code 
-        #get_column_combinations(all_cols=df_input_changed.columns, inputs=pred_input_column, outputs=pred_output_column, targets=pred_target_column)
-        
-        # printed dataframe based on selected targets
-        st.dataframe(df_input[pred_target_column])
-        # Integrate variable with connection to ml-task: Predictability
-    else:
+    if pred_target_column and pred_input_column and pred_output_column:
+        ###### Part 1, Predictability: get_column_combinations of ml-algorithm ###### 
+        st.markdown("***")
+        st.subheader("Get combinations of your data")
         st.markdown("""
-        You have not chosen this task.
+        This function can be used to determine the overall number of combinations the predictability routine analyses
+        given the number of data columns, fitting type etc. This allows to estimate the overall runtime of the predictability
+        routine.
         """)
-   
-    ###### Part 2, Predictability: predictability function of ml-algorithm ######  
-    st.markdown("***")
-    st.subheader("Predictability")
-    st.markdown("""
-    Discover the predictability of your dataset.
-    """)
-    pred_algorithm_start = st.button("Start discovery")
+        pred_comb_start = st.button("Get combinations")
 
-    if pred_algorithm_start == True:
-        # Implement tbe code of Predictability
-        #metrics_dict, datas_dict = predictability(data=df_input_changed, input_cols=pred_input_column, output_cols=pred_output_column, col_set=None, targets=pred_target_column, method=pred_ml_method, random_state_split=None, #refined=True, greedy=pred_greedy)
-        #pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
-        #pred_output = plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
-        #st.session_state["pred_output"] = pred_output
+        if pred_comb_start == True:
+            # Implement tbe code 
+            #get_column_combinations(all_cols=df_input_changed.columns, inputs=pred_input_column, outputs=pred_output_column, targets=pred_target_column)
+            
+            # printed dataframe based on selected targets
+            st.dataframe(df_input[pred_target_column])
+            # Integrate variable with connection to ml-task: Predictability
+        else:
+            st.markdown("""
+            You have not chosen this task.
+            """)
+    
+        ###### Part 2, Predictability: predictability function of ml-algorithm ######  
+        st.markdown("***")
+        st.subheader("Predictability")
         st.markdown("""
-        Your outputs of the predictability part are saved.
+        Discover the predictability of your dataset.
         """)
+        pred_algorithm_start = st.button("Start discovery")
+
+        if pred_algorithm_start == True:
+            # Implement tbe code of Predictability
+            #metrics_dict, datas_dict = predictability(data=df_input_changed, input_cols=pred_input_column, output_cols=pred_output_column, col_set=None, targets=pred_target_column, method=pred_ml_method, random_state_split=None, #refined=True, greedy=pred_greedy)
+            #pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
+            #pred_output = plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
+            #st.session_state["pred_output"] = pred_output
+            st.markdown("""
+            Your output of the predictability part is saved.
+            """)
+        else:
+            st.markdown("""
+            You have not chosen this task.
+            """)
     else:
         st.markdown("""
-        You have not chosen this task.
+        You have to set all options and columns.
         """)
+
 elif st.session_state["discovery_type"] == "Relevance":
     st.markdown("""
     You selected the task: Relevance
