@@ -106,8 +106,10 @@ if st.session_state["discovery_type"] == "Predictability":
             #pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
             #pred_output = plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
             #st.session_state["pred_output"] = pred_output
+            #st.write(plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"]))
+
             st.markdown("""
-            Your output of the predictability part is saved.
+            Your output of the predictability part is displayed.
             """)
         else:
             st.markdown("""
