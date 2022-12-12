@@ -77,6 +77,8 @@ class SlugXGBoost():
         
     def fit(self, X_train, X_test, y_train, y_test):
 
+        customlogger.info( self.model_file_name + ': fit')
+
         param_dists = {
             #"metric": "rmse",            
             "lambda": tune.loguniform(1e-3, 0.1),
@@ -97,6 +99,7 @@ class SlugXGBoost():
                                     n_trials=self.n_trials, 
                                     scoring=self.score_func,
                                     cv=self.cv_splits,
+                                    loggers= ['csv'],
                                     search_optimization ='hyperopt',
                                     time_budget_s=self.timeout
                                     )
@@ -111,6 +114,7 @@ class SlugXGBoost():
 
         self.scores = [err_train, err_test]
 
+        customlogger.info( self.model_file_name + ': score: ' + str(self.scores))
 
 
     def score(self, X, y, metric_func=None):

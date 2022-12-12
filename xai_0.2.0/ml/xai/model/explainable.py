@@ -108,6 +108,12 @@ def __get_shapley_tree_attr__(model, df_X,  n_background):
 
 class Explainable:
     def __init__(self, ensemble_set, df_X) -> None:
+        '''
+        Measure variable importance based on SHAP, \n
+        Args:\n
+        \t ensemble_set (Ensemble): Object of Ensemble class on which 
+        \t df_X (pd.DataFrame): variable dataset 
+        '''
         self.df_scores = None
         self.raw = None
         self.ensemble_set = ensemble_set
@@ -127,15 +133,14 @@ class Explainable:
         # self.load_models()
 
 
-        
-
-    def inspect(self, model, attr_algo):
-        if 'IG' in attr_algo: 
-            self.get_ig_attr(model)
-
-
 
     def get_attr(self, attr_algos):                
+        '''
+        Measure variable importance based on SHAP, \n
+        Args:\n
+        \t attr_algos (list): list of exlainable AI methods, i.e., ['IG', 'SHAP', 'GradientSHAP']. See https://github.com/pytorch/captum and https://github.com/slundberg/shap.
+        return pd.Series: list of varaibles sorted as per their importance, zeros equate to no importance at all.
+        '''
         
         attr_algos = [x.lower() for x in attr_algos]
         

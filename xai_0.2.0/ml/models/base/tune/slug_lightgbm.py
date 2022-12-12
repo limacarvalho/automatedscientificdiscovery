@@ -75,12 +75,14 @@ class SlugLGBM():
         
     def fit(self, X_train, X_test, y_train, y_test):
   
+        customlogger.info( self.model_file_name + ': fit')
+
         param_dists = {
             #"metric": "rmse",
             "lambda_l1": tune.loguniform(1e-3, 0.1),
             "lambda_l2": tune.loguniform( 1e-3, 0.1),
             "eta": tune.loguniform( 1e-6, 1.0),
-            "max_depth": tune.randint(3, 30),
+            "max_depth": tune.randint(3, self.max_depth),
             "max_bin": tune.choice([64, 128, 512, 1024, 2048, 3072, 4096, 8192]),
             "bagging_fraction": tune.loguniform( 1e-6, 1),
             "colsample_bytree": tune.loguniform(1e-6, 1),
@@ -94,6 +96,7 @@ class SlugLGBM():
                                     n_trials=self.n_trials, 
                                     scoring=self.score_func,
                                     cv=self.cv_splits,
+                                    loggers = ['csv'],
                                     search_optimization ='hyperopt',
                                     time_budget_s=self.timeout
                                     )
@@ -108,6 +111,7 @@ class SlugLGBM():
 
         self.scores = [err_train, err_test]
 
+        customlogger.info( self.model_file_name + ': score: ' + str(self.scores))
 
 
     def score(self, X, y, metric_func=None):

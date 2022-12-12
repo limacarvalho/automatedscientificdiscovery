@@ -75,9 +75,11 @@ class SlugRF():
         
     def fit(self, X_train, X_test, y_train, y_test):
 
+        customlogger.info( self.model_file_name + ': fit')
+
         param_dists = {
             "n_estimators": tune.randint(50, self.max_n_estimators),
-            "max_depth": tune.randint(10, self.max_n_estimators),
+            "max_depth": tune.randint(10, self.max_depth),
             "min_samples_split": tune.randint(2, 150),
             "min_samples_leaf": tune.randint(11, 60),
         }
@@ -101,6 +103,7 @@ class SlugRF():
 
         self.scores = [err_train, err_test]
 
+        customlogger.info( self.model_file_name + ': score: ' + str(self.scores))
 
 
     def score(self, X, y, metric_func=None):

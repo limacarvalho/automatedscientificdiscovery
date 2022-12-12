@@ -55,10 +55,8 @@ if __name__ == '__main__':
     options = {
         'threshold': None,
         'base_models' : ['BriskXGBoost', 'slugxgboost', 'slugann', 'slugknn', 'briskbagging'],
-        #'naiv_models' : ['Lasso', 'Ridge', 'Elastic', 'Nova', 'slugknn', 'briskbagging'],
 
         'n_trials' : 100,
-        'epochs': 150,
         'boosted_round': 15,
 
         'max_depth': 30,
