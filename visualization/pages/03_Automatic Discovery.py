@@ -5,6 +5,7 @@ import numpy as np
 #from predictability.src.ASD_predictability_utils.utils import get_column_combinations
 #from predictability.bin.main import predictability
 #from predictability.src.ASD_predictability_utils.utils import plot_result
+#from complexity.dim_reduce import dimreduce_main
 
 # Set streamlit layout
 st.set_page_config(layout="wide")
@@ -58,7 +59,7 @@ ml_select = st.sidebar.radio("Discovery task:", ["Predictability", "Relevance", 
 
 # Implement if statements based on discovery task selection
 if st.session_state["discovery_type"] == "Predictability":
-    st.header("Discover the predictions")
+    st.header("Discover the predictability of your data")
     st.markdown("""
     To begin the predictability task, you have to choose between some options.   
     """)
@@ -81,7 +82,7 @@ if st.session_state["discovery_type"] == "Predictability":
         pred_comb_start = st.button("Get combinations")
 
         if pred_comb_start == True:
-            # Implement tbe code 
+            ###### Implement tbe code of Predictability ######
             #get_column_combinations(all_cols=df_input_changed.columns, inputs=pred_input_column, outputs=pred_output_column, targets=pred_target_column)
             
             # printed dataframe based on selected targets
@@ -101,7 +102,7 @@ if st.session_state["discovery_type"] == "Predictability":
         pred_algorithm_start = st.button("Start discovery")
 
         if pred_algorithm_start == True:
-            # Implement tbe code of Predictability
+            ###### Implement tbe code of Predictability ######
             #metrics_dict, datas_dict = predictability(data=df_input_changed, input_cols=pred_input_column, output_cols=pred_output_column, col_set=None, targets=pred_target_column, method=pred_ml_method, random_state_split=None, #refined=True, greedy=pred_greedy)
             #pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
             #pred_output = plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
@@ -131,7 +132,46 @@ elif st.session_state["discovery_type"] == "Grouping":
     """)
     # Integrate variable with connection to ml-task: Grouping
 elif st.session_state["discovery_type"] == "Complexity":
+    st.header("Discover the complexity of your data")
     st.markdown("""
-    You selected the task: Complexity
+    To begin the complexity task, you have to choose between some options.   
     """)
-    # Integrate variable with connection to ml-task: Complexity
+    complex_num_columns = df_input.select_dtypes(include = np.number).columns.to_list()
+    complex_column = st.multiselect("Numeric columns:", complex_num_columns)#[st.session_state["predict_target_column"]])
+    complex_ident = st.text_input('Identifier:', placeholder="Enter an identifier")
+    complex_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0)
+    complex_ml_method = st.selectbox("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"))
+    complex_data_high = df_input_changed
+    if complex_ml_method == "All":
+        complex_ml_method = []
+
+    if complex_column and complex_ident and complex_cutoff_loss:
+    
+        ###### Part 1, Complexity function of ml-algorithm ######  
+        st.markdown("***")
+        st.subheader("Complexity")
+        st.markdown("""
+        Discover the complexity of your dataset.
+        """)
+        complex_algorithm_start = st.button("Start discovery")
+
+        if complex_algorithm_start == True:
+            ###### Implement tbe code of Complexity ######
+            #dimreduce_main.data_id = complex_ident
+            #dimreduce_main.columns = complex_column
+            #dimreduce_main.data_high = complex_data_high
+            #dimreduce_main.functions = complex_ml_method 
+            #dimreduce_main.cutoff_loss = complex_cutoff_loss
+            #dimreduce_main.complexity(data_high, data_id, columns, cutoff_loss, functions)
+
+            st.markdown("""
+            Your output of the complexity part is displayed.
+            """)
+        else:
+            st.markdown("""
+            You have not chosen this task.
+            """)
+    else:
+        st.markdown("""
+        You have to set all options and columns.
+        """)
