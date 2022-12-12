@@ -1,5 +1,9 @@
 
-import sys; sys.path.insert(0, '..') # add parent folder path where lib folder is
+import sys; 
+sys.path.insert(0, '../../../../') # add parent folder path where lib folder is
+sys.path.insert(0, '../../../') # add parent folder path where lib folder is
+
+# sys.path.insert('/mnt/c/Users/rwmas/GitHub/xai/python-asd/src/asd')
 
 import os
 import numpy as np
@@ -8,21 +12,17 @@ import traceback
 
 from sklearn.model_selection import train_test_split
 
-from ml.models import common
+from asd.xai.ml.models import common
 
-from ml.xai.non_model import KnockoffSetting, simulate_knockoffs
-
-
-
-
-from utils import helper, config, rayer, kaggle_dataset_helper
+from asd.xai.ml.xai.non_model import KnockoffSetting, simulate_knockoffs
+from asd.xai.utils import helper, rayer, dataset_handler
 import time
 
 
 
 
 def use_tokamat_ds():
-    df = helper.get_tokamat_dataset()
+    df = dataset_handler.get_tokamat_dataset()
     df = df.reset_index()
 
     df = common.label_encode(df)
@@ -38,50 +38,18 @@ def use_tokamat_ds():
 
 
 def use_covid_ds():
-    df_X, df_y = helper.get_covid_dataset()
+    df_X, df_y = dataset_handler.get_covid_dataset()
     df_X = df_X.drop(['location'], axis = 1)
 
     return df_X, df_y
 
 
 
-def use_transaction_predictions_ds():
-    ds_train, ds_test = kaggle_dataset_helper.get_transaction_predictions_dataset()
-    ds_train = common.label_encode(ds_train)
-    ds_test = common.label_encode(ds_test)
-
-    ds_train = ds_train.fillna(-1)
-    ds_test = ds_test.fillna(-1)
-
-    df_X = ds_train.loc[:, ds_train.columns != 'target']
-    df_y = ds_train['target']
-
-    return df_X, df_y
-    
-
-
-
-def use_house_pricing_ds():
-    ds_train, ds_test = kaggle_dataset_helper.get_house_prices_dataset()
-    ds_train = common.label_encode(ds_train)
-    ds_test = common.label_encode(ds_test)
-
-    ds_train = ds_train.fillna(-1)
-    ds_test = ds_test.fillna(-1)
-
-    df_X = ds_train.loc[:, ds_train.columns != 'SalePrice']
-    df_y = ds_train['SalePrice']
-
-    return df_X, df_y
-
-    
-
-
 if __name__ == '__main__':
     
     print('########### Connecting ray cluster ###################')
 
-    rayer.get_global_cluster(num_cpus=45)
+    rayer.get_local_cluster(num_cpus=4)
 
     try:
 
@@ -95,12 +63,12 @@ if __name__ == '__main__':
         y = df_y
 
 
-        itr = 20000
+        itr = 20
         fdr = 0.1
         fstats = ['lasso', 'ridge', 'randomforest']
 
 
-        for i in range(0, 1000):
+        for i in range(0, 10):
             df_knockoffs = simulate_knockoffs(fdr, fstats, itr=itr, df_X=X, df_y=y)
             file_name='df_knockoffs_' + str(i) + '_' +  str(fdr) +'.csv'
             df_knockoffs.to_csv(file_name, sep=';')
