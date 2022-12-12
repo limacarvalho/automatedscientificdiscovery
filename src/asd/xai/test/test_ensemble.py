@@ -4,17 +4,18 @@
 import sys; sys.path.insert(0, '..') # add parent folder path where lib folder is
 
 
-from utils import helper, config, rayer, kaggle_dataset_helper
+
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
-from ml.models.ensemble import Ensemble
+from asd.xai.utils import helper, config, rayer, kaggle_dataset_helper
+from asd.xai.ml.models.ensemble import Ensemble
 
 from sklearn.metrics import make_scorer
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.metrics import f1_score, roc_auc_score, precision_score, recall_score
-from ml.models import common
+from asd.xai.ml.models import common
 
 
 
@@ -92,6 +93,14 @@ def use_covid_ds():
                  )
 
     
+    ens_mdl.fetch_models(X_train, X_test, y_train, y_test)
+
+    print('########### Base Model Scores ###################')
+    print(ens_mdl.base_model_scores)
+
+    print('############# Ensemble Score #################')
+    print(ens_mdl.scores)
+
 
     return ens_mdl, X_train, X_test, y_train, y_test
 
