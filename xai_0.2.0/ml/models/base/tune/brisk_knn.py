@@ -68,6 +68,8 @@ class BriskKNN():
         
     def fit(self, X_train, X_test, y_train, y_test):
 
+        customlogger.info( self.model_file_name + ': fit')
+
         param_dists = {
             'n_neighbors': tune.randint( 5, self.n_neighbors),
             'weights': tune.choice(["uniform", "distance"]),
@@ -93,6 +95,7 @@ class BriskKNN():
 
         self.scores = [err_train, err_test]
         
+        customlogger.info( self.model_file_name + ': score: ' + str(self.scores))
 
 
     def score(self, X, y, metric_func=None):

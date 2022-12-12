@@ -23,14 +23,6 @@ from ml.xai.non_model import simulate_knockoffs, KnockoffSetting
 
 
 def relevance(df, input_columns, target, options) -> None:
-    # params
-        ## list_base_models
-        ## threshold
-        ## max_depth
-        ## n_trials
-        ## boosted_round
-        ## epochs
-        ## attr_algos = ['IG', 'SHAP', 'GradientSHAP']
         
     # return
     ## base_model_scores
@@ -229,7 +221,7 @@ def relevance(df, input_columns, target, options) -> None:
         ret = {
                 'xai_non_model': df_knockoffs
             }
-        return ret
+        # return ret
 
 
         # list_base_models = ['briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf']
@@ -241,13 +233,13 @@ def relevance(df, input_columns, target, options) -> None:
                                         score_func=None,
                                         metric_func=None,
                                         list_base_models= base_models, #['sluglgbm', 'briskxgboost'],
-                                        n_trials=10,          ### common param
-                                        epochs=15,             ### ANN param
-                                        boosted_round=10,      ### boosting tree param
-                                        max_depth=30,          ### boosting tree param
-                                        max_n_estimators=1500, ### rf param
-                                        n_estimators=30,       ### bagging param, must be > 10 
-                                        n_neighbors=30,        ### knn param, must be > 5
+                                        n_trials=10,          
+                                        epochs=15,            
+                                        boosted_round=10,     
+                                        max_depth=30,         
+                                        max_n_estimators=1500,
+                                        n_estimators=30,      
+                                        n_neighbors=30,
 
                                         ensemble_n_estimators=30,  ###  must be > 10
                                         ensemble_n_trials=10,

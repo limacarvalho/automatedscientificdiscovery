@@ -4,6 +4,8 @@ import ray
 import json
 import time
 from utils import config
+import ray._private.ray_constants as ray_constants
+import logging 
 
 
 @ray.remote
@@ -68,7 +70,10 @@ def get_global_cluster(working_dir=None, num_cpus=None, num_gpus=None, ip=None):
     # Start Ray.
     try:
         ray.shutdown()
-        ray.init(address=ray_cluster_uri, runtime_env={"working_dir": working_dir, 'pip': config.pip, 'excludes': excludes})
+        ray.init(address=ray_cluster_uri, runtime_env={"working_dir": working_dir, 'pip': config.pip, 'excludes': excludes},
+                    #logging_level = logging.DEBUG
+            )
+        # os.environ['RAY_worker_register_timeout_seconds'] = '600'
         
         # Start tasks in parallel.
         ray.autoscaler.sdk.request_resources(num_cpus=num_cpus)

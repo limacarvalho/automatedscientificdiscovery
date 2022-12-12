@@ -104,6 +104,7 @@ class BriskXGBoost():
 
         self.scores = [err_train, err_test]
 
+        customlogger.info( self.model_file_name + ': score: ' + str(self.scores))
 
 
     def score(self, X, y, metric_func=None):

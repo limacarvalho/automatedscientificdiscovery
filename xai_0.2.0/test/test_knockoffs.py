@@ -95,16 +95,15 @@ if __name__ == '__main__':
         y = df_y
 
 
-        itr = 100000
+        itr = 20000
         fdr = 0.1
         fstats = ['lasso', 'ridge', 'randomforest']
 
 
-        for i in range(0, 2):
+        for i in range(0, 1000):
             df_knockoffs = simulate_knockoffs(fdr, fstats, itr=itr, df_X=X, df_y=y)
             file_name='df_knockoffs_' + str(i) + '_' +  str(fdr) +'.csv'
-            df_knockoffs.to_csv()
-
+            df_knockoffs.to_csv(file_name, sep=';')
 
         et = time.time()
 

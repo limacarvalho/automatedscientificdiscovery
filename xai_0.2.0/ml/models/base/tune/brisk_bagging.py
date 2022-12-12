@@ -80,6 +80,9 @@ class BriskBagging():
         
     def fit(self, X_train, X_test, y_train, y_test):
 
+
+        customlogger.info( self.model_file_name + ': fit')
+
         param_dists = {
             'n_estimators': tune.randint(10, self.n_estimators),
         }
@@ -102,6 +105,8 @@ class BriskBagging():
         err_test = self.metric_func(pred_test, y_test)
 
         self.scores = [err_train, err_test]
+
+        customlogger.info( self.model_file_name + ': score: ' + str(self.scores))
         
 
 

@@ -6,6 +6,8 @@ from utils.asd_logging import logger as  customlogger
 
 from ml.models.base.tune import BriskBagging, BriskKNN, BriskXGBoost, SlugXGBoost, SlugLGBM, SlugRF
 
+from sklearn.metrics import make_scorer
+from sklearn import metrics
 
 import numpy as np
 import pandas as pd
@@ -20,26 +22,43 @@ import ray
 
 class Ensemble:
 
-    
-    def __init__(self, 
+    def __init__(self,
                  xgb_objective,
                  lgbm_objective,
                  pred_class,
                  score_func=None,
                  metric_func=None,
                  list_base_models=[],
-                 n_trials=100,          ### common param
-                 epochs=15,             ### ANN param
-                 boosted_round=10,      ### boosting tree param
-                 max_depth=30,          ### boosting tree param
-                 max_n_estimators=1500, ### rf param
-                 n_estimators=30,       ### bagging param
-                 n_neighbors=30,        ### knn param
+                 n_trials=100,
+                 boosted_round=100,
+                 max_depth=30,
+                 rf_n_estimators=1500,
+                 bagging_estimators=100,
+                 n_neighbors=30,
                  cv_splits=3,
-                 ensemble_n_estimators=10,
-                 ensemble_n_trials=10,
+                 ensemble_bagging_estimators=50,
+                 ensemble_n_trials=50,
                  timeout=None) -> None:
-
+        '''    
+        The goal of ensemble class is to fit several base models and then fit an ensemble model to achieve automated learning.\n
+        Arg:\n
+        \txgb_objective (str): objective function if xgboost model is given in list_base_model. I.e., default='binary:logistic', see doc. of XGBoost for more details.
+        \tlgbm_objective (str): objective function if lightgbm model is given in list_base_model.I.e., default='binary', see doc. of LightGBM for more details.
+        \tpred_class (str): specify problem type, i.e., 'regression' or 'classification'.
+        \tscore_func (str, callable, or None): A single string or a callable to evaluate the predictions on the test set. See https://scikit-learn.org/stable/modules/model_evaluation.html
+        \tmetric_func (str): sklearn.metrics
+        \tlist_base_models (list): list of base models to be used to fit on the data. I.e., ['briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf']
+        \tn_trials (int): . Default to 100
+        \tboosted_round (int): n_estimators parameter for XGBoost and LightGBM. Default to 100
+        \tmax_depth (int): max tree depth parameter for XGBoost, LightGBM and RandomForest. Default to 30
+        \trf_n_estimators (int): n_estimators parameter of RandomForest. Default to 1500
+        \tbagging_estimators (int): n_estimators parameter of Bagging. Default to 100
+        \tn_estimators (int): The number of trees in the forest parameter of RandomForest. Default to 1500
+        \tn_neighbors (int): n_neighbors of KNN. Default to 30
+        \tcv_splits (int): Determines the cross-validation splitting strategy. I.e., cv_split=3
+        \tensemble_bagging_estimators (int): n_estimators parameter of Bagging. This is the second baggin method which is used an an ensemble on top of base estimators. Default to 50
+        \tensemble_n_trials (int): Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution. Default to 50.
+        '''
 
         self.scores = None
         self.base_model_scores = []
@@ -49,7 +68,7 @@ class Ensemble:
         self.lgbm_objective = lgbm_objective        
 
 
-        self.ensemble_n_estimators = ensemble_n_estimators
+        self.ensemble_bagging_estimators = ensemble_bagging_estimators
         self.ensemble_n_trials = ensemble_n_trials
         self.ensemble = None
 
@@ -62,6 +81,13 @@ class Ensemble:
         list_base_models = [x.lower() for x in list_base_models]
         
         
+        if (score_func is None) and (pred_class=='regression'): 
+            score_func = 'neg_mean_absolute_error'
+
+        if (score_func is None) and (pred_class=='classification'): 
+            score_func =  make_scorer(metrics.log_loss, greater_is_better=False)
+
+
         if len(list_base_models)==0:            
             list_base_models = ['briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf']
             # ['briskxgboost', 'slugxgboost', 'slugann', 'slugrf', 'slugknn', 'briskbagging']
@@ -71,10 +97,10 @@ class Ensemble:
             if model=='briskbagging':
                 brisk_bagging = BriskBagging(name='brisk_bagging',
                                                                         pred_class=pred_class, 
-                                                                        n_estimators=n_estimators,
+                                                                        n_estimators=bagging_estimators,
                                                                         n_trials=n_trials,
                                                                         score_func=score_func,
-                                                                        metric_func=None,
+                                                                        metric_func=metric_func,
                                                                         cv_splits=cv_splits,
                                                                         timeout=timeout)
 
@@ -84,7 +110,7 @@ class Ensemble:
                 brisk_knn = BriskKNN(name='brisk_knn',
                                                             pred_class=pred_class, 
                                                             score_func=score_func,
-                                                            metric_func=None,
+                                                            metric_func=metric_func,
                                                             n_neighbors=n_neighbors,
                                                             n_trials=n_trials,
                                                             timeout=timeout,
@@ -98,7 +124,7 @@ class Ensemble:
                                                                     n_estimators=boosted_round,
                                                                     n_trials=n_trials,
                                                                     score_func=score_func,
-                                                                    metric_func=None,
+                                                                    metric_func=metric_func,
                                                                     cv_splits=cv_splits,
                                                                     timeout=timeout,
                                                                     )
@@ -109,7 +135,7 @@ class Ensemble:
                                                                 objective=self.xgb_objective, 
                                                                 pred_class=pred_class,
                                                                 score_func=score_func,
-                                                                metric_func=None,                    
+                                                                metric_func=metric_func,                    
                                                                 n_estimators=boosted_round,
                                                                 max_depth=max_depth,
                                                                 n_trials=n_trials,
@@ -124,7 +150,7 @@ class Ensemble:
                                                                 objective=self.lgbm_objective,
                                                                 pred_class=pred_class,
                                                                 score_func=score_func,
-                                                                metric_func=None,
+                                                                metric_func=metric_func,
                                                                 n_estimators=boosted_round,
                                                                 max_depth=max_depth,
                                                                 n_trials=n_trials,
@@ -137,9 +163,9 @@ class Ensemble:
                 slug_rf = SlugRF(name='slug_rf',
                                                     pred_class=pred_class,
                                                     score_func=score_func,
-                                                    metric_func=None,                    
+                                                    metric_func=metric_func,                    
                                                     max_depth=max_depth,
-                                                    max_n_estimators=max_n_estimators,
+                                                    max_n_estimators=rf_n_estimators,
                                                     n_trials=n_trials,
                                                     cv_splits=cv_splits,
                                                     timeout=None,
@@ -150,7 +176,7 @@ class Ensemble:
 
         self.ensemble = BriskBagging(name='ensemble_brisk_bagging',
                                                                     pred_class=pred_class, 
-                                                                    n_estimators=ensemble_n_estimators,
+                                                                    n_estimators=ensemble_bagging_estimators,
                                                                     n_trials=ensemble_n_trials,
                                                                     score_func=score_func,
                                                                     metric_func=None,
@@ -161,8 +187,8 @@ class Ensemble:
 
                 
         
-    def fetch_models_pll(self, X_train, X_test, y_train, y_test, threshold=None):
-        
+    def _fetch_models_pll(self, X_train, X_test, y_train, y_test, threshold=None):
+
         lazy_results = []
         # results = None
                 
@@ -194,13 +220,21 @@ class Ensemble:
 
 
     def fetch_models(self, X_train, X_test, y_train, y_test, threshold=None):
-                        
+        '''
+        Fit the base and ensemble model on the training dataset and evaluate on test dataset.\n
+        Arg:\n
+        \tX_train: train variable dataset
+        \t X_test: label trainset
+        \ty_train: test variable dataset
+        \t y_test: label testset
+        '''
+
         customlogger.info("Ensemble: starting discovery process for models " + str(self._base_models))
-                                    
-                
+                                            
         for base_model in self._base_models:
             base_model.fit(X_train, X_test, y_train, y_test)
-            
+
+
         self.select(threshold)
 
         self.fit(X_train, X_test, y_train, y_test)
@@ -212,6 +246,11 @@ class Ensemble:
 
 
     def select(self, threshold=None):
+        '''
+        Select only the models with goodness of fit > threshold.\n
+        Arg:\n
+        \tthreshold: 0 < threshold < 1
+        '''
 
         self.base_models = []
         self.base_model_scores = []
@@ -241,6 +280,14 @@ class Ensemble:
 
     
     def fit(self,  X_train, X_test, y_train, y_test):
+        '''
+        Fit the ensemble model on the trained base models.\n
+        Arg:\n
+        \tX_train: train variable dataset
+        \tX_test:  label trainset
+        \ty_train: test variable dataset
+        \ty_test:  label testset
+        '''
 
         if self.base_models is None:
             customlogger.info("Fit base models first.")  
@@ -283,6 +330,11 @@ class Ensemble:
 
     
     def predict(self, df_X):
+        '''
+        Return predictions.\n
+        Arg:\n
+        \tdf_X: input dataframe
+        '''
 
         if self.base_models is None:
             customlogger.info("Fit base models first.")  
