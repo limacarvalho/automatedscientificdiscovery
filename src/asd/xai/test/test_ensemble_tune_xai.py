@@ -4,8 +4,6 @@
 import sys; sys.path.insert(0, '..') # add parent folder path where lib folder is
 
 
-from asd.xai.utils import helper, config, rayer, kaggle_dataset_helper
-
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
@@ -72,85 +70,6 @@ def use_covid_ds():
     return train_test_split(df_X, df_y, test_size=0.33)
 
 
-
-def use_house_pricing_ds():
-    ds_train, ds_test = kaggle_dataset_helper.get_house_prices_dataset()
-    ds_train = common.label_encode(ds_train)
-    ds_test = common.label_encode(ds_test)
-
-    ds_train = ds_train.fillna(-1)
-    ds_test = ds_test.fillna(-1)
-
-
-    df_X = ds_train.loc[:, ds_train.columns != 'SalePrice']
-    df_y = ds_train['SalePrice']
-
-    X_train, X_test, y_train, y_test = train_test_split(df_X, df_y, test_size=0.33)
-
-    
-    ens_mdl = Ensemble(   
-                                xgb_objective='count:poisson',  # ["reg:squarederror", "count:poisson", "binary:logistic",  "binary:hinge" ]
-                                lgbm_objective='poisson',    # https://lightgbm.readthedocs.io/en/latest/Parameters.html
-                                pred_class='regression',
-                                score_func=None,
-                                metric_func=None,
-                                list_base_models=['sluglgbm', 'briskknn'],
-                                n_trials=10,          ### common param
-                                epochs=15,             ### ANN param
-                                boosted_round=10,      ### boosting tree param
-                                max_depth=30,          ### boosting tree param
-                                max_n_estimators=1500, ### rf param
-                                n_estimators=30,       ### bagging param, must be > 10 
-                                n_neighbors=30,        ### knn param, must be > 5
-
-                                ensemble_n_estimators=30,  ###  must be > 10
-                                ensemble_n_trials=10,
-                                timeout=None
-                 )
-
-    return ens_mdl, X_train, X_test, y_train, y_test
-
-
-
-def use_transaction_predictions_ds():
-    ds_train, ds_test = kaggle_dataset_helper.get_transaction_predictions_dataset()
-    ds_train = common.label_encode(ds_train)
-    ds_test = common.label_encode(ds_test)
-
-    ds_train = ds_train.fillna(-1)
-    ds_test = ds_test.fillna(-1)
-
-    df_X = ds_train.loc[:, ds_train.columns != 'target']
-    df_y = ds_train['target']
-    
-    X_train, X_test, y_train, y_test = train_test_split(df_X, df_y, test_size=0.33, random_state=config.rand_state)
-
-    r2_scoring = make_scorer(score_func=r2_score, greater_is_better=False)
-
-    ens_mdl = Ensemble(   
-                                xgb_objective='binary:logistic',  # ["reg:squarederror", "count:poisson", "binary:logistic",  "binary:hinge" ]
-                                lgbm_objective='binary',    # https://lightgbm.readthedocs.io/en/latest/Parameters.html
-                                pred_class='classification',
-                                score_func=None,
-                                metric_func=None,
-                                list_base_models=[],
-                                n_trials=10,          ### common param
-                                epochs=15,             ### ANN param
-                                boosted_round=10,      ### boosting tree param
-                                max_depth=30,          ### boosting tree param
-                                max_n_estimators=1500, ### rf param
-                                n_estimators=30,       ### bagging param, must be > 10 
-                                n_neighbors=30,        ### knn param, must be > 5
-
-                                ensemble_n_estimators=30,  ###  must be > 10
-                                ensemble_n_trials=10,
-                                timeout=None
-                 )
-
-    return ens_mdl, X_train, X_test, y_train, y_test
-
-
-
 def main():
     rayer.get_global_cluster()
 
@@ -158,7 +77,6 @@ def main():
 
     st = time.time()
 
-    # ens_mdl, X_train, X_test, y_train, y_test = use_transaction_predictions_ds()
     ensemble_set, X_train, X_test, y_train, y_test = use_tokamat_ds()
 
     ensemble_set.fetch_models_pll(X_train, X_test, y_train, y_test)

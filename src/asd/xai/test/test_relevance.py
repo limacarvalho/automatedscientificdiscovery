@@ -1,8 +1,9 @@
 
 import pandas as pd
 from asd.xai.ml.models import common
+from asd.xai.test import dataset_handler
 from asd.xai.utils.asd_logging import logger as  customlogger
-from asd.xai.utils import dataset_handler, rayer
+from asd.xai.utils import rayer
 from asd.xai.relevance import relevance
 
 from pprint import pprint
@@ -43,21 +44,26 @@ def test_case_1():
 
     options = {
         'threshold': None,
-        'base_models' : None,
-
+        'base_models' : ['briskxgboost', 'slugxgboost', 'slugrf', 'slugknn', 'briskbagging', 'sluglgbm'],
+        'pred_class': 'regression',
+        'xgb_objective': 'count:poisson',
+        'lgbm_objective': 'poisson',
+        'score_func': 'r2',
+        'metric_func': None,
         'n_trials' : 100,
         'boosted_round': 15,
-        'max_depth': 30,
-        'max_n_estimators': 150,
-        'n_estimators' : 500,
+        'max_depth': 12,
+        'rf_n_estimators': 60,
+        'bagging_estimators' : 50,
         'n_neighbors': 50,
-        'ensemble_n_estimators': 100,
-        'ensemble_n_trials': 100,
+        'cv_splits': 3,
+        'ensemble_n_estimators': 10,
+        'ensemble_n_trials': 10,
         
-        'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoffs'], 
-        'fdr': 0.2,
+        'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoffs'],
+        'fdr': 0.1,
         'fstats': ['lasso', 'ridge', 'randomforest'],
-        'knockoff_runs' : -1
+        'knockoff_runs' : 20
     }        
 
     # rayer.get_local_cluster(num_cpus=4)
@@ -102,7 +108,7 @@ def test_case_2():
         
 if __name__ == '__main__':
 
-#    rayer.get_local_cluster(num_cpus=4)
+    # rayer.get_local_cluster()
 
     test_case_1()
     
