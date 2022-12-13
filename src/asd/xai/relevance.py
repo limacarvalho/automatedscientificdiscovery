@@ -26,8 +26,6 @@ def relevance(df, input_columns, target, options) -> None:
     :param input_columns: data columns to consider for variable relevance 
     :param target: target column 
     :param options: dict
-        'threshold': float, 0 < threshold < 1.0, default=0.6
-            filter out the trained base models with goodness-of-fit < threshold.
         'xgb_objective': str
              objective function if xgboost model is given in list_base_model. I.e., default='binary:logistic', https://xgboost.readthedocs.io/en/stable/parameter.html.
         'lgbm_objective': str
@@ -75,7 +73,7 @@ def relevance(df, input_columns, target, options) -> None:
                 list of cols sorted with respect to their relevance as measured by non model-based knockoff framework method.
     ''' 
     
-    threshold = None
+
     base_models = None
     xgb_objective = None
     lgbm_objective = None
@@ -101,15 +99,6 @@ def relevance(df, input_columns, target, options) -> None:
     attr_algos = None
     
 
-    if 'threshold' in options:
-        if options['threshold']:
-            threshold = options['threshold']
-            if (threshold < 0 ) or (threshold>1):
-                raise ValueError("0 < threshold < 1")
-        else:
-            threshold = 0.6
-    else:
-        threshold = 0.6
     
     if 'base_models' in options:        
         if options['base_models']:
