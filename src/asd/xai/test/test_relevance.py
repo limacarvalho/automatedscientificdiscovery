@@ -53,7 +53,6 @@ def test_case_1():
 
     ### the above two are small datasets so better keep the tree depths low
     options = {
-        'threshold': None,
         'base_models' : ['briskxgboost', 'slugxgboost', 'slugrf', 'briskknn', 'sluglgbm', 'briskbagging'],
         'pred_class': 'regression',
         'xgb_objective': 'count:poisson',
@@ -93,7 +92,6 @@ def test_case_2():
     r2_scoring = make_scorer(score_func=metrics.r2_score, greater_is_better=True)
     ### slugrf (rf_n_estimators=5000, max_depth=20), KNN(n_neighbors=50) sluglgbm(boosted_round=100, max_depth=20), briskxgboost(boosted_round=1000)
     options = {
-        'threshold': None,
         'base_models' : ['briskxgboost', 'slugxgboost', 'slugrf', 'briskknn', 'sluglgbm', 'briskbagging'],
         'pred_class': 'regression',
         'xgb_objective': 'count:poisson',
