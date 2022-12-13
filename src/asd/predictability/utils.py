@@ -37,13 +37,19 @@ scoring_dict = {
 }
 
 
-def get_column_combinations(all_cols, inputs, outputs, targets=[], amount_only=False, return_targets=False):
-    # TODO: update return: different if amount_only or if return_targets
+def get_column_combinations(all_cols,
+                            inputs,
+                            outputs,
+                            targets=[],
+                            amount_only=False,
+                            return_targets=False
+                            ):
     """
-    This function creates the list of all column combinations that should be analysed. It can also be used to determine
-    the amount of combinations before the run in order to get a feeling for the runtime, e.g.
+    This function creates the list of all column combinations that are to be analysed during the ``run_predictability``
+    routine. It can also be used to determine the amount of combinations before the run in order to get a feeling for
+    the runtime, e.g., via the ``amount_only`` argument.
 
-    If via `amount_only` only the amount of combinations should be returned, this accounts for
+    If via ``amount_only`` only the amount of combinations should be returned, this accounts for
 
         - binom(N, I)*binom(N-I, O) = N!/(I!*O!) for N data columns considered and predicting I-O-connections of I-many
             inputs and O-many targets (outputs)
@@ -61,11 +67,15 @@ def get_column_combinations(all_cols, inputs, outputs, targets=[], amount_only=F
     :param amount_only: bool, default=False
         Specify whether only the amount of different column combinations should be returned.
     :param return_targets: boolean, default=False
-        Specify whether the possible target combinations are returned.
-    :return: list
-        List of combination tuples. In each tuple, the first `inputs`-many are the inputs (4 in the example above)
-        and the remaining `outputs`-many the outputs (2 in the example above). If `amount_only` is set, amount of
-        combinations is returned.
+        Specify whether the possible target combinations are returned. (Necessary during the greedy algorithm.)
+    :return: list or list, list or int
+
+        - if ``amount_only=False`` and ``return_targets=False``: List of combination tuples. In each tuple, the first
+        ``inputs``-many are the inputs (4 in the example above) and the remaining ``outputs``-many the outputs (2 in the
+        example above). If ``amount_only`` is set, amount of combinations is returned.
+        - if ``amount_only=False`` and ``return_targets=True``: additionally to the above, a second list is returned that
+        collects all the possible choices of target combinations
+        - if ``amount_only=True``: The amount of possible combinations is returned (see formulae above).
     """
 
     # assertion to check that the numbers can be matched
@@ -128,17 +138,21 @@ def get_column_combinations(all_cols, inputs, outputs, targets=[], amount_only=F
         return amount_combinations
 
 
-def data_prep_split(data, input_cols, output_cols, random_state_split):
+def data_prep_split(data,
+                    input_cols,
+                    output_cols,
+                    random_state_split
+                    ):
     """
-    Performs split of the data-dataframe into inputs and outputs and then applies the train-test-split.
+    Performs split of the ``data`` dataframe into inputs and outputs and then applies the train-test-split.
     :param data: pandas DataFrame
         Dataframe containing all the data.
     :param input_cols: int
-        The number of input columns for the fit. For a 4-1 fit, input_cols = 4.
+        The number of input columns for the fit. For a 4-1 fit, ``input_cols`` = 4.
     :param output_cols: int
-        The number of target columns for the fit. For a 4-1 fit, output_cols = 1.
+        The number of target columns for the fit. For a 4-1 fit, ``output_cols`` = 1.
     :param random_state_split: int, default=1
-        Specifies shuffling during `sklearn.model_selection`'s `train_test_split`. Set to a specific integer value for
+        Specifies shuffling during ``sklearn.model_selection``'s ``train_test_split``. Set to a specific integer value for
         reproducibility.
     :return: list, list, list, list
         Lists containing the train input values, test input values, train target values and test target values.
@@ -155,9 +169,11 @@ def data_prep_split(data, input_cols, output_cols, random_state_split):
     return curr_X_train, curr_X_test, curr_y_train, curr_y_test
 
 
-def rae(true, predicted):
+def rae(true,
+        predicted
+        ):
     """
-    Compute the relative absolute error for the predicticted values `predicted` of the true values `true`.
+    Compute the relative absolute error for the predicticted values ``predicted`` of the true values ``true``.
     :param true: list
         List containing the true values.
     :param predicted: list
@@ -173,49 +189,62 @@ def rae(true, predicted):
 
 
 @ray.remote(num_returns=2)
-def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, scaling,
-                           max_iter, scoring, verbose, n_jobs, counter_tuples, len_data_tuples, random_state_split):
+def parallel_pred_step_MLP(data,
+                           curr_tuple,
+                           input_cols,
+                           hidden_layers,
+                           alphas,
+                           scaling,
+                           max_iter,
+                           scoring,
+                           verbose,
+                           n_jobs,
+                           counter_tuples,
+                           len_data_tuples,
+                           random_state_split
+                           ):
     """
     The explicit step of predictability prediction for one combination tuple if the MLP is chosen as method. It performs
-    several reference fits (linear, power law (if possible), mean) along a GridSearchCV of an MLPRegressor with
-    different hidden layer sizes `hidden_layers`, alpha values `alpha` and preprocessing with / without usage of the
-    StandardScaler. The scoring can be adjusted via `scoring`.
-    :param data: pandas DataFrame (stored by Ray)
+    several reference fits (linear, power law (if possible), mean) along a ``GridSearchCV`` of an ``MLPRegressor`` with
+    different hidden layer sizes ``hidden_layers``, alpha values ``alpha`` and preprocessing with / without usage of the
+    ``StandardScaler``. The scoring can be adjusted via ``scoring``.
+
+    :param data: pandas DataFrame (stored by ``Ray``)
         The dataframe containing all relevant data
     :param curr_tuple: tuple
         The tuple containing the current column combination.
     :param input_cols: int
-        Integer specifying the number of input columns. The first `input_cols`-many columns of the `curr_tuple` tuple
-        correspond to the input columns.
+        Integer specifying the number of input columns. The first ``input_cols``-many columns of the ``curr_tuple``
+        tuple correspond to the input columns.
     :param hidden_layers: list
-        Specifies choices for sklearn's `hidden_layer_sizes` during CV fit. The predictability routine uses
+        Specifies choices for ``sklearn``'s ``hidden_layer_sizes`` during CV fit. The predictability routine uses
         [(12,), (50,), (70, 5,)] as default; also used here if unspecified.
     :param alphas: list
-        Specifies choices for sklearn's `alpha` during CV fit. The predictability routine uses [0.001, 0.0001, 0.00001]
-        as default; also used here if unspecified.
+        Specifies choices for ``sklearn``'s ``alpha`` during CV fit. The predictability routine uses [0.001, 0.0001,
+        0.00001] as default; also used here if unspecified.
     :param scaling: str
-        Specifies usage of `sklearn.preprocessing`'s `StandardScaler` before fit. Default is "test", can be set to
-        "yes" or "no". If "test" (or unspecified or anything but "yes" or "no"), `StandardScaler` becomes part of
+        Specifies usage of ``sklearn.preprocessing``'s ``StandardScaler`` before fit. Default is "test", can be set to
+        "yes" or "no". If "test" (or unspecified or anything but "yes" or "no"), ``StandardScaler`` becomes part of
         fitting pipeline and benefit of usage / skipping will be evaluated.
     :param max_iter: int
-        Specifies maximum number of iterations during fit. Corresponds to `max_iter` within `sklearn.model_selection`'s
-        `GridSearchCV`. The predictability routine uses 10000 as default.
+        Specifies maximum number of iterations during fit. Corresponds to ``max_iter`` within
+        ``sklearn.model_selection``'s ``GridSearchCV``. The predictability routine uses 10000 as default.
     :param scoring: str
-        Scoring for the CV fit. Choices are (mapping automatically to the respective `sklearn.metrics` metric):
+        Scoring for the CV fit. Choices are (mapping automatically to the respective ``sklearn.metrics`` metric):
 
-            - "r2": `r2`,
-            - "MAPE": `neg_mean_absolute_percentage_error`,
-            - "neg_mean_absolute_percentage_error": `neg_mean_absolute_percentage_error`,
-            - "RMSE": `neg_root_mean_squared_error`,
-            - "neg_root_mean_squared_error": `neg_root_mean_squared_error`,
-            - "MAE": `neg_mean_absolute_error`,
-            - "neg_mean_absolute_error": `neg_mean_absolute_error`
+            - "r2": ``r2``,
+            - "MAPE": ``neg_mean_absolute_percentage_error``,
+            - "neg_mean_absolute_percentage_error": ``neg_mean_absolute_percentage_error``,
+            - "RMSE": ``neg_root_mean_squared_error``,
+            - "neg_root_mean_squared_error": ``neg_root_mean_squared_error``,
+            - "MAE": ``neg_mean_absolute_error``,
+            - "neg_mean_absolute_error": ``neg_mean_absolute_error``
 
     :param verbose: int
-        Specifies the verbosity level. Corresponds to `verbose` within `sklearn.model_selection`'s `GridSearchCV`.
+        Specifies the verbosity level. Corresponds to ``verbose`` within ``sklearn.model_selection``'s ``GridSearchCV``.
     :param n_jobs: int
-        Specifies number of jobs to run in parallel. Choose -1 to use all processors. Corresponds to `n_jobs` within
-        `sklearn.model_selection`'s `GridSearchCV`.
+        Specifies number of jobs to run in parallel. Choose -1 to use all processors. Corresponds to ``n_jobs`` within
+        ``sklearn.model_selection``'s ``GridSearchCV``.
     :param counter_tuples: int
         Number of current combination tuple within the overall list. Used during the predictability routine to count
         the process of running through the list of combination tuples.
@@ -223,13 +252,13 @@ def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, 
         Overall amount of different combination tuples. Used during the predictability routine to count the process of
         running through the list of combination tuples.
     :param random_state_split: int
-        Specifies shuffling during `sklearn.model_selection`'s `train_test_split`. Set to a specific integer value for
-        reproducibility.
+        Specifies shuffling during ``sklearn.model_selection``'s ``train_test_split``. Set to a specific integer value
+        for reproducibility.
     :return: dict, dict
-        First dict contains all evaluation metrics, the second one all data (train, test, predict
-        values, GridSearch parameters, CV scores). Both are nested dictionaries, where the outermost key corresponds to
-        the current combination tuple ("input column 1", ..., "input column `input_cols`", "target column 1", ...,
-        "target column `output_cols`").
+        First dict contains all evaluation metrics, the second one all data (train, test, predict values, GridSearch
+        parameters, CV scores). Both are nested dictionaries, where the outermost key corresponds to the current
+        combination tuple ("input column 1", ..., "input column ``input_cols``", "target column 1", ...,
+        "target column ``output_cols``").
 
         The inner dictionaries are then composed of the following keys with the corresponding values:
 
@@ -480,34 +509,43 @@ def parallel_pred_step_MLP(data, curr_tuple, input_cols, hidden_layers, alphas, 
 
 
 @ray.remote(num_returns=2)
-def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
-                           scoring, verbose, n_jobs, counter_tuples, len_data_tuples, random_state_split,
-                           greedy=False):
+def parallel_pred_step_kNN(data,
+                           curr_tuple,
+                           input_cols,
+                           scaling,
+                           scoring,
+                           verbose,
+                           n_jobs,
+                           counter_tuples,
+                           len_data_tuples,
+                           random_state_split,
+                           greedy=False
+                           ):
     """
     The explicit step of predictability prediction for one combination tuple if kNN is chosen as method. It performs
-    several reference fits (linear, power law (if possible), mean) along a GridSearchCV of a kNN-regressor with
-    different k-values (3, 8, 15) and preprocessing with / without usage of the StandardScaler. The scoring can be
-    adjusted via `scoring`.
-    :param data: pandas DataFrame (stored by Ray)
+    several reference fits (linear, power law (if possible), mean) along a ``GridSearchCV`` of a kNN-regressor with
+    different k-values (3, 8, 15) and preprocessing with / without usage of the ``StandardScaler``. The scoring can be
+    adjusted via ``scoring``.
+    :param data: pandas DataFrame (stored by ``Ray``)
         The dataframe containing all relevant data
     :param curr_tuple: tuple
         The tuple containing the current column combination.
     :param input_cols: int
-        Integer specifying the number of input columns. The first `input_cols`-many columns of the `curr_tuple` tuple
-        correspond to the input columns.
+        Integer specifying the number of input columns. The first ``input_cols``-many columns of the ``curr_tuple``
+        tuple correspond to the input columns.
     :param scaling: bool
-        Specifies usage of `sklearn.preprocessing`'s `StandardScaler` before fit. Can be set to `True`, `False` or
-        `None`. If `None` / kept unspecified, `StandardScaler` becomes part of fitting pipeline and benefit of usage /
-        skipping will be evaluated. The predictability routine uses `True` as default.
+        Specifies usage of ``sklearn.preprocessing``'s ``StandardScaler`` before fit. Can be set to ``True``, ``False``
+        or ``None``. If ``None`` / kept unspecified, ``StandardScaler`` becomes part of fitting pipeline and benefit of
+        usage / skipping will be evaluated. The predictability routine uses ``True`` as default.
     :param scoring: str
-        Specifies usage of `sklearn.preprocessing`'s `StandardScaler` before fit. Default is "test", can be set to
-        "yes" or "no". If "test" (or unspecified or anything but "yes" or "no"), `StandardScaler` becomes part of
+        Specifies usage of ``sklearn.preprocessing``'s ``StandardScaler`` before fit. Default is "test", can be set to
+        "yes" or "no". If "test" (or unspecified or anything but "yes" or "no"), ``StandardScaler`` becomes part of
         fitting pipeline and benefit of usage / skipping will be evaluated.
     :param verbose: int
-        Specifies the verbosity level. Corresponds to `verbose` within `sklearn.model_selection`'s `GridSearchCV`.
+        Specifies the verbosity level. Corresponds to ``verbose`` within ``sklearn.model_selection``'s ``GridSearchCV``.
     :param n_jobs: int
-        Specifies number of jobs to run in parallel. Choose -1 to use all processors. Corresponds to `n_jobs` within
-        `sklearn.model_selection`'s `GridSearchCV`.
+        Specifies number of jobs to run in parallel. Choose -1 to use all processors. Corresponds to ``n_jobs`` within
+        ``sklearn.model_selection``'s ``GridSearchCV``.
     :param counter_tuples: int
         Number of current combination tuple within the overall list. Used during the predictability routine to count
         the process of running through the list of combination tuples.
@@ -515,16 +553,16 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
         Overall amount of different combination tuples. Used during the predictability routine to count the process of
         running through the list of combination tuples.
     :param random_state_split: int
-        Specifies shuffling during `sklearn.model_selection`'s `train_test_split`. Set to a specific integer value for
-        reproducibility.
+        Specifies shuffling during ``sklearn.model_selection``'s ``train_test_split``. Set to a specific integer value
+        for reproducibility.
     :param greedy: boolean, default=False
-        Specifies whether the function is run by the greedy predictability routine and then also includes the targets
-        in the metric dict
+        Specifies whether the function is run by the greedy predictability routine. If ``True``, also returns the
+        targets in the metric dict
     :return: dict, dict
-        First dict contains all evaluation metrics, the second one all data (train, test, predict
-        values, GridSearch parameters, CV scores). Both are nested dictionaries, where the outermost key corresponds to
-        the current combination tuple ("input column 1", ..., "input column `input_cols`", "target column 1", ...,
-        "target column `output_cols`").
+        First dict contains all evaluation metrics, the second one all data (train, test, predict values, GridSearch
+        parameters, CV scores). Both are nested dictionaries, where the outermost key corresponds to the current
+        combination tuple ("input column 1", ..., "input column ``input_cols``", "target column 1", ...,
+        "target column ``output_cols``").
 
         The inner dictionaries are then composed of the following keys with the corresponding values:
 
@@ -539,6 +577,8 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
 
             for TYPE in ["kNN", "linear", "mean", "pow. law"]
             (all `None` for "pow. law" if no power law fit performed)
+
+            Also includes "target" if ``greedy=True"
 
          data dict:
 
@@ -774,18 +814,91 @@ def parallel_pred_step_kNN(data, curr_tuple, input_cols, scaling,
     return curr_metric_dict, curr_data_dict
 
 
-def refinement_step(data_dict,
-                         curr_tuple,
-                         time_left_for_this_task,
-                         per_run_time_limit,
-                         n_jobs
-                         ):
-    # get current inputs and outputs
-    # curr_inputs = list(curr_tuple[:input_cols])
-    # curr_outputs = list(curr_tuple[input_cols:])
+def tuple_selection(all_metrics,
+                    n_best=None
+                    ):  # TODO: add option of getting n_best for all possible targets
+    """
+    Routine to select which of the previously analysed combination tuples will be sent into the next step of a refined
+    analysis.
+    :param all_metrics: dict
+        Metrics dictionary that was the output of a predictability run
+    :param n_best: int
+        Specifies how many combination tuples should be selected according to the ``tuple_selection`` logic.
+    :return: list
+        List of the ``n_best``-many combination tuples that shall be further investigated.
+    """
 
-    # reduce data to current columns and drop NAs
-    # curr_data = data[curr_inputs + curr_outputs].dropna()
+    # first sort predictability results by r2-score of kNN regressor
+    metrics_df = pd.DataFrame.from_dict(all_metrics).transpose().sort_values(by="kNN r2", ascending=False)
+
+    # for first setup, just use best 10%, 20 max – if not explicitly specified via argument n_best
+    initial_number = len(metrics_df)
+    if not n_best:
+        limited_number = np.floor(0.1 * initial_number)
+        if limited_number == 0:
+            limited_number = 1
+        elif limited_number > 20:
+            limited_number = 20
+    else:
+        limited_number = n_best
+
+    metrics_df = metrics_df.iloc[:limited_number]
+
+    best_tuples = metrics_df.index.tolist()
+
+    return best_tuples
+
+
+def refinement_step(data_dict,
+                    curr_tuple,
+                    time_left_for_this_task,
+                    generations,
+                    population_size,
+                    n_jobs
+                    ):
+    """
+    The explicit step of refined predictability using ``TPOT``.
+    :param data_dict: dict
+        Dictionary containing the data for the fit. Output of a previous run of the ``run_predictability`` routine.
+    :param curr_tuple: tuple
+        The tuple containing the current column combination.
+    :param time_left_for_this_task: float
+        Time in seconds that specifies for how long the routine should run.
+    :param generations: int
+        Corresponds to ``TPOT``'s ``generations``: Number of iterations to run the pipeline optimization process.
+    :param population_size: int
+        Corresponds to ``TPOT``'s ``population_size``: Number of individuals to retain in the GP population every
+        generation.
+    :param n_jobs: int, default=-1
+        Specifies number of jobs to run in parallel. Choose -1 to use all processors. Corresponds to
+        ``TPOTRegressor``'s ``n_jobs``.
+    :return: dict, dict
+        The two respective dictionaries are composed of the following keys with the corresponding
+        values:
+
+        metric dict:
+
+            - "r2", float
+            - "RMSE", float
+            - "MAPE", float
+            - "rae", float
+            - "dcor", float
+
+        data dict:
+
+            - "X_train", numpy.ndarray of shape (train_data_points, input_cols)
+            - "X_test", numpy.ndarray of shape (test_data_points, input_cols)
+            - "y_train", numpy.ndarray of shape (train_data_points, output_cols)
+            - "y_test", numpy.ndarray of shape (test_data_points, output_cols)
+            - "y_train_pred", numpy.ndarray of shape (train_data_points, output_cols)
+            - "y_test_pred", numpy.ndarray of shape (test_data_points, output_cols)
+            - "ensemble", `sklearn' `Pipeline' object
+            - "pareto_pipelines", dict directly from ``TPOT``: 'the key is the string representation of the pipeline and
+            the value is the corresponding pipeline fitted on the entire training dataset'
+            - "all_individuals", dict directly from ``TPOT``: 'the key is the string representation of the pipeline and
+            the value is a tuple containing (# of steps in pipeline, accuracy metric for the pipeline)'
+
+    """
 
     # do data preparations and train-test-split
     curr_X_train, curr_X_test, curr_y_train, curr_y_test = data_dict[curr_tuple]["X_train"], \
@@ -793,17 +906,13 @@ def refinement_step(data_dict,
                                                            data_dict[curr_tuple]["y_train"], \
                                                            data_dict[curr_tuple]["y_test"].ravel()
 
-    tpot = TPOTRegressor(generations=100,
-                         population_size=100,
-                         # preprocessing=any_preprocessing('pre'),
+    tpot = TPOTRegressor(generations=generations,
+                         population_size=population_size,
                          scoring="neg_mean_squared_error",
-                         config_dict=regressor_config_dict_ASD,  # "TPOT light",
+                         config_dict=regressor_config_dict_ASD,
                          verbosity=1,
                          max_time_mins=np.ceil(time_left_for_this_task / 60),
-                         # TODO: check whether time_left_for_this_task makes sense here
-                         # early_stop=3,
                          n_jobs=n_jobs
-                         # BUT should be a parameter according to https://github.com/hyperopt/hyperopt-sklearn/blob/a84603c5232e01a9edda961d9f8aba6ea0f3038a/hpsklearn/estimator/estimator.py
                          )
     tpot.fit(curr_X_train, curr_y_train)
 
@@ -818,18 +927,6 @@ def refinement_step(data_dict,
     curr_knn_mape = mean_absolute_percentage_error(curr_y_test, curr_y_test_pred)
     curr_knn_rae = rae(curr_y_test, curr_y_test_pred)
     curr_knn_dcor = dcor.distance_correlation(curr_y_test, curr_y_test_pred)
-
-    # data / info about ensemble models
-    '''
-    ensemble_models_dict = automl.show_models()
-    curr_reduced_ensemble_models_dict = {}
-    for key in ensemble_models_dict.keys():
-        rank = ensemble_models_dict[key]["rank"]
-        ensemble_weight = ensemble_models_dict[key]["ensemble_weight"]
-        sklearn_regressor = ensemble_models_dict[key]["sklearn_regressor"]
-        curr_reduced_ensemble_models_dict[key] = {"rank": rank, "ensemble_weight": ensemble_weight,
-                                                  "sklearn_regressor": sklearn_regressor}
-    '''
 
     # save metrics into dict
     curr_metric_dict = {curr_tuple: {"r2": curr_knn_r2,
@@ -853,34 +950,76 @@ def refinement_step(data_dict,
 
 @ray.remote(num_returns=2)
 def parallel_refinement_step(data_dict,
-                                  curr_tuple,
-                                  time_left_for_this_task,
-                                  per_run_time_limit,
-                                  n_jobs
-                                  ):
-    curr_metric_dict, curr_data_dict = refinement_step(data_dict=data_dict, curr_tuple=curr_tuple,
+                             curr_tuple,
+                             time_left_for_this_task,
+                             generations,
+                             population_size,
+                             n_jobs
+                             ):
+    """
+    Runs the ``refinement_step`` in way that allows parallel treatment via ``Ray``.
+    :param data_dict: dict
+        Dictionary containing the data for the fit. Output of a previous run of the ``run_predictability`` routine.
+    :param curr_tuple: tuple
+        The tuple containing the current column combination.
+    :param time_left_for_this_task: float
+        Time in seconds that specifies for how long the routine should run.
+    :param generations: int
+        Corresponds to ``TPOT``'s ``generations``: Number of iterations to run the pipeline optimization process.
+    :param population_size: int
+        Corresponds to ``TPOT``'s ``population_size``: Number of individuals to retain in the GP population every
+        generation.
+    :param n_jobs: int, default=-1
+        Specifies number of jobs to run in parallel. Choose -1 to use all processors. Corresponds to
+        ``TPOTRegressor``'s ``n_jobs``.
+    :return: dict, dict
+        Same as for the ``refinement_step`` itself.
+    """
+    curr_metric_dict, curr_data_dict = refinement_step(data_dict=data_dict,
+                                                       curr_tuple=curr_tuple,
                                                        time_left_for_this_task=time_left_for_this_task,
-                                                       per_run_time_limit=per_run_time_limit, n_jobs=n_jobs)
+                                                       generations=generations,
+                                                       population_size=population_size,
+                                                       n_jobs=n_jobs)
 
     return curr_metric_dict, curr_data_dict
 
 
-def plot_result(input_datas_dict, plot_comb, plot_along=[]):
+def plot_result(input_datas_dict,
+                plot_comb,
+                refined_dict=False,
+                refined_input_datas_dict=None,
+                plot_along=[]
+                ):
     """
-
+    A plotting routine for a quick view on the results.
     :param input_datas_dict: dict
         Dictionary from predictability routine containing all the data lists.
     :param plot_comb: tuple
         The combination tuple whose results shall be plotted.
+    :param refined_dict: boolean, default=False
+        Specifies whether the ``input_datas_dict`` is the output of a run of the ``refine_predictability``-routine or
+        not (i.e. the ``run_predictability``-routine instead).
+    :param refined_input_datas_dict: dict
+        Output dictionary of a ``refine_predictability`` run. Necessary if ``refined_dict=True``.
     :param plot_along: list
         Allows for specifying further prediction methods to be plotted along the kNN/MLP ones. Possible choices are
-        (subsets of) ["linear", "mean", "pl"]
+        (subsets of) ["linear", "mean", "pl"] and ["init"] if ``refined_dict=True`` ("init" plots the initial
+        ``run_predictability`` predictions of the ``plot_comb``.).
     :return: fig
         The plotting figure.
     """
-    #
-    # TODO: include argument to differ between plotting initial and refined results.
-    #
+    # TODO: implement plotting of refined data also when it's the output of a run_predictability-run with direct refined
+    #  run afterwards
+
+    main_plot = "ASD"
+    if refined_dict:
+        main_plot = "refASD"
+        for key in list(input_datas_dict.keys()):
+            input_datas_dict[key]["y_test_pred_init"] = refined_input_datas_dict[key]["y_test_pred"]
+            input_datas_dict[key]["y_test_init"] = refined_input_datas_dict[key]["y_test"]
+            input_datas_dict[key]["y_test_pred_linear"] = refined_input_datas_dict[key]["y_test_pred_linear"]
+            input_datas_dict[key]["y_test_pred_mean"] = refined_input_datas_dict[key]["y_test_pred_mean"]
 
     # make dict a dataframe, name columns appropriately and compute error of kNN prediction
     results_df = pd.DataFrame(
@@ -927,7 +1066,7 @@ def plot_result(input_datas_dict, plot_comb, plot_along=[]):
         x=results_df["true"],
         y=results_df["pred"],
         mode="markers",
-        name="ref. preds vs trues",
+        name=f"{main_plot} preds vs trues",
         opacity=.8
     ),
         row=1, col=1
@@ -962,7 +1101,7 @@ def plot_result(input_datas_dict, plot_comb, plot_along=[]):
             y=results_df["pred"],
             mode="markers",
             marker_color="Maroon",
-            name="pred. error ref.",
+            name=f"pred. error {main_plot}",
             opacity=.6
         ),
         row=1, col=2
@@ -993,7 +1132,7 @@ def plot_result(input_datas_dict, plot_comb, plot_along=[]):
         go.Histogram(
             y=results_df["error"],
             nbinsx=int(np.floor(len(results_df["pred"]) / 10)),
-            name="pred. error ref."
+            name=f"pred. error {main_plot}"
         ),
         row=1, col=3
     )
