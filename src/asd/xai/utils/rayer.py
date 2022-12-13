@@ -14,16 +14,9 @@ def delay(x):
     return x
 
 
-excludes = [#'../test/data/wetransfer_asd_team_2022-10-25_1332.zip', 
-            #'../test/data/20220319_covid_merge_processed.csv', 
-            #'../test/data/20220319_covid_merge.csv',
+excludes = [
             # '*.csv', 
-            '*.log','*.zip',
-            #'/home/wasif/python-asd/xai/test/data/transaction-predictions/train.csv',
-            #'/home/wasif/python-asd/xai/test/data/transaction-predictions/test.csv',
-            #'/home/wasif/python-asd/xai/test/data/transaction-predictions/train.csv',
-            #'/home/wasif/python-asd/xai/test/data/transaction-predictions/test.csv',
-
+            '*.log','*.zip', '*.pickle',
            ]
 
 
@@ -73,7 +66,6 @@ def get_global_cluster(working_dir=None, num_cpus=None, num_gpus=None, ip=None):
         ray.init(address=ray_cluster_uri, runtime_env={"working_dir": working_dir, 'pip': config.pip, 'excludes': excludes},
                     #logging_level = logging.DEBUG
             )
-        # os.environ['RAY_worker_register_timeout_seconds'] = '600'
         
         # Start tasks in parallel.
         ray.autoscaler.sdk.request_resources(num_cpus=num_cpus)
