@@ -9,7 +9,8 @@ from sklearn.ensemble import BaggingClassifier, BaggingRegressor
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 from lightgbm import LGBMClassifier, LGBMRegressor
-from xgboost import XGBClassifier, XGBRegressor
+# from xgboost import XGBClassifier, XGBRegressor
+from xgboost.sklearn import XGBRegressor, XGBClassifier
 
 from captum.attr import IntegratedGradients, GradientShap, DeepLift, NoiseTunnel
 import shap
@@ -79,7 +80,6 @@ def __get_shapley_torch_attr__(model, df_X, n_background):
 
 @ray.remote(num_returns=1)
 def __get_shapley_ensemble_attr__(model, df_X):
-    #df_X = ray.get(df_X_id)
     explainer = shap.Explainer(model)
     shap_values = explainer(df_X)
     df_shapley_sores = pd.DataFrame(shap_values.values, columns=df_X.columns)
@@ -93,6 +93,10 @@ def __get_shapley_kernel_attr__(model, df_X,  n_background):
     med = df_X.median().values.reshape((1, df_X.shape[1]))
     kernel_explainer = shap.KernelExplainer(model.predict, med)
     kernel_shap_values = kernel_explainer.shap_values(X=df_X)
+
+    # convert 3D into 2D
+    kernel_shap_values = [elem for twod in kernel_shap_values for elem in twod]
+
     df_shapley_sores = pd.DataFrame(kernel_shap_values, columns=df_X.columns)
     df_shapley_sores_list = df_shapley_sores.abs().mean().values #sort_values(ascending=False).values
     return df_shapley_sores_list
@@ -102,7 +106,7 @@ def __get_shapley_kernel_attr__(model, df_X,  n_background):
 def __get_shapley_tree_attr__(model, df_X,  n_background):
     df_background = df_X.sample(n = n_background)
     tree_explainer = shap.TreeExplainer(model.predict, df_background)
-    tree_shap_values = tree_explainer.shap_values(X=df_X)# , ranked_outputs=True, check_additivity=False)    
+    tree_shap_values = tree_explainer.shap_values(X=df_X)# , ranked_outputs=True, check_additivity=False)
     df_shapley_sores = pd.DataFrame(tree_shap_values.values, columns=df_X.columns)
     df_shapley_sores_list = df_shapley_sores.abs().mean().values #sort_values(ascending=False).values
     return df_shapley_sores_list
@@ -154,10 +158,11 @@ class Explainable:
         
         customlogger.info("attribution methods  " + str(attr_algos))
         
-        for base_model in self.ensemble_set.base_models:            
+        for base_model in self.ensemble_set.base_models:    
             customlogger.info("calculating variable importance on  " + str(base_model.model_file_name))
             
-            for attr_algo in attr_algos:
+
+            for attr_algo in attr_algos:                
                 if type(base_model.gs.best_estimator) == nn.Sequential:
                     if attr_algo == 'ig':
                         lazy_results.append(__get_ig_attr__.remote(base_model.gs.best_estimator, df_X_id, self.ig_n_steps))
@@ -176,8 +181,8 @@ class Explainable:
                         lazy_results.append(__get_shapley_kernel_attr__.remote(base_model.gs.best_estimator, df_X_id, self.shapley_n_background))
                         col_names.append(base_model.model_file_name + '_' + 'shap')
 
-                
-        
+
+
         if len(lazy_results)==0:
             return None
         
@@ -191,12 +196,10 @@ class Explainable:
 
     def __beautify_scores__(self, attr_algos, results, col_names):                
 
-                
         df_results = pd.DataFrame(results).T
 
-        if df_results.shape[1] < 2:
+        if df_results.shape[1] < 1:
             return None
-
         
         df_results.index = self.df_X.columns
         df_results.columns = col_names 
