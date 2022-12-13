@@ -45,9 +45,7 @@ if __name__ == '__main__':
     
     print('########### Connecting ray cluster ###################')
 
-    # rayer.get_local_cluster()
-    rayer.get_global_cluster()
-
+    rayer.get_local_cluster()
 
     try:
 

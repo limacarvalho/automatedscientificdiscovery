@@ -95,7 +95,8 @@ def __get_shapley_kernel_attr__(model, df_X,  n_background):
     kernel_shap_values = kernel_explainer.shap_values(X=df_X)
 
     # convert 3D into 2D
-    kernel_shap_values = [elem for twod in kernel_shap_values for elem in twod]
+    if kernel_shap_values.ndim==3:
+        kernel_shap_values = [elem for twod in kernel_shap_values for elem in twod]
 
     df_shapley_sores = pd.DataFrame(kernel_shap_values, columns=df_X.columns)
     df_shapley_sores_list = df_shapley_sores.abs().mean().values #sort_values(ascending=False).values
@@ -114,12 +115,6 @@ def __get_shapley_tree_attr__(model, df_X,  n_background):
 
 class Explainable:
     def __init__(self, ensemble_set, df_X) -> None:
-        '''
-        Measure variable importance based on SHAP, \n
-        Args:\n
-        \t ensemble_set (Ensemble): Object of Ensemble class on which 
-        \t df_X (pd.DataFrame): variable dataset 
-        '''
         self.df_scores = None
         self.raw = None
         self.ensemble_set = ensemble_set
@@ -142,9 +137,8 @@ class Explainable:
 
     def get_attr(self, attr_algos):                
         '''
-        Measure variable importance based on SHAP, \n
-        Args:\n
-        \t attr_algos (list): list of exlainable AI methods, i.e., ['IG', 'SHAP', 'GradientSHAP']. See https://github.com/pytorch/captum and https://github.com/slundberg/shap.
+        Measure variable importance based on SHAP
+        attr_algos (list): list of exlainable AI methods, i.e., ['IG', 'SHAP', 'GradientSHAP']. See https://github.com/pytorch/captum and https://github.com/slundberg/shap.
         return pd.Series: list of varaibles sorted as per their importance, zeros equate to no importance at all.
         '''
         

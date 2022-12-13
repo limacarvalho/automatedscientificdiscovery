@@ -83,7 +83,7 @@ class SlugXGBoost():
             #"metric": "rmse",            
             "lambda": tune.loguniform(1e-3, 0.1),
             "alpha": tune.loguniform(1e-3, 0.1),
-            "max_depth": tune.randint(3, self.max_depth),
+            "max_depth": tune.randint(10, self.max_depth),
             "eta": tune.loguniform(1e-3, 0.1),
             "gamma": tune.loguniform(1e-3, 0.1),
             "grow_policy": tune.choice(["depthwise", "lossguide"]),
