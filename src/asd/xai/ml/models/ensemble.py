@@ -19,7 +19,8 @@ import ray
 ### change the logger type to save info logs
 # customlogger = logger.logging.getLogger('console_info')
 
-list_base_models = ['briskxgboost', 'slugxgboost', 'slugrf', 'slugknn', 'briskbagging']
+list_base_models = ['briskxgboost', 'slugxgboost', 'slugrf', 'briskknn', 'briskbagging', 'sluglgbm']
+                              
 
 
 class Ensemble:

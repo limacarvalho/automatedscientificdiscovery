@@ -54,14 +54,14 @@ def test_case_1():
     ### the above two are small datasets so better keep the tree depths low
     options = {
         'threshold': None,
-        'base_models' : ['briskxgboost', 'slugxgboost', 'slugrf', 'briskknn', 'sluglgbm'],
+        'base_models' : ['briskxgboost', 'slugxgboost', 'slugrf', 'briskknn', 'sluglgbm', 'briskbagging'],
         'pred_class': 'regression',
         'xgb_objective': 'count:poisson',
         'lgbm_objective': 'poisson',
         'score_func': mean_squared_error,
         'metric_func': metrics.r2_score,
-        'n_trials' : 100,
-        'boosted_round': 100,
+        'n_trials' : 300,
+        'boosted_round': 200,
         'max_depth': 20,
         'rf_n_estimators': 10000,
         'bagging_estimators' : 50,
@@ -73,7 +73,7 @@ def test_case_1():
         'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoffs'],
         'fdr': 0.1,
         'fstats': ['lasso', 'ridge', 'randomforest'],
-        'knockoff_runs' : 20
+        'knockoff_runs' : 20000
     }        
 
     # rayer.get_local_cluster(num_cpus=4)
@@ -113,7 +113,7 @@ def test_case_2():
         'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoffs'],
         'fdr': 0.1,
         'fstats': ['lasso', 'ridge', 'randomforest'],
-        'knockoff_runs' : 20
+        'knockoff_runs' : 20000
     }        
 
     ret = relevance(df, input_columns, target, options)
@@ -122,7 +122,8 @@ def test_case_2():
 
         
 if __name__ == '__main__':    
-    rayer.get_local_cluster()
+    # rayer.get_local_cluster()
+    rayer.get_global_cluster()
     test_case_2()
     
     
