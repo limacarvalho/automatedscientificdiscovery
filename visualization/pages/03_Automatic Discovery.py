@@ -107,11 +107,13 @@ if st.session_state["discovery_type"] == "Predictability":
             #pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
             #pred_output = plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
             #st.session_state["pred_output"] = pred_output
+            
+            # Visualize the output of the predictability part           
+            st.markdown("""
+            Output of the predictability part:
+            """)            
             #st.write(plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"]))
 
-            st.markdown("""
-            Your output of the predictability part is displayed.
-            """)
         else:
             st.markdown("""
             You have not chosen this task.
@@ -162,11 +164,15 @@ elif st.session_state["discovery_type"] == "Complexity":
             #dimreduce_main.data_high = complex_data_high
             #dimreduce_main.functions = complex_ml_method 
             #dimreduce_main.cutoff_loss = complex_cutoff_loss
-            #dimreduce_main.complexity(data_high, data_id, columns, cutoff_loss, functions)
+            #intrinsic_dimension, best_results, df_summary = dimreduce_main.complexity(data_high, data_id, columns, cutoff_loss, functions)
 
+            # Visualize the output (the return values) of the complexity function
             st.markdown("""
-            Your output of the complexity part is displayed.
+            Output of the complexity part:
             """)
+            #st.write(dimreduce_main.intrinsic_dimension)
+            #st.write(dimreduce_main.best_results)
+            #st.write(dimreduce_main.df_summary)
         else:
             st.markdown("""
             You have not chosen this task.
