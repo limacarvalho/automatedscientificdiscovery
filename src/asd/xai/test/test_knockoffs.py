@@ -1,21 +1,17 @@
 
-import sys; 
-sys.path.insert(0, '../../../../') # add parent folder path where lib folder is
-sys.path.insert(0, '../../../') # add parent folder path where lib folder is
 
-# sys.path.insert('/mnt/c/Users/rwmas/GitHub/xai/python-asd/src/asd')
 
-import os
+
 import numpy as np
 import pandas as pd
 import traceback
 
 from sklearn.model_selection import train_test_split
 
-from asd.xai.ml.models import common
-
-from asd.xai.ml.xai.non_model import KnockoffSetting, simulate_knockoffs
-from asd.xai.utils import helper, rayer, dataset_handler
+from ml.models import common
+from test import dataset_handler
+from ml.xai.non_model import KnockoffSetting, simulate_knockoffs
+from utils import helper, rayer
 import time
 
 
@@ -49,7 +45,9 @@ if __name__ == '__main__':
     
     print('########### Connecting ray cluster ###################')
 
-    rayer.get_local_cluster(num_cpus=4)
+    # rayer.get_local_cluster()
+    rayer.get_global_cluster()
+
 
     try:
 

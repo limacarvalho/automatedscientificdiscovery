@@ -1,21 +1,21 @@
 
 
 
-import sys; sys.path.insert(0, '..') # add parent folder path where lib folder is
+
 
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
-from asd.xai.ml.models.ensemble import Ensemble
+from ml.models.ensemble import Ensemble
 
-from asd.xai.ml.xai.model import Explainable
+from ml.xai.model import Explainable
 
 
 from sklearn.metrics import make_scorer
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.metrics import f1_score, roc_auc_score, precision_score, recall_score
-from asd.xai.ml.models import common
+from ml.models import common
 
 
 import time

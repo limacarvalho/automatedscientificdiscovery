@@ -1,23 +1,19 @@
 
 
 
-import sys; sys.path.insert(0, '..') # add parent folder path where lib folder is
-
-
-
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
-from asd.xai.utils import helper, rayer
-from asd.xai.ml.models.ensemble import Ensemble
+from utils import helper, rayer
+from ml.models.ensemble import Ensemble
 
 from sklearn.metrics import make_scorer
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.metrics import f1_score, roc_auc_score, precision_score, recall_score
-from asd.xai.ml.models import common
+from ml.models import common
 
-
+from test import dataset_handler
 
 import pandas as pd
 
@@ -25,8 +21,10 @@ import time
 
 # list_base_models = ['briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf']
 
+
+
 def use_tokamat_ds():
-    df = helper.get_tokamat_dataset()
+    df = dataset_handler.get_tokamat_dataset()
     df = df.reset_index()
 
     df = common.label_encode(df)
