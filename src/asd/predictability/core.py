@@ -1,24 +1,34 @@
 import pandas as pd
 import time
 import ray
-import numpy as np
 
 from asd.predictability.utils import get_column_combinations, parallel_pred_step_MLP, \
-    parallel_pred_step_kNN, scoring_dict, refinement_step, parallel_refinement_step
+    parallel_pred_step_kNN, scoring_dict, tuple_selection, refinement_step, parallel_refinement_step
 
 from utils_logger import logger
 
 
-def run_predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_cols=None, targets=None,
-                   method="kNN", scoring="r2", scaling="test",
-                   hidden_layers=None, alphas=None, max_iter=10000,
-                   greedy=False,
-                   refined=False, refined_n_best=1,  # TODO: just use refined_n_best
-                   n_jobs=-1, verbose=1,
-                   random_state_split=1):
+def run_predictability(data,
+                       input_cols=1,
+                       output_cols=1,
+                       col_set=None,
+                       primkey_cols=None,
+                       targets=None,
+                       method="kNN",
+                       scoring="r2",
+                       scaling="test",
+                       hidden_layers=None,
+                       alphas=None,
+                       max_iter=10000,
+                       greedy=False,
+                       refined_n_best=1,
+                       n_jobs=-1,
+                       verbose=1,
+                       random_state_split=1
+                       ):
     """
     The main predictability routine. The routine runs over all column combinations and uses the method `method` to
-    determine the predictability of the `output_cols`-many target columns given the `input_cols`-many input values.
+    determine the predictability of the ``output_cols``-many target columns given the ``input_cols``-many input values.
     Running through the set of all the column combinations is done using Ray.
     The run's parameters can be modified according to the following list.
     :param data: pandas DataFrame
@@ -28,67 +38,66 @@ def run_predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_
     :param output_cols: int
         The number of target columns for the fit. For a 4-1 fit, output_cols = 1.
     :param col_set: list, default=None
-        The (sub-)set of columns that should be considered. Default `None` corresponds to considering all
-        columns (except for `primkey_cols`, if set).
+        The (sub-)set of columns that should be considered. Default ``None`` corresponds to considering all
+        columns (except for ``primkey_cols``, if set).
     :param primkey_cols: list, default=None
         The subset of columns corresponding to primary keys. These will neither be used as inputs nor outputs.
     :param targets: list, default=None
         The subset of columns that should be treated exclusively as targets.
-        `len(targets) >= output_cols`
+        ``len(targets) >= output_cols``
     :param method: str, default="kNN"
         The method used within the predictability routine. Default is kNN (k-nearest-neighbours), possible
         other choice is MLP (Multi-Layer Perceptron).
     :param hidden_layers: list, default=[(12,), (50,), (70, 5,)]
-        If method="MLP". Specifies choices for sklearn's `hidden_layer_sizes` during CV fit.
+        If ``method="MLP"``. Specifies choices for ``sklearn``'s ``hidden_layer_sizes`` during CV fit.
         If not specified, [(12,), (50,), (70, 5,)] is used.
     :param alphas: list, default=[0.001, 0.0001, 0.00001]
-        If method="MLP". Specifies choices for sklearn's `alpha` during CV fit.
+        If ``method="MLP"``. Specifies choices for ``sklearn``'s ``alpha`` during CV fit.
         If not specified, [0.001, 0.0001, 0.00001] is used.
     :param scoring: str
-        Scoring for the CV fit. Choices are (mapping automatically to the respective `sklearn.metrics` metric):
+        Scoring for the CV fit. Choices are (mapping automatically to the respective ``sklearn.metrics`` metric):
 
-            - "r2": `r2`,
-            - "MAPE": `neg_mean_absolute_percentage_error`,
-            - "neg_mean_absolute_percentage_error": `neg_mean_absolute_percentage_error`,
-            - "RMSE": `neg_root_mean_squared_error`,
-            - "neg_root_mean_squared_error": `neg_root_mean_squared_error`,
-            - "MAE": `neg_mean_absolute_error`,
-            - "neg_mean_absolute_error": `neg_mean_absolute_error`
+            - "r2": ``r2``,
+            - "MAPE": ``neg_mean_absolute_percentage_error``,
+            - "neg_mean_absolute_percentage_error": ``neg_mean_absolute_percentage_error``,
+            - "RMSE": ``neg_root_mean_squared_error``,
+            - "neg_root_mean_squared_error": ``neg_root_mean_squared_error``,
+            - "MAE": ``neg_mean_absolute_error``,
+            - "neg_mean_absolute_error": ``neg_mean_absolute_error``
 
     :param scaling: str, default="test"
-        Specifies usage of `sklearn.preprocessing`'s `StandardScaler` before fit. Default is "test", can be set to
-        "yes" or "no". If "test", `StandardScaler` becomes part of fitting pipeline and benefit of usage / skipping
+        Specifies usage of ``sklearn.preprocessing``'s ``StandardScaler`` before fit. Default is "test", can be set to
+        "yes" or "no". If "test", ``StandardScaler`` becomes part of fitting pipeline and benefit of usage / skipping
         will be evaluated.
     :param max_iter: int, default=10000
-        If `method="MLP"`. Specifies maximum number of iterations during fit. Corresponds to `max_iter` within
-        `sklearn.model_selection`'s `GridSearchCV`.
+        If ``method="MLP"``. Specifies maximum number of iterations during fit. Corresponds to ``max_iter`` within
+        ``sklearn.model_selection``'s ``GridSearchCV``.
     :param greedy: boolean, default=False
-        Sets whether all combinations of input columns are checked or, if `True', a greedy algorithm is run instead.
-        The greedy algorithm iteratively determines the best inputs, starting with one input. If `input_cols' > 1, this
+        Sets whether all combinations of input columns are checked or, if ``True``, a greedy algorithm is run instead.
+        The greedy algorithm iteratively determines the best inputs, starting with one input. If ``input_cols``>1, this
         best input is then fixed in the input tuple combination and the next iteration finds the best partner for a
-        2-`output_cols' fit. This goes on until the greedily best input tuple combination for a
-        `input_cols'-`output_cols' fit is found.
+        2-``output_cols`` fit. This goes on until the greedily best input tuple combination for a
+        ``input_cols``-``output_cols`` fit is found.
         Note that this is done for all possible choices of targets.
-    :param refined: boolean, default=False
-        Sets whether the `refined_predictability' routine will be triggered subsequently.
     :param refined_n_best:  int, default=1
-        Sets the number of how many of the best results will go into the `refined_predictability' routine.
+        If non-zero, the ``refined_predictability`` routine will be triggered subsequently. Sets the number of how many
+        of the best results will go into the ``refined_predictability`` routine.
     :param n_jobs: int, default=-1
-        Specifies number of jobs to run in parallel. Choose -1 to use all processors. Corresponds to `n_jobs` within
-        `sklearn.model_selection`'s `GridSearchCV`.
+        Specifies number of jobs to run in parallel. Choose -1 to use all processors. Corresponds to ``n_jobs`` within
+        ``sklearn.model_selection``'s ``GridSearchCV``.
     :param verbose: int, default=1
-        Specifies the verbosity level. Corresponds to `verbose` within `sklearn.model_selection`'s `GridSearchCV`.
+        Specifies the verbosity level. Corresponds to ``verbose`` within ``sklearn.model_selection``'s ``GridSearchCV``.
     :param random_state_split: int, default=1
-        Specifies shuffling during `sklearn.model_selection`'s `train_test_split`. Set to a specific integer value for
+        Specifies shuffling during ``sklearn.model_selection``'s ``train_test_split``. Set to a specific integer value for
         reproducibility.
     :return: dict, dict
         First dict contains all evaluation metrics, the second one all data (train, test, predicted
         values, GridSearch parameters, CV scores). Both are nested dictionaries, where the outermost keys correspond to
-        the respective combination tuples ("input column 1", ..., "input column `input_cols`", "target column 1", ...,
-        "target column `output_cols`").
+        the respective combination tuples ("input column 1", ..., "input column ``input_cols``", "target column 1", ...,
+        "target column ``output_cols``").
 
         For each combination, the inner dictionaries are then composed of the following keys with the corresponding
-        values if `refined=False':
+        values if ``refined=False``:
 
         metric dict:
 
@@ -113,12 +122,13 @@ def run_predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_
             - "y_test_pred_linear", numpy.ndarray of shape (test_data_points, output_cols)
             - "y_test_pred_mean", numpy.ndarray of shape (test_data_points, output_cols)
             - "y_test_pred_pl", numpy.ndarray of shape (test_data_points, output_cols), (if power law fit performed)
-            - "GridSearchParams", dict corresponding to `best_params_'-dict of `sklearn.model_selection`'s `GridSearchCV'
-            - "scores", dict corresponding to `cv_results_'-dict of `sklearn.model_selection`'s `GridSearchCV'
+            - "GridSearchParams", dict corresponding to ``best_params_``-dict of ``sklearn.model_selection``'s
+            ``GridSearchCV``
+            - "scores", dict corresponding to ``cv_results_``-dict of ``sklearn.model_selection``'s ``GridSearchCV``
 
-        If `refined=True', both dictionaries include a further key "refined_metrics" / "refined_datas". Their values
-        are yet again dictionaries, corresponding to the respective return dictionaries of the `refine_predictability'
-        routine.
+        If ``refined_n_best``>0, both dictionaries include a further key "refined_metrics" / "refined_datas" for the
+        ``refined_n_best``-many best results of the ``run_predictability``-run. Their values are yet again
+        dictionaries, corresponding to the respective return dictionaries of the ``refine_predictability`` routine.
     """
 
     if targets is None:
@@ -271,15 +281,19 @@ def run_predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_
     metric_dict = dict((key, d[key]) for d in metrics_list for key in d)
     data_dict = dict((key, d[key]) for d in datas_list for key in d)
 
-    if not refined:
+    # run refinement routine afterwards, if desired
+    if refined_n_best == 0:
         logger.info("The whole run took " + str(round(time.time() - start, 2)) + "s.")
 
         return metric_dict, data_dict
     else:
+        # first get the best results of the main routine
         curr_best_tuples = tuple_selection(metric_dict, refined_n_best)
+        # then run the refine routine
         refined_metric_dict, refined_data_dict = refine_predictability(best_tuples=curr_best_tuples,
                                                                        data_dict=data_dict,
                                                                        n_jobs=n_jobs)
+        # attach the results to the respective tuples' result dictionaries
         for curr_best_tuple in curr_best_tuples:
             metric_dict[curr_best_tuple]["refined_metrics"] = refined_metric_dict[curr_best_tuple]
             data_dict[curr_best_tuple]["refined_datas"] = refined_data_dict[curr_best_tuple]
@@ -289,56 +303,41 @@ def run_predictability(data, input_cols=1, output_cols=1, col_set=None, primkey_
         return metric_dict, data_dict
 
 
-def tuple_selection(all_metrics, n_best=None):  # TODO: add option of getting n_best for all possible targets
+def refine_predictability(best_tuples,
+                          data_dict,
+                          time_left_for_this_task=120,
+                          use_ray=True,
+                          generations=100,
+                          population_size=100,
+                          n_jobs=-1
+                          ):
     """
-    Routine to select which of the previously analysed combination tuples will be sent into the next step of a refined
-    analysis.
-    :param all_metrics: dict
-        Metrics dictionary that was the output of a predictability run
-    :param n_best: int
-        Specifies how many combination tuples should be selected according to the `tuple_selection` logic.
-    :return: list
-        List of the `n_best`-many combination tuples that shall be further investigated.
-    """
-
-    # first sort predictability results by r2-score of kNN regressor
-    metrics_df = pd.DataFrame.from_dict(all_metrics).transpose().sort_values(by="kNN r2", ascending=False)
-
-    # for first setup, just use best 10%, 20 max – if not explicitly specified via argument n_best
-    initial_number = len(metrics_df)
-    if not n_best:
-        limited_number = np.floor(0.1 * initial_number)
-        if limited_number == 0:
-            limited_number = 1
-        elif limited_number > 20:
-            limited_number = 20
-    else:
-        limited_number = n_best
-
-    metrics_df = metrics_df.iloc[:limited_number]
-
-    best_tuples = metrics_df.index.tolist()
-
-    return best_tuples
-
-
-# @ray.remote(num_returns=2)
-def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, time_left_for_this_task=120,
-                          per_run_time_limit=30, use_ray=False):
-    """
-
-    :param best_tuples:
-    :param data_dict:
-    :param n_jobs:
-    :param data_name:
-    :param time_left_for_this_task:
-    :param per_run_time_limit:
-    :param use_ray:
+    The refined predictability routine. It can be run after the initial ``run_predictability`` routine and after having
+    chosen a list of ``best_tuples`` (output of the ``utils`` function ``tuple_selection``) that should be further
+    analysed. It is started automatically after the ``run_predictability`` routine if ``refined_n_best`` > 0 is set t
+    here. The routine runs ``TPOT`` (https://github.com/EpistasisLab/tpot) on a custom ``config_dict`` and for
+    ``time_left_for_this_task`` seconds. ``TPOT``'s ``generations`` and ``population_size`` can be further specified.
+    :param best_tuples: list
+        A list containing the to be further analysed tuples.
+    :param data_dict: dict
+        A dictionary containing all the necessary data; should be the output of a ``run_predictability`` run.
+    :param time_left_for_this_task: float
+        Time in seconds that specifies for how long the routine should run.
+    :param use_ray: boolean, default=True
+        Specifies whether the routine should run in parallel, using ``Ray``.
+    :param generations: int
+        Corresponds to ``TPOT``'s ``generations``: Number of iterations to run the pipeline optimization process.
+    :param population_size: int
+        Corresponds to ``TPOT``'s ``population_size``: Number of individuals to retain in the GP population every
+        generation.
+    :param n_jobs: int, default=-1
+        Specifies number of jobs to run in parallel. Choose -1 to use all processors. Corresponds to
+        ``TPOTRegressor``'s ``n_jobs``.
     :return:  dict, dict
         First dict contains all evaluation metrics, the second one all data (train, test, predicted
-        values, `TPOT' / `sklearn' `Pipeline' etc. ). Both are nested dictionaries, where the outermost keys correspond
-        to the respective combination tuples ("input column 1", ..., "input column `input_cols`", "target column 1",
-        ..., "target column `output_cols`").
+        values, ``TPOT`` / ``sklearn`` ``Pipeline`` etc. ). Both are nested dictionaries, where the outermost keys
+        correspond to the respective combination tuples ("input column 1", ..., "input column ``input_cols``", "target
+        column 1", ..., "target column ``output_cols``").
 
         For each combination, the inner dictionaries are then composed of the following keys with the corresponding
         values:
@@ -360,15 +359,13 @@ def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, tim
             - "y_train_pred", numpy.ndarray of shape (train_data_points, output_cols)
             - "y_test_pred", numpy.ndarray of shape (test_data_points, output_cols)
             - "ensemble", `sklearn' `Pipeline' object
-            - "pareto_pipelines", dict directly from `TPOT': 'the key is the string representation of the pipeline and
+            - "pareto_pipelines", dict directly from ``TPOT``: 'the key is the string representation of the pipeline and
             the value is the corresponding pipeline fitted on the entire training dataset'
-            - "all_individuals", dict directly from `TPOT': 'the key is the string representation of the pipeline and
+            - "all_individuals", dict directly from ``TPOT``: 'the key is the string representation of the pipeline and
             the value is a tuple containing (# of steps in pipeline, accuracy metric for the pipeline)'
     """
 
-    # data_df = pd.DataFrame.from_dict(data_dict).transpose()
-    # data_df = data_df.loc[best_tuples]
-
+    # initialise lists for results
     metrics_list = []
     datas_list = []
 
@@ -376,18 +373,23 @@ def refine_predictability(best_tuples, data_dict, n_jobs=-1, data_name=None, tim
     if use_ray:
         data_dict_id = ray.put(data_dict)
 
+    # go through all the previously defined best tuples that should be considered and run (parallel) refinement steps
     for curr_tuple in best_tuples:
         if use_ray:
             curr_metrics, curr_datas = parallel_refinement_step.remote(data_dict=data_dict_id,
                                                                        curr_tuple=curr_tuple,
                                                                        time_left_for_this_task=time_left_for_this_task,
-                                                                       per_run_time_limit=per_run_time_limit,
+                                                                       generations=generations,
+                                                                       population_size=population_size,
                                                                        n_jobs=n_jobs
                                                                        )
         else:
-            curr_metrics, curr_datas = refinement_step(data_dict=data_dict, curr_tuple=curr_tuple,
+            curr_metrics, curr_datas = refinement_step(data_dict=data_dict,
+                                                       curr_tuple=curr_tuple,
                                                        time_left_for_this_task=time_left_for_this_task,
-                                                       per_run_time_limit=per_run_time_limit, n_jobs=n_jobs)
+                                                       generations=generations,
+                                                       population_size=population_size,
+                                                       n_jobs=n_jobs)
         metrics_list.append(curr_metrics)
         datas_list.append(curr_datas)
 
