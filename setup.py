@@ -10,7 +10,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="asd",
+    name="autoSciDis",
     version="0.1",
     author='Arthur',
     author_email='arthur@unknown.eu',
