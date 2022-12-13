@@ -1,5 +1,5 @@
 
-from asd.xai.utils import config
+from utils import config
 import pandas as pd
 
 

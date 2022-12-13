@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import datatable as dt
-from .utilities_asd_team  import convert_datatypes
+from test.utilities_asd_team  import convert_datatypes
 
 
 def get_covid_dataset():
