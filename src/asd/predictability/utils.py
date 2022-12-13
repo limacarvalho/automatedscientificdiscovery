@@ -21,7 +21,7 @@ from tpot import TPOTRegressor
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from utils_logger import logger
+from asd.utils_logger import logger
 
 from asd.predictability.tpot_config import regressor_config_dict_ASD
 
