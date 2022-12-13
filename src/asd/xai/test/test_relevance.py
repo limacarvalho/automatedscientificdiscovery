@@ -88,8 +88,6 @@ def test_case_2():
     df_X, df_y = use_tokamat_ds()
     df = pd.concat([df_X, df_y], axis=1)
 
-    print(df.head(5))
-
     input_columns = df_X.columns.values
     target = 'WTOT'
 
@@ -106,7 +104,7 @@ def test_case_2():
         'n_trials' : 100,
         'boosted_round': 100,
         'max_depth': 20,
-        'rf_n_estimators': 10000,
+        'rf_n_estimators': 5000,
         'bagging_estimators' : 50,
         'n_neighbors': 50,
         'cv_splits': 3,
