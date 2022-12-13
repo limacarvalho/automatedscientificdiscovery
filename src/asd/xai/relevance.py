@@ -331,8 +331,8 @@ def relevance(df, input_columns, target, options) -> None:
         
 
         ensemble_set = Ensemble(   
-                                        xgb_objective=xgb_objective,  # ["reg:squarederror", "count:poisson", "binary:logistic",  "binary:hinge" ]
-                                        lgbm_objective=lgbm_objective,    # 
+                                        xgb_objective=xgb_objective,    
+                                        lgbm_objective=lgbm_objective,  
                                         pred_class=pred_class,
                                         score_func=score_func,
                                         metric_func=metric_func,
@@ -342,7 +342,7 @@ def relevance(df, input_columns, target, options) -> None:
                                         max_depth=max_depth, 
                                         rf_n_estimators=rf_n_estimators,
                                         bagging_estimators=bagging_estimators,      
-                                        n_neighbors=n_neighbors,                     #must be > 5
+                                        n_neighbors=n_neighbors,                                     #must be > 5
                                         cv_splits=cv_splits,
                                         ensemble_bagging_estimators=ensemble_bagging_estimators,     #must be > 10
                                         ensemble_n_trials=50,

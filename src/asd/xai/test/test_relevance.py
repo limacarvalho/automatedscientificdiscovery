@@ -49,12 +49,12 @@ def test_case_1():
 
 
     mean_squared_error = make_scorer(score_func=metrics.mean_squared_error, greater_is_better=False)
+    
 
     ### the above two are small datasets so better keep the tree depths low
     options = {
         'threshold': None,
-        # 'base_models' : ['briskxgboost', 'slugxgboost', 'slugrf', 'briskknn', 'sluglgbm'],
-        'base_models' : ['sluglgbm'],
+        'base_models' : ['briskxgboost', 'slugxgboost', 'slugrf', 'briskknn', 'sluglgbm'],
         'pred_class': 'regression',
         'xgb_objective': 'count:poisson',
         'lgbm_objective': 'poisson',
@@ -70,7 +70,7 @@ def test_case_1():
         'ensemble_n_estimators': 10,
         'ensemble_n_trials': 10,
         
-        'attr_algos' : ['IG', 'SHAP', 'GradientSHAP'],
+        'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoffs'],
         'fdr': 0.1,
         'fstats': ['lasso', 'ridge', 'randomforest'],
         'knockoff_runs' : 20
@@ -83,7 +83,6 @@ def test_case_1():
     pprint(ret)
 
 
-
 def test_case_2():
     df_X, df_y = use_tokamat_ds()
     df = pd.concat([df_X, df_y], axis=1)
@@ -91,27 +90,27 @@ def test_case_2():
     input_columns = df_X.columns.values
     target = 'WTOT'
 
-
+    r2_scoring = make_scorer(score_func=metrics.r2_score, greater_is_better=True)
+    ### slugrf (rf_n_estimators=5000, max_depth=20), KNN(n_neighbors=50) sluglgbm(boosted_round=100, max_depth=20), briskxgboost(boosted_round=1000)
     options = {
         'threshold': None,
-        # 'base_models' : ['briskxgboost', 'slugxgboost', 'slugrf', 'briskknn', 'sluglgbm'],
-        'base_models' : ['briskknn'],
+        'base_models' : ['briskxgboost', 'slugxgboost', 'slugrf', 'briskknn', 'sluglgbm', 'briskbagging'],
         'pred_class': 'regression',
         'xgb_objective': 'count:poisson',
         'lgbm_objective': 'poisson',
-        'score_func': 'r2',
+        'score_func': r2_scoring,
         'metric_func': metrics.r2_score,
         'n_trials' : 100,
-        'boosted_round': 100,
+        'boosted_round': 1000,
         'max_depth': 20,
         'rf_n_estimators': 5000,
-        'bagging_estimators' : 50,
+        'bagging_estimators' : 150,
         'n_neighbors': 50,
         'cv_splits': 3,
-        'ensemble_n_estimators': 10,
-        'ensemble_n_trials': 10,
+        'ensemble_n_estimators': 100,
+        'ensemble_n_trials': 100,
         
-        'attr_algos' : ['IG', 'SHAP', 'GradientSHAP'],
+        'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoffs'],
         'fdr': 0.1,
         'fstats': ['lasso', 'ridge', 'randomforest'],
         'knockoff_runs' : 20
@@ -122,10 +121,8 @@ def test_case_2():
     pprint(ret)
 
         
-if __name__ == '__main__':
-
-    rayer.get_global_cluster()
-    # rayer.get_local_cluster()
+if __name__ == '__main__':    
+    rayer.get_local_cluster()
     test_case_2()
     
     
