@@ -19,38 +19,18 @@ st.set_page_config(layout="wide")
 # Set streamlit session state
 if "discovery_type" not in st.session_state:
     st.session_state["discovery_type"] = "Predictability"
+
 df_input = st.session_state["df_input"]
 
 # Implement mainframe output
-st.title("Data normalization and discovery")
+st.title("Data discovery")
 st.markdown("")
-st.header("Data normalization")
-st.markdown("""
-Your normalized data:
-""")
+st.header("Data overview")
+#df_input = st.session_state["df_input"]
 
-# Implement sidebar output
-st.sidebar.markdown("""
-Which kind of useless data do you want to delete?
-""")
-
-# Implement sidebar user input: checkbox
-delete_dupl = st.sidebar.checkbox('Delete duplicates')
-delete_null = st.sidebar.checkbox('Delete null values')
-df_input_changed = pd.DataFrame(df_input)
-
-# Drop duplicated values
-if delete_dupl == True:
-    df_input_changed = df_input_changed.drop_duplicates(keep=False)
-    st.session_state["df_input_changed"] = df_input_changed
-
-# Replace empty column with numpy NAN
-if delete_null == True:
-    df_input_changed = df_input_changed.replace(r'^\s*$', np.nan, regex=True)
-    st.session_state["df_input_changed"] = df_input_changed
 
 # Print normalized dataframe based on user selection
-st.dataframe(df_input_changed.head())
+st.dataframe(df_input.head())
 st.markdown("***")
 
 # Create function for sidebar selection: discovery task
@@ -60,7 +40,6 @@ def handle_ml_select():
         #st.empty()
 
 # Set selection of discovery task on sidebar
-st.sidebar.markdown("***")
 ml_select = st.sidebar.radio("Discovery task:", ["Predictability", "Relevance", "Grouping", "Complexity"], on_change=handle_ml_select, key="ml_type")
 
 # Implement if statements based on discovery task selection
@@ -144,7 +123,7 @@ elif st.session_state["discovery_type"] == "Relevance":
     #relevance_ident = st.text_input('Identifier:', placeholder="Enter an identifier")
     #relevance_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0)
     #relevance_ml_method = st.selectbox("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"))
-    relevance_df = df_input_changed
+    relevance_df = df_input
     #if relevance_ml_method == "All":
     #    relevance_ml_method = []
 
@@ -195,7 +174,7 @@ elif st.session_state["discovery_type"] == "Complexity":
     complex_ident = st.text_input('Identifier:', placeholder="Enter an identifier")
     complex_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0)
     complex_ml_method = st.selectbox("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"))
-    complex_data_high = df_input_changed
+    complex_data_high = df_input
     if complex_ml_method == "All":
         complex_ml_method = []
 
