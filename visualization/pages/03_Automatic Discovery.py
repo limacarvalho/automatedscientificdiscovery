@@ -2,6 +2,10 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from pathlib import Path
+import sys
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 #from predictability.src.ASD_predictability_utils.utils import get_column_combinations
 #from predictability.bin.main import predictability
 #from predictability.src.ASD_predictability_utils.utils import plot_result
@@ -102,18 +106,22 @@ if st.session_state["discovery_type"] == "Predictability":
         pred_algorithm_start = st.button("Start discovery")
 
         if pred_algorithm_start == True:
-            ###### Implement tbe code of Predictability ######
-            #metrics_dict, datas_dict = predictability(data=df_input_changed, input_cols=pred_input_column, output_cols=pred_output_column, col_set=None, targets=pred_target_column, method=pred_ml_method, random_state_split=None, #refined=True, greedy=pred_greedy)
-            #pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
-            #pred_output = plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
-            #st.session_state["pred_output"] = pred_output
-            
-            # Visualize the output of the predictability part           
-            st.markdown("""
-            Output of the predictability part:
-            """)            
-            #st.write(plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"]))
-
+            try:
+                ###### Implement tbe code of Predictability ######
+                #metrics_dict, datas_dict = predictability(data=df_input_changed, input_cols=pred_input_column, output_cols=pred_output_column, col_set=None, targets=pred_target_column, method=pred_ml_method, random_state_split=None, #refined=True, greedy=pred_greedy)
+                #pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
+                #pred_output = plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
+                #st.session_state["pred_output"] = pred_output
+                
+                # Visualize the output of the predictability part           
+                st.markdown("""
+                Output of the predictability part:
+                """)            
+                #st.write(plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"]))
+            except:
+                st.markdown("""
+                Algorithm Error! You should restart the app.
+                """)
         else:
             st.markdown("""
             You have not chosen this task.
@@ -158,21 +166,26 @@ elif st.session_state["discovery_type"] == "Complexity":
         complex_algorithm_start = st.button("Start discovery")
 
         if complex_algorithm_start == True:
-            ###### Implement tbe code of Complexity ######
-            #dimreduce_main.data_id = complex_ident
-            #dimreduce_main.columns = complex_column
-            #dimreduce_main.data_high = complex_data_high
-            #dimreduce_main.functions = complex_ml_method 
-            #dimreduce_main.cutoff_loss = complex_cutoff_loss
-            #intrinsic_dimension, best_results, df_summary = dimreduce_main.complexity(data_high, data_id, columns, cutoff_loss, functions)
+            try:
+                ###### Implement tbe code of Complexity ######
+                #dimreduce_main.data_id = complex_ident
+                #dimreduce_main.columns = complex_column
+                #dimreduce_main.data_high = complex_data_high
+                #dimreduce_main.functions = complex_ml_method 
+                #dimreduce_main.cutoff_loss = complex_cutoff_loss
+                #intrinsic_dimension, best_results, df_summary = dimreduce_main.complexity(data_high, data_id, columns, cutoff_loss, functions)
 
-            # Visualize the output (the return values) of the complexity function
-            st.markdown("""
-            Output of the complexity part:
-            """)
-            #st.write(dimreduce_main.intrinsic_dimension)
-            #st.write(dimreduce_main.best_results)
-            #st.write(dimreduce_main.df_summary)
+                # Visualize the output (the return values) of the complexity function
+                st.markdown("""
+                Output of the complexity part:
+                """)
+                st.write(dimreduce_main.intrinsic_dimension)
+                st.write(dimreduce_main.best_results)
+                st.write(dimreduce_main.df_summary)
+            except:
+                st.markdown("""
+                Algorithm Error! You should restart the app.
+                """)
         else:
             st.markdown("""
             You have not chosen this task.
