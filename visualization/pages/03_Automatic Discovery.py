@@ -10,6 +10,8 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 #from predictability.bin.main import predictability
 #from predictability.src.ASD_predictability_utils.utils import plot_result
 #from complexity.dim_reduce import dimreduce_main
+#from xai_0.2.0 import relevance
+
 
 # Set streamlit layout
 st.set_page_config(layout="wide")
@@ -132,9 +134,51 @@ if st.session_state["discovery_type"] == "Predictability":
         """)
 
 elif st.session_state["discovery_type"] == "Relevance":
+    st.header("Discover the relevance of your data")
     st.markdown("""
-    You selected the task: Relevance
+    To begin the relevance task, you have to choose between some options.   
     """)
+    relevance_num_columns = df_input.select_dtypes(include = np.number).columns.to_list()
+    relevance_column = st.multiselect("Numeric input columns:", relevance_num_columns)#[st.session_state["predict_target_column"]])
+    relevance_target = st.multiselect("Nmeric target columns:", relevance_num_columns)#[st.session_state["predict_target_column"]])
+    #relevance_ident = st.text_input('Identifier:', placeholder="Enter an identifier")
+    #relevance_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0)
+    #relevance_ml_method = st.selectbox("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"))
+    relevance_df = df_input_changed
+    #if relevance_ml_method == "All":
+    #    relevance_ml_method = []
+
+    if relevance_column and relevance_target:
+    
+        ###### Part 1, Relevance function of ml-algorithm ######  
+        st.markdown("***")
+        st.subheader("Relevance")
+        st.markdown("""
+        Discover the relevance of your dataset.
+        """)
+        relevance_algorithm_start = st.button("Start discovery")
+
+        if relevance_algorithm_start == True:
+            try:
+                ###### Implement tbe code of Relevance ######
+                #relevance.relevance(relevance_df, relevance_column, relevance_target)
+                
+
+                # Visualize the output (the return values) of the relevance function
+                st.markdown("""
+                Output of the relevance part:
+                """)
+                st.write(dimreduce_main.intrinsic_dimension)
+                st.write(dimreduce_main.best_results)
+                st.write(dimreduce_main.df_summary)
+            except:
+                st.markdown("""
+                Algorithm Error! You should restart the app.
+                """)
+        else:
+            st.markdown("""
+            You have not chosen this task.
+            """)
     # Integrate variable with connection to ml-task: Relevance
 elif st.session_state["discovery_type"] == "Grouping":
     st.markdown("""
