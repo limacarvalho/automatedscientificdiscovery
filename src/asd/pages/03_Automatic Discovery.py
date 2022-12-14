@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 #from predictability.bin.main import predictability
 #from predictability.src.ASD_predictability_utils.utils import plot_result
 #from complexity.dim_reduce import dimreduce_main
-#from xai_0.2.0 import relevance
+#from xai import relevance
 
 
 # Set streamlit layout
