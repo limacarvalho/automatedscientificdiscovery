@@ -1,11 +1,11 @@
 
 import pandas as pd
 
-from utils import config
-from ml.models import Ensemble, list_base_models
-from ml.xai.model import Explainable, list_xai_algos
-from ml.xai.non_model import simulate_knockoffs, list_fstats
-from utils.asd_logging import logger as  customlogger
+from asd.relevance.utils import config
+from asd.relevance.ml.models import Ensemble, list_base_models
+from asd.relevance.ml.xai.model import Explainable, list_xai_algos
+from asd.relevance.ml.xai.non_model import simulate_knockoffs, list_fstats
+from asd.relevance.utils.asd_logging import logger as  customlogger
 
 
 from sklearn.preprocessing import StandardScaler

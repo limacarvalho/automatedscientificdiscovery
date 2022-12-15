@@ -3,7 +3,7 @@ import os
 import ray
 import json
 import time
-from utils import config
+from asd.relevance.utils import config
 import ray._private.ray_constants as ray_constants
 import logging 
 

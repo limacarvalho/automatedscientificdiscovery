@@ -5,13 +5,13 @@
 
 from sklearn.model_selection import train_test_split
 
-from utils import helper, rayer
-from ml.models.ensemble import Ensemble
+from asd.relevance.utils import helper, rayer
+from asd.relevance.ml.models.ensemble import Ensemble
 
 from sklearn.metrics import make_scorer
 from sklearn import metrics
 
-from ml.models import common
+from asd.relevance.ml.models import common
 from test import dataset_handler
 import pandas as pd
 import time
