@@ -8,10 +8,10 @@ import traceback
 
 from sklearn.model_selection import train_test_split
 
-from ml.models import common
-from test import dataset_handler
-from ml.xai.non_model import KnockoffSetting, simulate_knockoffs
-from utils import helper, rayer
+from asd.relevance.ml.models import common
+import dataset_handler
+from asd.relevance.ml.xai.non_model import KnockoffSetting, simulate_knockoffs
+from asd.relevance.utils import helper, rayer
 import time
 
 
