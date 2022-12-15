@@ -2,3 +2,4 @@
 
 # from .xai import relevance_main as relevance_main
 
+from .relevance import relevance
