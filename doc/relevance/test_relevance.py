@@ -1,16 +1,18 @@
 
 import pandas as pd
-from ml.models import common
-from test import dataset_handler
-from utils.asd_logging import logger as  customlogger
-from utils import rayer
-from relevance import relevance
+
 
 from pprint import pprint
 from sklearn import metrics
 from sklearn.metrics import make_scorer
 
 from asd import relevance
+from asd.relevance.ml.models import common
+# from ml.models import common
+import dataset_handler
+# from test import dataset_handler
+from asd.relevance.utils import rayer
+# from utils import rayer
 
 
 def use_tokamat_ds():
