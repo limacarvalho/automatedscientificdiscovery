@@ -10,6 +10,8 @@ from pprint import pprint
 from sklearn import metrics
 from sklearn.metrics import make_scorer
 
+from asd import relevance
+
 
 def use_tokamat_ds():
     df = dataset_handler.get_tokamat_dataset()
@@ -99,20 +101,20 @@ def test_case_2():
         'score_func': r2_scoring,
         'metric_func': metrics.r2_score,
         'n_trials' : 100,
-        'boosted_round': 1000,
+        'boosted_round': 100,
         'max_depth': 20,
-        'rf_n_estimators': 5000,
-        'bagging_estimators' : 150,
+        'rf_n_estimators': 1000,
+        'bagging_estimators' : 50,
         'n_neighbors': 50,
         'cv_splits': 3,
-        'ensemble_n_estimators': 100,
-        'ensemble_n_trials': 100,
+        'ensemble_n_estimators': 50,
+        'ensemble_n_trials': 50,
         
         'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoffs'],
         'fdr': 0.1,
         'fstats': ['lasso', 'ridge', 'randomforest'],
-        'knockoff_runs' : 20000
-    }        
+        'knockoff_runs' : 2000
+    }
 
     ret = relevance(df, input_columns, target, options)
 
