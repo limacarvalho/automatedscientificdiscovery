@@ -119,7 +119,7 @@ def test_case_2():
         'knockoff_runs' : 2000
     }
 
-    ret = relevance.relevance(df, input_columns, target, options)
+    ret = relevance(df, input_columns, target, options)
 
     pprint(ret)
 
