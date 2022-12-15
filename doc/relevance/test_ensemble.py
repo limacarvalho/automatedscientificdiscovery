@@ -12,7 +12,7 @@ from sklearn.metrics import make_scorer
 from sklearn import metrics
 
 from asd.relevance.ml.models import common
-from test import dataset_handler
+import dataset_handler
 import pandas as pd
 import time
 
@@ -72,7 +72,8 @@ def test_case_1():
 
 def main():
 
-    rayer.get_global_cluster()
+    # rayer.get_global_cluster()
+    rayer.get_local_cluster()
     test_case_1()
 
 if __name__ == '__main__':

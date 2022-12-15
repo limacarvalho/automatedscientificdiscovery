@@ -28,7 +28,7 @@ log_config_yaml = main_dir + 'utils/config.yaml'
 ### ray config params
 num_cpus = 5
 num_gpus = 0
-working_dir = "/mnt/c/Users/rwmas/GitHub/xai/python-asd/src/asd/xai"
+working_dir = "/mnt/c/Users/rwmas/GitHub/xai/python-asd/src/asd/relevance"
 pip = ["scikit-learn", 'optuna==2.3.0', 'xgboost', 'torch', 'captum', 'shap', 'datatable', 'hyperopt', 'ray[tune]', 
        'bayesian-optimization', 'xgboost_ray', 'lightgbm_ray', 'IPython', 'pyarrow', 'modin[ray]']
 #addr = os.environ['RAYCLUSTER_AUTOSCALER_HEAD_SVC_PORT_10001_TCP_ADDR']
