@@ -1,7 +1,7 @@
 
-from ml.models import common
-from utils import config
-from utils.asd_logging import logger as  customlogger
+from asd.relevance.ml.models import common
+from asd.relevance.utils import config
+from asd.relevance.utils.asd_logging import logger as  customlogger
 
 import numpy as np
 import pandas as pd

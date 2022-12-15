@@ -7,7 +7,7 @@ import ray
 import warnings
 import knockpy
 from .config import knockoffsettings
-from utils.asd_logging import logger as  customlogger
+from asd.relevance.utils.asd_logging import logger as  customlogger
 
 list_fstats = ['lasso', 'ridge', 'randomforest']
 

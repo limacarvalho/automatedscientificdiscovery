@@ -6,12 +6,13 @@ from pprint import pprint
 from sklearn import metrics
 from sklearn.metrics import make_scorer
 
-from asd import relevance
+from asd.relevance import relevance
 from asd.relevance.ml.models import common
 # from ml.models import common
 import dataset_handler
 # from test import dataset_handler
 from asd.relevance.utils import rayer
+
 # from utils import rayer
 
 
@@ -118,14 +119,14 @@ def test_case_2():
         'knockoff_runs' : 2000
     }
 
-    ret = relevance(df, input_columns, target, options)
+    ret = relevance.relevance(df, input_columns, target, options)
 
     pprint(ret)
 
         
 if __name__ == '__main__':    
     # rayer.get_local_cluster()
-    rayer.get_global_cluster()
+    # rayer.get_global_cluster()
     test_case_2()
     
     

@@ -1,3 +1,0 @@
-from asd import relevance
-
-

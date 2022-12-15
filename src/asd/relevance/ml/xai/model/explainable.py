@@ -15,8 +15,8 @@ from xgboost.sklearn import XGBRegressor, XGBClassifier
 from captum.attr import IntegratedGradients, GradientShap, DeepLift, NoiseTunnel
 import shap
 
-from utils import helper, config
-from utils.asd_logging import logger as  customlogger
+from asd.relevance.utils import helper, config
+from asd.relevance.utils.asd_logging import logger as  customlogger
 
 list_xai_algos = ['ig', 'shap', 'gradientshap', 'knockoffs']
 

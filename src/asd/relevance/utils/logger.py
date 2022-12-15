@@ -3,7 +3,7 @@ import logging.config
 import yaml
 import warnings
 
-from utils import config
+from asd.relevance.utils import config
 import os
 
 

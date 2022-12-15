@@ -1,10 +1,10 @@
 
 
-from ml.models import common
-from utils import helper, config
-from utils.asd_logging import logger as  customlogger
+from asd.relevance.ml.models import common
+from asd.relevance.utils import helper, config
+from asd.relevance.utils.asd_logging import logger as  customlogger
 
-from ml.models.base.tune import BriskBagging, BriskKNN, BriskXGBoost, SlugXGBoost, SlugLGBM, SlugRF
+from asd.relevance.ml.models.base.tune import BriskBagging, BriskKNN, BriskXGBoost, SlugXGBoost, SlugLGBM, SlugRF
 
 from sklearn.metrics import make_scorer
 from sklearn import metrics
