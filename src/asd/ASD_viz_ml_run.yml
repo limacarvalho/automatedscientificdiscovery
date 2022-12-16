@@ -1,0 +1,67 @@
+channels:
+- conda-forge
+- main
+dependencies:
+- s3fs
+- numpy
+- gcsfs
+- numba
+- scipy
+- keras
+- pandas
+- skorch
+- ffmpeg
+- seaborn
+- pyarrow
+- ipykernel
+- matplotlib
+- pickleshare
+- scikit-learn
+- plotly
+- r-base
+- xgboost
+- captum
+- shap
+- optuna==2.3.0
+- python==3.9.13
+- python-graphviz
+- ipywidgets==7.7.1
+- tensorflow==2.6.2
+- nebari-dask=2022.10.1
+- fastapi # Might not be necessary later
+- tensorflow-probability
+- awscli # Might not be necessary later
+- boto3 # Might not be necessary later
+- botocore
+- holoviews
+- bokeh
+- altair
+- glmnet not working
+- xgboost
+- streamlit
+- swig
+- pandas-profiling
+- pydantic
+- torchmetrics
+- torchvision
+- tpot
+- pytorch-lightning
+- asyncer
+- typer
+- pip:
+  - eplot
+  - scikit-dimension
+  - pyper
+  - torch
+  - kbatch
+  - Cython
+  - knockpy
+  - datatable not working
+  - dask-optuna
+  - dcor==0.5.7
+  - scikit_learn
+  - ray[default]==2.1.0
+  - hypertools
+  - bayesian-optimization
+  - streamlit-pandas-profiling
+name: asd1

@@ -111,7 +111,7 @@ if st.session_state["discovery_type"] == "Predictability":
                 st.spinner(text="Calculation in progress...")
 
                 #if metrics_dict and datas_dict:
-                # oder button !!!
+                # or button !!!
                 #metrics_dict, datas_dict = asdpu.predictability(data=df_input_changed, input_cols=pred_input_column, output_cols=pred_output_column, col_set=None, targets=pred_target_column, method=pred_ml_method, random_state_split=None, #refined=True, greedy=pred_greedy)
                 # rause pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
                 #run_predictability
@@ -125,8 +125,12 @@ if st.session_state["discovery_type"] == "Predictability":
                 """)
                 pred_plot_along = st.multiselect("Plot-along:", ("linear", "mean", "pl"), help="Allows for specifying further prediction methods to be plotted along the kNN/MLP ones.")
                 struc_dict = datas_dict[list(datas_dict.keys())[0]]
-                plot_result = asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along)            
-                st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
+                if pred_refined_n_best == 0:
+                    st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=False, refined_input_datas_dict=None, plot_along=pred_plot_along))
+                else:
+                    st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
+                #plot_result = asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along)            
+                #st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
             except:
                 st.markdown("""
                 Algorithm Error! You should restart the app.
