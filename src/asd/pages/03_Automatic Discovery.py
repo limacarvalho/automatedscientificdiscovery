@@ -7,8 +7,9 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 
-#import predictability.utils as asdpu
-#import predictability.core as asdpc
+import predictability.utils as asdpu
+import predictability.core as asdpc
+
 ####from predictability.utils import get_column_combinations
 ####from predictability.src.ASD_predictability_utils.utils import get_column_combinations
 ####from predictability.bin.main import predictability
@@ -69,7 +70,7 @@ if st.session_state["discovery_type"] == "Predictability":
     pred_ml_method = st.selectbox("ML-method:", ("kNN", "MLP"), help="Choose between kNN (k-nearest-neighbours) or MLP (Multi-Layer Perceptron).")
     pred_greedy = st.checkbox('Use greedy algorithm')
 
-    if pred_target_column and pred_input_column and pred_output_column:
+    if pred_ml_method and pred_input_column and pred_output_column:
         ###### Part 1, Predictability: get_column_combinations of ml-algorithm ###### 
         st.markdown("***")
         st.subheader("Get combinations of your data")
@@ -82,10 +83,13 @@ if st.session_state["discovery_type"] == "Predictability":
 
         if pred_comb_start == True:
             ###### Implement tbe code of Predictability ######
-            #asdpu.get_column_combinations(all_cols=df_input_changed.columns, inputs=pred_input_column, outputs=pred_output_column, targets=pred_target_column)
+            pred_target_column_ext = pred_target_column
+            if pred_target_column == "None":
+                pred_target_column_ext = []
+            get_column_combinations = asdpu.get_column_combinations(all_cols=df_input.columns, inputs=pred_input_column, outputs=pred_output_column, targets=pred_target_column_ext, amount_only=False, return_targets=False)
             
             # printed dataframe based on selected targets
-            st.dataframe(df_input[pred_target_column])
+            st.write(get_column_combinations)
             # Integrate variable with connection to ml-task: Predictability
         else:
             st.markdown("""
@@ -103,21 +107,26 @@ if st.session_state["discovery_type"] == "Predictability":
         if pred_algorithm_start == True:
             try:
                 ###### Implement tbe code of Predictability ######
+                metrics_dict, datas_dict = asdpc.run_predictability(data=df_input, input_cols=pred_input_column, output_cols=pred_output_column, col_set=pred_col_set, primkey_cols=pred_primekey_cols, targets=pred_target_column, method=pred_ml_method, greedy=pred_greedy, refined_n_best=pred_refined_n_best)
+                st.spinner(text="Calculation in progress...")
+
+                #if metrics_dict and datas_dict:
+                # oder button !!!
                 #metrics_dict, datas_dict = asdpu.predictability(data=df_input_changed, input_cols=pred_input_column, output_cols=pred_output_column, col_set=None, targets=pred_target_column, method=pred_ml_method, random_state_split=None, #refined=True, greedy=pred_greedy)
                 # rause pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
-                
                 #run_predictability
                 #plot_along
-
-
                 #pred_output = asdpu.plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
                 #st.session_state["pred_output"] = pred_output
                 
                 # Visualize the output of the predictability part           
                 st.markdown("""
                 Output of the predictability part:
-                """)            
-                #st.write(plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"]))
+                """)
+                pred_plot_along = st.multiselect("Plot-along:", ("linear", "mean", "pl"), help="Allows for specifying further prediction methods to be plotted along the kNN/MLP ones.")
+                struc_dict = datas_dict[list(datas_dict.keys())[0]]
+                plot_result = asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along)            
+                st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
             except:
                 st.markdown("""
                 Algorithm Error! You should restart the app.
