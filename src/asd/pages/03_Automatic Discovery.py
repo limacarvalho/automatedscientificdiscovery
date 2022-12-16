@@ -128,7 +128,7 @@ if st.session_state["discovery_type"] == "Predictability":
                 if pred_refined_n_best == 0:
                     st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=False, refined_input_datas_dict=None, plot_along=pred_plot_along))
                 else:
-                    st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
+                    st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=True, refined_input_datas_dict=None, plot_along=pred_plot_along))
                 #plot_result = asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along)            
                 #st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
             except:
