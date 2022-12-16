@@ -21,9 +21,9 @@ from tpot import TPOTRegressor
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from asd.utils_logger import logger
+from utils_logger import logger
 
-from asd.predictability.tpot_config import regressor_config_dict_ASD
+from predictability.tpot_config import regressor_config_dict_ASD
 
 # dict for mapping the scoring input strings to the respective sklearn options
 scoring_dict = {

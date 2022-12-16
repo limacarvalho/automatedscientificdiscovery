@@ -2,10 +2,10 @@ import pandas as pd
 import time
 import ray
 
-from asd.predictability.utils import get_column_combinations, parallel_pred_step_MLP, \
+from predictability.utils import get_column_combinations, parallel_pred_step_MLP, \
     parallel_pred_step_kNN, scoring_dict, tuple_selection, refinement_step, parallel_refinement_step
 
-from asd.utils_logger import logger
+from utils_logger import logger
 
 
 def run_predictability(data,
