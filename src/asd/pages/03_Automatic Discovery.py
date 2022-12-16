@@ -6,9 +6,13 @@ from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-#from predictability.src.ASD_predictability_utils.utils import get_column_combinations
-#from predictability.bin.main import predictability
-#from predictability.src.ASD_predictability_utils.utils import plot_result
+
+#import predictability.utils as asdpu
+#import predictability.core as asdpc
+####from predictability.utils import get_column_combinations
+####from predictability.src.ASD_predictability_utils.utils import get_column_combinations
+####from predictability.bin.main import predictability
+####from predictability.src.ASD_predictability_utils.utils import plot_result
 #from complexity.dim_reduce import dimreduce_main
 #from xai import relevance
 
@@ -49,10 +53,20 @@ if st.session_state["discovery_type"] == "Predictability":
     To begin the predictability task, you have to choose between some options.   
     """)
     predict_num_columns = df_input.select_dtypes(include = np.number).columns.to_list()
-    pred_target_column = st.multiselect("Numeric target columns:", predict_num_columns)#[st.session_state["predict_target_column"]])
-    pred_input_column = st.multiselect("Numeric input columns:", predict_num_columns)#[st.session_state["predict_target_column"]])
-    pred_output_column = st.multiselect("Numeric output columns:", predict_num_columns)#[st.session_state["predict_target_column"]])
-    pred_ml_method = st.selectbox("ML-method:", ("kNN", "linear", "mean", "pow. law"))
+    pred_target_column = st.multiselect("Target columns:", predict_num_columns, help="The subset of columns that should be treated exclusively as targets.")
+    pred_target_column_count = len(pred_target_column)
+    if len(pred_target_column) == 0:
+        pred_target_column = "None"    
+    pred_primekey_cols = st.multiselect("Primekey columns:", predict_num_columns, help="The subset of columns corresponding to primary keys. These will neither be used as inputs nor outputs.")
+    if len(pred_primekey_cols) == 0:
+        pred_primekey_cols = "None"    
+    pred_col_set = st.multiselect("Column set:", predict_num_columns, help="The (sub-)set of columns that should be considered.")
+    if len(pred_col_set) == 0:
+        pred_col_set = "None"
+    pred_input_column = st.slider('Input fit:', min_value=0, max_value=pred_target_column_count, value=1, step=1, help="The number of input columns for the fit. For a 4-1 fit, input_cols = 4.")
+    pred_output_column = st.slider('Output fit:', min_value=0, max_value=pred_target_column_count, value=1, step=1, help="The number of target columns for the fit. For a 4-1 fit, output_cols = 1.")
+    pred_refined_n_best = st.slider('Refined-n-best:', min_value=0, max_value=100, value=1, step=1, help="Sets the number of how many of the best results will go into the refined_predictability routine.") 
+    pred_ml_method = st.selectbox("ML-method:", ("kNN", "MLP"), help="Choose between kNN (k-nearest-neighbours) or MLP (Multi-Layer Perceptron).")
     pred_greedy = st.checkbox('Use greedy algorithm')
 
     if pred_target_column and pred_input_column and pred_output_column:
@@ -68,7 +82,7 @@ if st.session_state["discovery_type"] == "Predictability":
 
         if pred_comb_start == True:
             ###### Implement tbe code of Predictability ######
-            #get_column_combinations(all_cols=df_input_changed.columns, inputs=pred_input_column, outputs=pred_output_column, targets=pred_target_column)
+            #asdpu.get_column_combinations(all_cols=df_input_changed.columns, inputs=pred_input_column, outputs=pred_output_column, targets=pred_target_column)
             
             # printed dataframe based on selected targets
             st.dataframe(df_input[pred_target_column])
@@ -89,9 +103,14 @@ if st.session_state["discovery_type"] == "Predictability":
         if pred_algorithm_start == True:
             try:
                 ###### Implement tbe code of Predictability ######
-                #metrics_dict, datas_dict = predictability(data=df_input_changed, input_cols=pred_input_column, output_cols=pred_output_column, col_set=None, targets=pred_target_column, method=pred_ml_method, random_state_split=None, #refined=True, greedy=pred_greedy)
-                #pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
-                #pred_output = plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
+                #metrics_dict, datas_dict = asdpu.predictability(data=df_input_changed, input_cols=pred_input_column, output_cols=pred_output_column, col_set=None, targets=pred_target_column, method=pred_ml_method, random_state_split=None, #refined=True, greedy=pred_greedy)
+                # rause pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
+                
+                #run_predictability
+                #plot_along
+
+
+                #pred_output = asdpu.plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
                 #st.session_state["pred_output"] = pred_output
                 
                 # Visualize the output of the predictability part           
@@ -119,7 +138,27 @@ elif st.session_state["discovery_type"] == "Relevance":
     """)
     relevance_num_columns = df_input.select_dtypes(include = np.number).columns.to_list()
     relevance_column = st.multiselect("Numeric input columns:", relevance_num_columns)#[st.session_state["predict_target_column"]])
-    relevance_target = st.multiselect("Nmeric target columns:", relevance_num_columns)#[st.session_state["predict_target_column"]])
+    relevance_target = st.selectbox("Numeric target column:", relevance_num_columns)#[st.session_state["predict_target_column"]])
+    
+    # Additional part
+    #relevance_xgb_objective = st.checkbox('Use XGBoost model')
+    #relevance_lgbm_objective = st.checkbox('Use lightgbm model')
+    relevance_pred_class = st.selectbox("Predicitve Modeling task:", ("regression", "classification"))
+    relevance_list_base_models = st.selectbox("Base models:", ('briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf'))
+    relevance_n_trials = st.slider("Sampled parameter settings:", min_value=0, max_value=300)
+    relevance_boosted_round = st.slider("N-estimators parameter for XGBoost and LightGBM:", min_value=0, max_value=300)    
+    relevance_max_depth = st.slider("Max tree depth parameter for XGBoost, LightGBM and RandomForest:", min_value=0, max_value=100) 
+    relevance_rf_n_estimators = st.slider("N-estimators parameter of RandomForest:", min_value=0, max_value=3000) 
+    relevance_bagging_estimators = st.slider("Bagging estimators:", min_value=0, max_value=300)
+    relevance_n_neighbors = st.slider("NNeighbors of KNN:", min_value=0, max_value=100)
+    relevance_cv_splits = st.slider("Determine the cross-validation splitting strategy:", min_value=0, max_value=20)
+    relevance_ensemble_bagging_estimators = st.slider("N-estimators parameter of Bagging:", min_value=0, max_value=100)
+    relevance_ensemble_n_trials = st.slider("Number of parameter settings that are sampled:", min_value=0, max_value=100)
+    relevance_attr_algos = st.selectbox("Xai methods:", ('IG', 'SHAP', 'GradientSHAP', 'knockoffs'))
+    relevance_fdr = st.slider("Number of parameter settings that are sampled:", min_value=0.0, max_value=1.0)
+    relevance_fstats = st.selectbox("Fstats methods:", ('lasso', 'ridge', 'randomforest'))
+    relevance_knockoff_runs = st.slider("Number of reruns for each knockoff setting:", min_value=0, max_value=100000)    
+
     #relevance_ident = st.text_input('Identifier:', placeholder="Enter an identifier")
     #relevance_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0)
     #relevance_ml_method = st.selectbox("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"))
@@ -147,9 +186,9 @@ elif st.session_state["discovery_type"] == "Relevance":
                 st.markdown("""
                 Output of the relevance part:
                 """)
-                st.write(dimreduce_main.intrinsic_dimension)
-                st.write(dimreduce_main.best_results)
-                st.write(dimreduce_main.df_summary)
+                #st.write(dimreduce_main.intrinsic_dimension)
+                #st.write(dimreduce_main.best_results)
+                #st.write(dimreduce_main.df_summary)
             except:
                 st.markdown("""
                 Algorithm Error! You should restart the app.
