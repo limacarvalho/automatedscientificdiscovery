@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import predictability.utils as asdpu
 import predictability.core as asdpc
-
+import relevance.relevance as relevance
 ####from predictability.utils import get_column_combinations
 ####from predictability.src.ASD_predictability_utils.utils import get_column_combinations
 ####from predictability.bin.main import predictability
@@ -156,21 +156,21 @@ elif st.session_state["discovery_type"] == "Relevance":
     # Additional part
     #relevance_xgb_objective = st.checkbox('Use XGBoost model')
     #relevance_lgbm_objective = st.checkbox('Use lightgbm model')
-    relevance_pred_class = st.selectbox("Predicitve Modeling task:", ("regression", "classification"))
-    relevance_list_base_models = st.selectbox("Base models:", ('briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf'))
-    relevance_n_trials = st.slider("Sampled parameter settings:", min_value=0, max_value=300)
-    relevance_boosted_round = st.slider("N-estimators parameter for XGBoost and LightGBM:", min_value=0, max_value=300)    
-    relevance_max_depth = st.slider("Max tree depth parameter for XGBoost, LightGBM and RandomForest:", min_value=0, max_value=100) 
-    relevance_rf_n_estimators = st.slider("N-estimators parameter of RandomForest:", min_value=0, max_value=3000) 
-    relevance_bagging_estimators = st.slider("Bagging estimators:", min_value=0, max_value=300)
-    relevance_n_neighbors = st.slider("NNeighbors of KNN:", min_value=0, max_value=100)
-    relevance_cv_splits = st.slider("Determine the cross-validation splitting strategy:", min_value=0, max_value=20)
-    relevance_ensemble_bagging_estimators = st.slider("N-estimators parameter of Bagging:", min_value=0, max_value=100)
-    relevance_ensemble_n_trials = st.slider("Number of parameter settings that are sampled:", min_value=0, max_value=100)
-    relevance_attr_algos = st.selectbox("Xai methods:", ('IG', 'SHAP', 'GradientSHAP', 'knockoffs'))
-    relevance_fdr = st.slider("Number of parameter settings that are sampled:", min_value=0.0, max_value=1.0)
-    relevance_fstats = st.selectbox("Fstats methods:", ('lasso', 'ridge', 'randomforest'))
-    relevance_knockoff_runs = st.slider("Number of reruns for each knockoff setting:", min_value=0, max_value=100000)    
+    relevance_pred_class = st.selectbox("Predicitve Modeling task:", ("regression", "classification"), help="Specify problem type, i.e., 'regression' or 'classification'.")
+    relevance_list_base_models = st.selectbox("Base models:", ('briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf'), help="List of base models to be used to fit on the data.")
+    relevance_n_trials = st.slider("Sampled parameter settings:", min_value=0, max_value=300, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
+    relevance_boosted_round = st.slider("N-estimators:", min_value=0, max_value=300, help="N_estimators parameter for XGBoost and LightGBM.")    
+    relevance_max_depth = st.slider("Max tree depth:", min_value=0, max_value=100, help="Max tree depth parameter for XGBoost, LightGBM and RandomForest.") 
+    relevance_rf_n_estimators = st.slider("N-estimators, RandomForest:", min_value=0, max_value=3000, help="N_estimators parameter of RandomForest.") 
+    relevance_bagging_estimators = st.slider("Bagging estimators:", min_value=0, max_value=300, help="Bagging estimators.")
+    relevance_n_neighbors = st.slider("NNeighbors of KNN:", min_value=0, max_value=100, help="N-Neighbors of KNN.")
+    relevance_cv_splits = st.slider("Cross-validation splits:", min_value=0, max_value=20, help="Determines the cross-validation splitting strategy.")
+    relevance_ensemble_bagging_estimators = st.slider("Ensemble bagging estimators:", min_value=0, max_value=100, help="N_estimators parameter of Bagging. This is the second baggin method which is used an an ensemble on top of base estimators.")
+    relevance_ensemble_n_trials = st.slider("Ensemble-n-trials:", min_value=0, max_value=100, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
+    relevance_attr_algos = st.selectbox("Xai:", ('IG', 'SHAP', 'GradientSHAP', 'knockoffs'), help="Xai methods.")
+    relevance_fdr = st.slider("Fdr:", min_value=0.0, max_value=1.0, help="Target false discovery rate.")
+    relevance_fstats = st.selectbox("Fstats methods:", ('lasso', 'ridge', 'randomforest'), help="Methods to calculate fstats.")
+    relevance_knockoff_runs = st.slider("Knockoff runs:", min_value=0, max_value=100000, help="Number of reruns for each knockoff setting.")    
 
     #relevance_ident = st.text_input('Identifier:', placeholder="Enter an identifier")
     #relevance_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0)
@@ -192,7 +192,7 @@ elif st.session_state["discovery_type"] == "Relevance":
         if relevance_algorithm_start == True:
             try:
                 ###### Implement tbe code of Relevance ######
-                #relevance.relevance(relevance_df, relevance_column, relevance_target)
+                relevance.relevance(relevance_df, relevance_column, relevance_target)
                 
 
                 # Visualize the output (the return values) of the relevance function
