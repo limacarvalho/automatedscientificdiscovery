@@ -130,7 +130,7 @@ if st.session_state["discovery_type"] == "Predictability":
                 else:
                     st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=True, refined_input_datas_dict=None, plot_along=pred_plot_along))
                 #plot_result = asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along)            
-                #st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
+                st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
             except:
                 st.markdown("""
                 Algorithm Error! You should restart the app.
@@ -150,14 +150,19 @@ elif st.session_state["discovery_type"] == "Relevance":
     To begin the relevance task, you have to choose between some options.   
     """)
     relevance_num_columns = df_input.select_dtypes(include = np.number).columns.to_list()
+    relevance_num_columns_without = df_input.select_dtypes(include = np.number).columns.to_list()
+    relevance_num_columns.insert(0, "All")
     relevance_column = st.multiselect("Numeric input columns:", relevance_num_columns)#[st.session_state["predict_target_column"]])
-    relevance_target = st.selectbox("Numeric target column:", relevance_num_columns)#[st.session_state["predict_target_column"]])
+    relevance_target = st.selectbox("Numeric target column:", relevance_num_columns_without)#[st.session_state["predict_target_column"]])
     
+    # If it is not a list
+    #df_input_ext = df_input[relevance_column]
+ 
     # Additional part
     #relevance_xgb_objective = st.checkbox('Use XGBoost model')
     #relevance_lgbm_objective = st.checkbox('Use lightgbm model')
-    relevance_pred_class = st.selectbox("Predicitve Modeling task:", ("regression", "classification"), help="Specify problem type, i.e., 'regression' or 'classification'.")
-    relevance_list_base_models = st.selectbox("Base models:", ('briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf'), help="List of base models to be used to fit on the data.")
+    relevance_pred_class = st.selectbox("Modeling task:", ("regression", "classification"), help="Specify problem type, i.e., 'regression' or 'classification'.")
+    relevance_list_base_models = st.multiselect("Base models:", ('All', 'briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf'), help="List of base models to be used to fit on the data.")
     relevance_n_trials = st.slider("Sampled parameter settings:", min_value=0, max_value=300, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
     relevance_boosted_round = st.slider("N-estimators:", min_value=0, max_value=300, help="N_estimators parameter for XGBoost and LightGBM.")    
     relevance_max_depth = st.slider("Max tree depth:", min_value=0, max_value=100, help="Max tree depth parameter for XGBoost, LightGBM and RandomForest.") 
@@ -167,17 +172,25 @@ elif st.session_state["discovery_type"] == "Relevance":
     relevance_cv_splits = st.slider("Cross-validation splits:", min_value=0, max_value=20, help="Determines the cross-validation splitting strategy.")
     relevance_ensemble_bagging_estimators = st.slider("Ensemble bagging estimators:", min_value=0, max_value=100, help="N_estimators parameter of Bagging. This is the second baggin method which is used an an ensemble on top of base estimators.")
     relevance_ensemble_n_trials = st.slider("Ensemble-n-trials:", min_value=0, max_value=100, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
-    relevance_attr_algos = st.selectbox("Xai:", ('IG', 'SHAP', 'GradientSHAP', 'knockoffs'), help="Xai methods.")
+    relevance_attr_algos = st.multiselect("Xai:", ('All', 'IG', 'SHAP', 'GradientSHAP', 'knockoffs'), help="Xai methods.")
     relevance_fdr = st.slider("Fdr:", min_value=0.0, max_value=1.0, help="Target false discovery rate.")
-    relevance_fstats = st.selectbox("Fstats methods:", ('lasso', 'ridge', 'randomforest'), help="Methods to calculate fstats.")
+    relevance_fstats = st.multiselect("Fstats methods:", ('All', 'lasso', 'ridge', 'randomforest'), help="Methods to calculate fstats.")
     relevance_knockoff_runs = st.slider("Knockoff runs:", min_value=0, max_value=100000, help="Number of reruns for each knockoff setting.")    
-
-    #relevance_ident = st.text_input('Identifier:', placeholder="Enter an identifier")
-    #relevance_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0)
-    #relevance_ml_method = st.selectbox("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"))
     relevance_df = df_input
-    #if relevance_ml_method == "All":
-    #    relevance_ml_method = []
+    if "All" in relevance_column:
+        relevance_column.clear()
+        relevance_column = relevance_num_columns_without    
+    if "All" in relevance_list_base_models:
+        relevance_list_base_models.clear()
+        relevance_list_base_models = ['briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf']
+    if "All" in relevance_attr_algos:
+        relevance_attr_algos.clear()
+        relevance_attr_algos = ['IG', 'SHAP', 'GradientSHAP', 'knockoffs']   
+    if "All" in relevance_fstats:
+        relevance_fstats.clear()
+        relevance_fstats = ['lasso', 'ridge', 'randomforest'] 
+
+    relevance_options = {'xgb_objective': 'binary:logistic', 'lgbm_objective': 'binary', 'pred_class': str(relevance_pred_class), 'score_func': None, 'metric_func': None, 'list_base_models': relevance_list_base_models, 'n_trials': int(relevance_n_trials), 'boosted_round': int(relevance_boosted_round), 'max_depth': int(relevance_max_depth), 'rf_n_estimators': int(relevance_rf_n_estimators), 'bagging_estimators': int(relevance_bagging_estimators), 'n_neighbors': int(relevance_n_neighbors), 'cv_splits': int(relevance_cv_splits), 'ensemble_bagging_estimators': int(relevance_ensemble_bagging_estimators), 'ensemble_n_trials': int(relevance_ensemble_n_trials), 'attr_algos': relevance_attr_algos, 'fdr': float(relevance_fdr), 'fstats': relevance_fstats, 'knockoff_runs': int(relevance_knockoff_runs)}
 
     if relevance_column and relevance_target:
     
@@ -192,16 +205,14 @@ elif st.session_state["discovery_type"] == "Relevance":
         if relevance_algorithm_start == True:
             try:
                 ###### Implement tbe code of Relevance ######
-                relevance.relevance(relevance_df, relevance_column, relevance_target)
+                return_relevance = relevance.relevance(relevance_df, relevance_column, relevance_target, relevance_options)
                 
 
                 # Visualize the output (the return values) of the relevance function
                 st.markdown("""
                 Output of the relevance part:
                 """)
-                #st.write(dimreduce_main.intrinsic_dimension)
-                #st.write(dimreduce_main.best_results)
-                #st.write(dimreduce_main.df_summary)
+                st.write(return_relevance)
             except:
                 st.markdown("""
                 Algorithm Error! You should restart the app.
