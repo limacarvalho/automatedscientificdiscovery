@@ -44,7 +44,6 @@ st.markdown("***")
 def handle_ml_select():
     if st.session_state.ml_type:
         st.session_state.discovery_type=st.session_state.ml_type
-        #st.empty()
 
 # Set selection of discovery task on sidebar
 ml_select = st.sidebar.radio("Discovery task:", ["Predictability", "Relevance", "Grouping", "Complexity"], on_change=handle_ml_select, key="ml_type")
@@ -56,16 +55,27 @@ if st.session_state["discovery_type"] == "Predictability":
     To begin the predictability task, you have to choose between some options.   
     """)
     predict_num_columns = df_input.select_dtypes(include = np.number).columns.to_list()
-    pred_target_column = st.multiselect("Target columns:", predict_num_columns, help="The subset of columns that should be treated exclusively as targets.")
+    predict_num_columns_without = df_input.select_dtypes(include = np.number).columns.to_list()
+    predict_num_columns.insert(0, "All")
+    pred_target_column = st.multiselect("Target columns (numeric):", predict_num_columns, help="The subset of columns that should be treated exclusively as targets.")
     pred_target_column_count = len(pred_target_column)
     if len(pred_target_column) == 0:
-        pred_target_column = "None"    
-    pred_primekey_cols = st.multiselect("Primekey columns:", predict_num_columns, help="The subset of columns corresponding to primary keys. These will neither be used as inputs nor outputs.")
+        pred_target_column = "None"
+    if "All" in pred_target_column:
+        pred_target_column.clear()
+        pred_target_column = predict_num_columns_without    
+    pred_primekey_cols = st.multiselect("Primekey columns (numeric):", predict_num_columns, help="The subset of columns corresponding to primary keys. These will neither be used as inputs nor outputs.")
     if len(pred_primekey_cols) == 0:
-        pred_primekey_cols = "None"    
-    pred_col_set = st.multiselect("Column set:", predict_num_columns, help="The (sub-)set of columns that should be considered.")
+        pred_primekey_cols = "None"
+    if "All" in pred_primekey_cols:
+        pred_primekey_cols.clear()
+        pred_primekey_cols = predict_num_columns_without             
+    pred_col_set = st.multiselect("Column set (numeric):", predict_num_columns, help="The (sub-)set of columns that should be considered.")
     if len(pred_col_set) == 0:
         pred_col_set = "None"
+    if "All" in pred_col_set:
+        pred_col_set.clear()
+        pred_col_set = predict_num_columns_without 
     pred_input_column = st.slider('Input fit:', min_value=0, max_value=pred_target_column_count, value=1, step=1, help="The number of input columns for the fit. For a 4-1 fit, input_cols = 4.")
     pred_output_column = st.slider('Output fit:', min_value=0, max_value=pred_target_column_count, value=1, step=1, help="The number of target columns for the fit. For a 4-1 fit, output_cols = 1.")
     pred_refined_n_best = st.slider('Refined-n-best:', min_value=0, max_value=100, value=1, step=1, help="Sets the number of how many of the best results will go into the refined_predictability routine.") 
@@ -86,7 +96,7 @@ if st.session_state["discovery_type"] == "Predictability":
         if pred_comb_start == True:
             ###### Implement tbe code of Predictability ######
             pred_target_column_ext = pred_target_column
-            if pred_target_column == "None":
+            if "None" in pred_target_column:
                 pred_target_column_ext = []
             get_column_combinations = asdpu.get_column_combinations(all_cols=df_input.columns, inputs=pred_input_column, outputs=pred_output_column, targets=pred_target_column_ext, amount_only=False, return_targets=False)
             
@@ -131,8 +141,8 @@ if st.session_state["discovery_type"] == "Predictability":
                     st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=False, refined_input_datas_dict=None, plot_along=pred_plot_along))
                 else:
                     st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=True, refined_input_datas_dict=None, plot_along=pred_plot_along))
-                plot_result = asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along)            
-                st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
+                ##plot_result = asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along)            
+                ##st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
             except:
                 st.markdown("""
                 Algorithm Error! You should restart the app.
@@ -154,15 +164,15 @@ elif st.session_state["discovery_type"] == "Relevance":
     relevance_num_columns = df_input.select_dtypes(include = np.number).columns.to_list()
     relevance_num_columns_without = df_input.select_dtypes(include = np.number).columns.to_list()
     relevance_num_columns.insert(0, "All")
-    relevance_column = st.multiselect("Numeric input columns:", relevance_num_columns)#[st.session_state["predict_target_column"]])
-    relevance_target = st.selectbox("Numeric target column:", relevance_num_columns_without)#[st.session_state["predict_target_column"]])
+    relevance_column = st.multiselect("Input columns (numeric):", relevance_num_columns)#[st.session_state["predict_target_column"]])
+    relevance_target = st.selectbox("Target column (numeric):", relevance_num_columns_without)#[st.session_state["predict_target_column"]])
     
     # If it is not a list
     #df_input_ext = df_input[relevance_column]
  
     # Additional part
-    #relevance_xgb_objective = st.checkbox('Use XGBoost model')
-    #relevance_lgbm_objective = st.checkbox('Use lightgbm model')
+    ##relevance_xgb_objective = st.checkbox('Use XGBoost model')
+    ##relevance_lgbm_objective = st.checkbox('Use lightgbm model')
     relevance_pred_class = st.selectbox("Modeling task:", ("regression", "classification"), help="Specify problem type, i.e., 'regression' or 'classification'.")
     relevance_list_base_models = st.multiselect("Base models:", ('All', 'briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf'), help="List of base models to be used to fit on the data.")
     relevance_n_trials = st.slider("Sampled parameter settings:", min_value=0, max_value=300, value=100, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
@@ -213,7 +223,6 @@ elif st.session_state["discovery_type"] == "Relevance":
                 ###### Implement tbe code of Relevance ######
                 return_relevance = relevance.relevance(relevance_df, relevance_column, relevance_target, relevance_options)
                 
-
                 # Visualize the output (the return values) of the relevance function
                 st.markdown("""
                 Output of the relevance part:
@@ -227,12 +236,10 @@ elif st.session_state["discovery_type"] == "Relevance":
             st.markdown("""
             You have not chosen this task.
             """)
-    # Integrate variable with connection to ml-task: Relevance
 elif st.session_state["discovery_type"] == "Grouping":
     st.markdown("""
     You selected the task: Grouping
     """)
-    # Integrate variable with connection to ml-task: Grouping
 elif st.session_state["discovery_type"] == "Complexity":
     st.header("Discover the complexity of your data")
     st.markdown("""
@@ -241,17 +248,16 @@ elif st.session_state["discovery_type"] == "Complexity":
     complex_num_columns = df_input.select_dtypes(include = np.number).columns.to_list()
     complex_num_columns_without = df_input.select_dtypes(include = np.number).columns.to_list()
     complex_num_columns.insert(0, "All")
-    complex_column = st.multiselect("Numeric columns:", complex_num_columns, help="Select columns of your dataframe.")
+    complex_column = st.multiselect("Columns (numeric):", complex_num_columns, help="Select columns of your dataframe.")
     complex_ident = st.text_input('Identifier:', placeholder="Enter an identifier")
     complex_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0, help="Cutoff for loss of dim reduction quality control.")
-    complex_ml_method = st.selectbox("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"), help="Dim reduction functions to use.")
+    complex_ml_method = st.multiselect("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"), help="Dim reduction functions to use.")
     complex_data_high = df_input
     if "All" in complex_column:
         complex_column.clear()
         complex_column = complex_num_columns_without     
     if "All" in complex_ml_method:
         complex_ml_method = ["py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"]
-
     if complex_column and complex_ident and complex_cutoff_loss:
     
         ###### Part 1, Complexity function of ml-algorithm ######  
