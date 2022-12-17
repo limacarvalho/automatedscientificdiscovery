@@ -10,6 +10,8 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 import predictability.utils as asdpu
 import predictability.core as asdpc
 import relevance.relevance as relevance
+import complexity.dim_reduce.dimreduce_main as complexity
+
 ####from predictability.utils import get_column_combinations
 ####from predictability.src.ASD_predictability_utils.utils import get_column_combinations
 ####from predictability.bin.main import predictability
@@ -129,7 +131,7 @@ if st.session_state["discovery_type"] == "Predictability":
                     st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=False, refined_input_datas_dict=None, plot_along=pred_plot_along))
                 else:
                     st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=True, refined_input_datas_dict=None, plot_along=pred_plot_along))
-                #plot_result = asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along)            
+                plot_result = asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along)            
                 st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
             except:
                 st.markdown("""
@@ -163,19 +165,19 @@ elif st.session_state["discovery_type"] == "Relevance":
     #relevance_lgbm_objective = st.checkbox('Use lightgbm model')
     relevance_pred_class = st.selectbox("Modeling task:", ("regression", "classification"), help="Specify problem type, i.e., 'regression' or 'classification'.")
     relevance_list_base_models = st.multiselect("Base models:", ('All', 'briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf'), help="List of base models to be used to fit on the data.")
-    relevance_n_trials = st.slider("Sampled parameter settings:", min_value=0, max_value=300, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
-    relevance_boosted_round = st.slider("N-estimators:", min_value=0, max_value=300, help="N_estimators parameter for XGBoost and LightGBM.")    
-    relevance_max_depth = st.slider("Max tree depth:", min_value=0, max_value=100, help="Max tree depth parameter for XGBoost, LightGBM and RandomForest.") 
-    relevance_rf_n_estimators = st.slider("N-estimators, RandomForest:", min_value=0, max_value=3000, help="N_estimators parameter of RandomForest.") 
-    relevance_bagging_estimators = st.slider("Bagging estimators:", min_value=0, max_value=300, help="Bagging estimators.")
-    relevance_n_neighbors = st.slider("NNeighbors of KNN:", min_value=0, max_value=100, help="N-Neighbors of KNN.")
-    relevance_cv_splits = st.slider("Cross-validation splits:", min_value=0, max_value=20, help="Determines the cross-validation splitting strategy.")
-    relevance_ensemble_bagging_estimators = st.slider("Ensemble bagging estimators:", min_value=0, max_value=100, help="N_estimators parameter of Bagging. This is the second baggin method which is used an an ensemble on top of base estimators.")
-    relevance_ensemble_n_trials = st.slider("Ensemble-n-trials:", min_value=0, max_value=100, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
+    relevance_n_trials = st.slider("Sampled parameter settings:", min_value=0, max_value=300, value=100, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
+    relevance_boosted_round = st.slider("N-estimators:", min_value=0, max_value=300, value=100, help="N_estimators parameter for XGBoost and LightGBM.")    
+    relevance_max_depth = st.slider("Max tree depth:", min_value=0, max_value=100, value=30, help="Max tree depth parameter for XGBoost, LightGBM and RandomForest.") 
+    relevance_rf_n_estimators = st.slider("N-estimators, RandomForest:", min_value=0, max_value=3000, value=1500, help="N_estimators parameter of RandomForest.") 
+    relevance_bagging_estimators = st.slider("Bagging estimators:", min_value=0, max_value=300, value=100, help="Bagging estimators.")
+    relevance_n_neighbors = st.slider("NNeighbors of KNN:", min_value=0, max_value=100, value=30, help="N-Neighbors of KNN.")
+    relevance_cv_splits = st.slider("Cross-validation splits:", min_value=0, max_value=20, value=3, help="Determines the cross-validation splitting strategy.")
+    relevance_ensemble_bagging_estimators = st.slider("Ensemble bagging estimators:", min_value=0, max_value=100, value=50, help="N_estimators parameter of Bagging. This is the second baggin method which is used an an ensemble on top of base estimators.")
+    relevance_ensemble_n_trials = st.slider("Ensemble-n-trials:", min_value=0, max_value=100, value=50, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
     relevance_attr_algos = st.multiselect("Xai:", ('All', 'IG', 'SHAP', 'GradientSHAP', 'knockoffs'), help="Xai methods.")
-    relevance_fdr = st.slider("Fdr:", min_value=0.0, max_value=1.0, help="Target false discovery rate.")
+    relevance_fdr = st.slider("Fdr:", min_value=0.0, max_value=1.0, value=0.1, help="Target false discovery rate.")
     relevance_fstats = st.multiselect("Fstats methods:", ('All', 'lasso', 'ridge', 'randomforest'), help="Methods to calculate fstats.")
-    relevance_knockoff_runs = st.slider("Knockoff runs:", min_value=0, max_value=100000, help="Number of reruns for each knockoff setting.")    
+    relevance_knockoff_runs = st.slider("Knockoff runs:", min_value=0, max_value=100000, value=20000, help="Number of reruns for each knockoff setting.")    
     relevance_df = df_input
     if "All" in relevance_column:
         relevance_column.clear()
@@ -188,9 +190,13 @@ elif st.session_state["discovery_type"] == "Relevance":
         relevance_attr_algos = ['IG', 'SHAP', 'GradientSHAP', 'knockoffs']   
     if "All" in relevance_fstats:
         relevance_fstats.clear()
-        relevance_fstats = ['lasso', 'ridge', 'randomforest'] 
+        relevance_fstats = ['lasso', 'ridge', 'randomforest']
+    if  "regression" in relevance_pred_class:
+        metric_func = "r2_score"
+    if  "classification" in relevance_pred_class:
+        metric_func = "f1_score"    
 
-    relevance_options = {'xgb_objective': 'binary:logistic', 'lgbm_objective': 'binary', 'pred_class': str(relevance_pred_class), 'score_func': None, 'metric_func': None, 'list_base_models': relevance_list_base_models, 'n_trials': int(relevance_n_trials), 'boosted_round': int(relevance_boosted_round), 'max_depth': int(relevance_max_depth), 'rf_n_estimators': int(relevance_rf_n_estimators), 'bagging_estimators': int(relevance_bagging_estimators), 'n_neighbors': int(relevance_n_neighbors), 'cv_splits': int(relevance_cv_splits), 'ensemble_bagging_estimators': int(relevance_ensemble_bagging_estimators), 'ensemble_n_trials': int(relevance_ensemble_n_trials), 'attr_algos': relevance_attr_algos, 'fdr': float(relevance_fdr), 'fstats': relevance_fstats, 'knockoff_runs': int(relevance_knockoff_runs)}
+    relevance_options = {'xgb_objective': 'binary:logistic', 'lgbm_objective': 'binary', 'pred_class': str(relevance_pred_class), 'score_func': None, 'metric_func': str(metric_func), 'list_base_models': relevance_list_base_models, 'n_trials': int(relevance_n_trials), 'boosted_round': int(relevance_boosted_round), 'max_depth': int(relevance_max_depth), 'rf_n_estimators': int(relevance_rf_n_estimators), 'bagging_estimators': int(relevance_bagging_estimators), 'n_neighbors': int(relevance_n_neighbors), 'cv_splits': int(relevance_cv_splits), 'ensemble_bagging_estimators': int(relevance_ensemble_bagging_estimators), 'ensemble_n_trials': int(relevance_ensemble_n_trials), 'attr_algos': relevance_attr_algos, 'fdr': float(relevance_fdr), 'fstats': relevance_fstats, 'knockoff_runs': int(relevance_knockoff_runs)}
 
     if relevance_column and relevance_target:
     
@@ -233,13 +239,18 @@ elif st.session_state["discovery_type"] == "Complexity":
     To begin the complexity task, you have to choose between some options.   
     """)
     complex_num_columns = df_input.select_dtypes(include = np.number).columns.to_list()
-    complex_column = st.multiselect("Numeric columns:", complex_num_columns)#[st.session_state["predict_target_column"]])
+    complex_num_columns_without = df_input.select_dtypes(include = np.number).columns.to_list()
+    complex_num_columns.insert(0, "All")
+    complex_column = st.multiselect("Numeric columns:", complex_num_columns, help="Select columns of your dataframe.")
     complex_ident = st.text_input('Identifier:', placeholder="Enter an identifier")
-    complex_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0)
-    complex_ml_method = st.selectbox("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"))
+    complex_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0, help="Cutoff for loss of dim reduction quality control.")
+    complex_ml_method = st.selectbox("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"), help="Dim reduction functions to use.")
     complex_data_high = df_input
-    if complex_ml_method == "All":
-        complex_ml_method = []
+    if "All" in complex_column:
+        complex_column.clear()
+        complex_column = complex_num_columns_without     
+    if "All" in complex_ml_method:
+        complex_ml_method = ["py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"]
 
     if complex_column and complex_ident and complex_cutoff_loss:
     
@@ -254,20 +265,15 @@ elif st.session_state["discovery_type"] == "Complexity":
         if complex_algorithm_start == True:
             try:
                 ###### Implement tbe code of Complexity ######
-                #dimreduce_main.data_id = complex_ident
-                #dimreduce_main.columns = complex_column
-                #dimreduce_main.data_high = complex_data_high
-                #dimreduce_main.functions = complex_ml_method 
-                #dimreduce_main.cutoff_loss = complex_cutoff_loss
-                #intrinsic_dimension, best_results, df_summary = dimreduce_main.complexity(data_high, data_id, columns, cutoff_loss, functions)
+                intrinsic_dimension, best_results, df_summary = complexity.intrinsic_dimension(complex_data_high, str(complex_ident), complex_column, float(complex_cutoff_loss), complex_ml_method)
 
                 # Visualize the output (the return values) of the complexity function
                 st.markdown("""
                 Output of the complexity part:
                 """)
-                st.write(dimreduce_main.intrinsic_dimension)
-                st.write(dimreduce_main.best_results)
-                st.write(dimreduce_main.df_summary)
+                st.write(intrinsic_dimension)
+                st.write(best_results)
+                st.write(df_summary)
             except:
                 st.markdown("""
                 Algorithm Error! You should restart the app.
