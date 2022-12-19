@@ -1,10 +1,13 @@
-from pathlib import Path
 import logging
 from logging import config
 
 logfile = 'logfile.log'
 
 def empty_existing_logfile(filename: str=logfile):
+    '''
+    removes content (previous logs) from logfile
+    :param filename: path to filename
+    '''
     file = open(filename,"r+")
     file.truncate(0)
     file.close()
