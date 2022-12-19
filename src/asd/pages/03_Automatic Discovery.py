@@ -12,14 +12,6 @@ import predictability.core as asdpc
 import relevance.relevance as relevance
 import complexity.dim_reduce.dimreduce_main as complexity
 
-####from predictability.utils import get_column_combinations
-####from predictability.src.ASD_predictability_utils.utils import get_column_combinations
-####from predictability.bin.main import predictability
-####from predictability.src.ASD_predictability_utils.utils import plot_result
-####from complexity.dim_reduce import dimreduce_main
-####from xai import relevance
-
-
 # Set streamlit layout
 st.set_page_config(layout="wide")
 
@@ -239,22 +231,21 @@ elif st.session_state["discovery_type"] == "Relevance":
         st.markdown("""
         Discover the relevance of your dataset.
         """)
-        relevance_algorithm_start = st.button("Start discovery")
+        if "button_relevance_start_discovery" not in st.session_state:
+            st.session_state["button_relevance_start_discovery"] = False
 
-        if relevance_algorithm_start == True:
-            try:
-                ###### Implement tbe code of Relevance ######
-                return_relevance = relevance.relevance(relevance_df, relevance_column, relevance_target, relevance_options)
+        def relevance_discovery_click():
+            st.session_state["button_relevance_start_discovery"] = True   
+
+        if st.button("Start discovery", on_click=relevance_discovery_click) or st.session_state["button_relevance_start_discovery"]:
+             ###### Implement tbe code of Relevance ######
+            return_relevance = relevance.relevance(relevance_df, relevance_column, relevance_target, relevance_options)
                 
-                # Visualize the output (the return values) of the relevance function
-                st.markdown("""
-                Output of the relevance part:
-                """)
-                st.write(return_relevance)
-            except:
-                st.markdown("""
-                Algorithm Error! You should restart the app.
-                """)
+            # Visualize the output (the return values) of the relevance function
+            st.markdown("""
+            Output of the relevance part:
+            """)
+            st.write(return_relevance)
         else:
             st.markdown("""
             You have not chosen this task.
@@ -289,24 +280,23 @@ elif st.session_state["discovery_type"] == "Complexity":
         st.markdown("""
         Discover the complexity of your dataset.
         """)
-        complex_algorithm_start = st.button("Start discovery")
+        if "button_complexity_start_discovery" not in st.session_state:
+            st.session_state["button_complexity_start_discovery"] = False
 
-        if complex_algorithm_start == True:
-            try:
-                ###### Implement tbe code of Complexity ######
-                intrinsic_dimension, best_results, df_summary = complexity.intrinsic_dimension(complex_data_high, str(complex_ident), complex_column, float(complex_cutoff_loss), complex_ml_method)
+        def complexity_discovery_click():
+            st.session_state["button_complexity_start_discovery"] = True   
 
-                # Visualize the output (the return values) of the complexity function
-                st.markdown("""
-                Output of the complexity part:
-                """)
-                st.write(intrinsic_dimension)
-                st.write(best_results)
-                st.write(df_summary)
-            except:
-                st.markdown("""
-                Algorithm Error! You should restart the app.
-                """)
+        if st.button("Start discovery", on_click=complexity_discovery_click) or st.session_state["button_complexity_start_discovery"]:
+            ###### Implement tbe code of Complexity ######
+            intrinsic_dimension, best_results, df_summary = complexity.intrinsic_dimension(complex_data_high, str(complex_ident), complex_column, float(complex_cutoff_loss), complex_ml_method)
+
+            # Visualize the output (the return values) of the complexity function
+            st.markdown("""
+            Output of the complexity part:
+            """)
+            st.write(intrinsic_dimension)
+            st.write(best_results)
+            st.write(df_summary)
         else:
             st.markdown("""
             You have not chosen this task.
