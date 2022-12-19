@@ -16,8 +16,8 @@ import complexity.dim_reduce.dimreduce_main as complexity
 ####from predictability.src.ASD_predictability_utils.utils import get_column_combinations
 ####from predictability.bin.main import predictability
 ####from predictability.src.ASD_predictability_utils.utils import plot_result
-#from complexity.dim_reduce import dimreduce_main
-#from xai import relevance
+####from complexity.dim_reduce import dimreduce_main
+####from xai import relevance
 
 
 # Set streamlit layout
@@ -33,7 +33,7 @@ df_input = st.session_state["df_input"]
 st.title("Data discovery")
 st.markdown("")
 st.header("Data overview")
-#df_input = st.session_state["df_input"]
+####df_input = st.session_state["df_input"]
 
 
 # Print normalized dataframe based on user selection
@@ -54,6 +54,7 @@ if st.session_state["discovery_type"] == "Predictability":
     st.markdown("""
     To begin the predictability task, you have to choose between some options.   
     """)
+ 
     predict_num_columns = df_input.select_dtypes(include = np.number).columns.to_list()
     predict_num_columns_without = df_input.select_dtypes(include = np.number).columns.to_list()
     predict_num_columns.insert(0, "All")
@@ -91,10 +92,13 @@ if st.session_state["discovery_type"] == "Predictability":
         given the number of data columns, fitting type etc. This allows to estimate the overall runtime of the predictability
         routine.
         """)
-        pred_comb_start = st.button("Get combinations")
-
-        if pred_comb_start == True:
-            ###### Implement tbe code of Predictability ######
+        if "pred_get_combinations" not in st.session_state:
+            st.session_state["pred_get_combinations"] = False      
+       
+        def pred_combinations_click():
+            st.session_state["pred_get_combinations"] = True       
+       
+        if st.button("Get combinations", on_click=pred_combinations_click) or st.session_state["pred_get_combinations"]:
             pred_target_column_ext = pred_target_column
             if "None" in pred_target_column:
                 pred_target_column_ext = []
@@ -102,51 +106,70 @@ if st.session_state["discovery_type"] == "Predictability":
             
             # printed dataframe based on selected targets
             st.write(get_column_combinations)
-            # Integrate variable with connection to ml-task: Predictability
         else:
             st.markdown("""
             You have not chosen this task.
             """)
     
         ###### Part 2, Predictability: predictability function of ml-algorithm ######  
+        if "button_pred_start_discovery" not in st.session_state:
+            st.session_state["button_pred_start_discovery"] = False
+        if "button_pred_refined_predictability" not in st.session_state:
+            st.session_state["button_pred_refined_predictability"] = False 
+        
+        def pred_discovery_click():
+            st.session_state["button_pred_start_discovery"] = True
+
+        def pred_refined_click():
+            st.session_state["button_pred_refined_predictability"] = True
+
         st.markdown("***")
         st.subheader("Predictability")
         st.markdown("""
         Discover the predictability of your dataset.
         """)
-        pred_algorithm_start = st.button("Start discovery")
 
-        if pred_algorithm_start == True:
-            try:
-                ###### Implement tbe code of Predictability ######
-                metrics_dict, datas_dict = asdpc.run_predictability(data=df_input, input_cols=pred_input_column, output_cols=pred_output_column, col_set=pred_col_set, primkey_cols=pred_primekey_cols, targets=pred_target_column, method=pred_ml_method, greedy=pred_greedy, refined_n_best=pred_refined_n_best)
-                st.spinner(text="Calculation in progress...")
-
-                #if metrics_dict and datas_dict:
-                # or button !!!
-                #metrics_dict, datas_dict = asdpu.predictability(data=df_input_changed, input_cols=pred_input_column, output_cols=pred_output_column, col_set=None, targets=pred_target_column, method=pred_ml_method, random_state_split=None, #refined=True, greedy=pred_greedy)
-                # rause pred_metrics = pd.DataFrame.from_dict(metrics_dict).transpose()
-                #run_predictability
-                #plot_along
-                #pred_output = asdpu.plot_result(datas_dict, list(datas_dict.keys())[0], plot_along=["linear", "mean"])
-                #st.session_state["pred_output"] = pred_output
+        if st.button("Start discovery", on_click=pred_discovery_click) or st.session_state["button_pred_start_discovery"]:
+            ###### Implement tbe code of Predictability ######
+            metrics_dict, datas_dict = asdpc.run_predictability(data=df_input, input_cols=pred_input_column, output_cols=pred_output_column, col_set=pred_col_set, primkey_cols=pred_primekey_cols, targets=pred_target_column, method=pred_ml_method, greedy=pred_greedy, refined_n_best=pred_refined_n_best)
+            st.spinner(text="Calculation in progress...")
+            st.markdown("""
+            Discovery finished.
+            """)                  
+            # Visualize the output of the predictability part           
+            st.markdown("""
+            Output of the predictability part:
+            """)
+            pred_plot_along = st.multiselect("Plot-along:", ("linear", "mean", "pl"), help="Allows for specifying further prediction methods to be plotted along the kNN/MLP ones.")
+            struc_dict = datas_dict[list(datas_dict.keys())[0]]
                 
-                # Visualize the output of the predictability part           
-                st.markdown("""
-                Output of the predictability part:
-                """)
-                pred_plot_along = st.multiselect("Plot-along:", ("linear", "mean", "pl"), help="Allows for specifying further prediction methods to be plotted along the kNN/MLP ones.")
-                struc_dict = datas_dict[list(datas_dict.keys())[0]]
-                if pred_refined_n_best == 0:
-                    st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=False, refined_input_datas_dict=None, plot_along=pred_plot_along))
-                else:
-                    st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=True, refined_input_datas_dict=None, plot_along=pred_plot_along))
-                ##plot_result = asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along)            
-                ##st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, plot_along=pred_plot_along))
-            except:
-                st.markdown("""
-                Algorithm Error! You should restart the app.
-                """)
+            if pred_refined_n_best == 0:
+                st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=False, refined_input_datas_dict=None, plot_along=pred_plot_along))
+            else:
+                st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=True, refined_input_datas_dict=None, plot_along=pred_plot_along))
+                
+            ###### Extended part with refine_predictability ###### 
+  
+            if st.button('Use refined predictability routine.', on_click=pred_refined_click) or st.session_state["button_pred_refined_predictability"]:
+                st.markdown("***")
+                if "button_pred_refined_discovery" not in st.session_state:
+                    st.session_state["button_pred_refined_discovery"] = False 
+                
+                def pred_refined_discovery_click():
+                    st.session_state["button_pred_refined_discovery"] = True
+
+                pred_time_left_for_this_task = st.slider('Time left for this task (seconds):', min_value=0.0, max_value=60.0, value=0.1, help="Time in seconds that specifies for how long the routine should run.")
+                pred_plot_along_refined = st.multiselect("Plot-along:", ("linear", "mean", "pl", "init"), help="Allows for specifying further prediction methods to be plotted along the kNN/MLP ones, based on the refined predictability routine.")
+                
+                if st.button("Start refined discovery", on_click=pred_refined_discovery_click) or st.session_state["button_pred_refined_discovery"]:                
+                    list_n_best = asdpu.tuple_selection(all_metrics=metrics_dict, n_best=pred_refined_n_best)
+                    evaluation_metrics, all_data = asdpc.refine_predictability(best_tuples=list_n_best, data_dict=datas_dict, time_left_for_this_task=pred_time_left_for_this_task, use_ray=True, generations=100, population_size=100, n_jobs=-1)
+                    st.markdown("""
+                    Refined discovery finished.
+                    """)                    
+                    struc_dict_refined = all_data[list(all_data.keys())[0]]
+                    st.write(asdpu.plot_result(input_datas_dict=all_data, plot_comb=struc_dict_refined, refined_dict=True, refined_input_datas_dict=datas_dict, plot_along=pred_plot_along))
+
         else:
             st.markdown("""
             You have not chosen this task.
