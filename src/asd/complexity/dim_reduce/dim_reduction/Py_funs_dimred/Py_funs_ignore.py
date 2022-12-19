@@ -6,6 +6,144 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticD
 import numpy as np
 
 
+## Sammon mapping cmdscale but not used (its only if distance matrixes a re provided)
+# from __future__ import division
+# import numpy as np
+# def cmdscale(D):
+#     """
+#     Classical multidimensional scaling (MDS)
+#     thanks to Francis Song for this function
+#     source: http://www.nervouscomputer.com/hfs/cmdscale-in-python/
+#
+#     Parameters
+#     ----------
+#     D : (n, n) array
+#         Symmetric distance matrix.
+#
+#     Returns
+#     -------
+#     Y : (n, p) array
+#         Configuration matrix. Each column represents a dimension. Only the
+#         p dimensions corresponding to positive eigenvalues of B are returned.
+#         Note that each dimension is only determined up to an overall sign,
+#         corresponding to a reflection.
+#
+#     e : (n,) array
+#         Eigenvalues of B.
+#
+#     """
+#     # Number of points
+#     n = len(D)
+#
+#     # Centering matrix
+#     H = np.eye(n) - np.ones((n, n)) / n
+#
+#     # YY^T
+#     B = -H.dot(D ** 2).dot(H) / 2
+#
+#     # Diagonalize
+#     evals, evecs = np.linalg.eigh(B)
+#
+#     # Sort by eigenvalue in descending order
+#     idx = np.argsort(evals)[::-1]
+#     evals = evals[idx]
+#     evecs = evecs[:, idx]
+#
+#     # Compute the coordinates using positive-eigenvalued components only
+#     w, = np.where(evals > 0)
+#     L = np.diag(np.sqrt(evals[w]))
+#     V = evecs[:, w]
+#     Y = V.dot(L)
+#
+#     return Y, evals[evals > 0]
+
+
+
+
+# from sklearn.base import BaseEstimator
+# from typing import Union
+# class Rpca(BaseEstimator):
+#  'its not the best performer rpcag from R, its slower and loss is lower
+#
+#     def __init__(self,
+#                  n_components: Union[None, int],
+#                  mu: Union[None, float],
+#                  lmbda: Union[None, float],
+#                  tol: Union[None, float],
+#                  max_iter: Union[None, int]
+#                  ):
+#
+#         self.n_components = n_components
+#         self.mu = mu
+#         self.lmbda = lmbda
+#         self.tol = tol
+#         self.max_iter = max_iter
+#
+#
+#     @staticmethod
+#     def frobenius_norm(M):
+#         return np.linalg.norm(M, ord='fro')
+#
+#     @staticmethod
+#     def shrink(M, tau):
+#         return np.sign(M) * np.maximum((np.abs(M) - tau), np.zeros(M.shape))
+#
+#     def svd_threshold(self, M, tau):
+#         U, S, V = np.linalg.svd(M, full_matrices=False)
+#         return np.dot(U, np.dot(np.diag(self.shrink(S, tau)), V))
+#
+#
+#     def fit_transform(self, D):
+#
+#         n1, n2 = D.shape
+#         S = np.random.rand(n1, n2)
+#
+#         percent_cols = self.n_components / n2
+#         D[S < percent_cols] = 0  # D[S < 0.2] = 0
+#
+#         self.S = np.zeros(D.shape)
+#         self.Y = np.zeros(D.shape)
+#
+#         if self.mu:
+#             self.mu = self.mu
+#         else:
+#             self.mu = np.prod(D.shape) / (4 * np.linalg.norm(D, ord=1))
+#
+#         self.mu_inv = 1 / self.mu
+#
+#         if self.lmbda:
+#             self.lmbda = self.lmbda
+#         else:
+#             self.lmbda = 1 / np.sqrt(np.max(D.shape))
+#
+#
+#         iter = 0
+#         err = np.Inf
+#         Sk = self.S
+#         Yk = self.Y
+#         Lk = np.zeros(D.shape)
+#
+#         if self.tol:
+#             _tol = self.tol
+#         else:
+#             _tol = 1E-7 * self.frobenius_norm(D)
+#
+#         # this loop implements the principal component pursuit (PCP) algorithm
+#         # located in the table on page 29 of https://arxiv.org/pdf/0912.3599.pdf
+#         while (err > _tol) and iter < self.max_iter:
+#             Lk = self.svd_threshold(D - Sk + self.mu_inv * Yk, self.mu_inv) # this line implements step 3
+#             Sk = self.shrink(D - Lk + (self.mu_inv * Yk), self.mu_inv * self.lmbda) # this line implements step 4
+#             Yk = Yk + self.mu * (D - Lk - Sk)   # this line implements step 5
+#             err = self.frobenius_norm(D - Lk - Sk)
+#             iter += 1
+#             # if (iter % iter_print) == 0 or iter == 1 or iter > max_iter or err <= _tol:
+#             #     print('iteration: {0}, error: {1}'.format(iter, err))
+#
+#         # self.L = Lk
+#         # self.S = Sk
+#         return Lk # , Sk
+
+
 
     # def dictionary_learning_mini_batch(self) -> (object, dict, dict):
     #     '''
@@ -631,7 +769,17 @@ import numpy as np
     #
     # def tsne(self) -> (object, dict, dict):
     # '''
-    # !!! ValueError: 'n_components' should be inferior to 4 for the barnes_hut algorithm as it relies on quad-tree or oct-tree.
+    #T-distributed Stochastic Neighbor Embedding.
+    # t-SNE [1] is a tool to visualize high-dimensional data. It converts similarities between data points to joint
+    # probabilities and tries to minimize the Kullback-Leibler divergence between the joint probabilities
+    # of the low-dimensional embedding and the high-dimensional data. t-SNE has a cost function that is
+    # not convex, i.e. with different initializations we can get different results.
+    # It is highly recommended to use another dimensionality reduction method (e.g. PCA for dense data or
+    # TruncatedSVD for sparse data) to reduce the number of dimensions to a reasonable amount (e.g. 50) if
+    # the number of features is very high. This will suppress some noise and speed up the computation of
+    # pairwise distances between samples. For more tips see Laurens van der Maaten’s FAQ [2].
+    # !!! ValueError: 'n_components' should be inferior to 4 for the barnes_hut algorithm as it relies on
+    # quad-tree or oct-tree.
     #  - - - DESCRIPTION - - -
     #
     #
@@ -992,6 +1140,339 @@ import numpy as np
     # return fun, params, hyperpars
     #
     #
+# # ---------------------------------------------------------------------
+# def py_mds(self) -> (object, dict, dict):
+#     '''
+#     R version is much faster and has no hyperparameters , skip this one
+#     - - - DESCRIPTION - - -
+#     Multidimensional scaling (MDS) seeks a low-dimensional representation of the data in which the distances
+#     respect well the distances in the original high-dimensional space.
+#     In general, MDS is a technique used for analyzing similarity or dissimilarity data. It attempts to model
+#     similarity or dissimilarity data as distances in a geometric spaces. The data can be ratings of similarity
+#     between objects, interaction frequencies of molecules, or trade indices between countries.
+#     There exists two types of MDS algorithm: metric and non metric. In the scikit-learn, the class MDS implements
+#     both. In Metric MDS, the input similarity matrix arises from a metric (and thus respects the triangular inequality),
+#     the distances between output two points are then set to be as close as possible to the similarity or dissimilarity data.
+#     In the non-metric version, the algorithms will try to preserve the order of the distances, and hence seek for a
+#     monotonic relationship between the distances in the embedded space and the similarities/dissimilarities.
+#
+#     - - - PARAMETERS - - -
+#     n_components int, default=2
+#         Number of dimensions in which to immerse the dissimilarities.
+#     metric bool, default=True
+#         If True, perform metric MDS; otherwise, perform nonmetric MDS.
+#     n_init int, default=4
+#         Number of times the SMACOF algorithm will be run with different initializations.
+#         The final results will be the best output of the runs, determined by the run with the smallest final stress.
+#     max_iter int, default=300
+#         Maximum number of iterations of the SMACOF algorithm for a single run.
+#     verbose int, default=0
+#         Level of verbosity.
+#     eps float, default=1e-3
+#         Relative tolerance with respect to stress at which to declare convergence.
+#     n_jobs int, default=None
+#         The number of jobs to use for the computation. If multiple initializations are used (n_init),
+#         each run of the algorithm is computed in parallel.
+#         None means 1 unless in a joblib. parallel_backend context. -1 means using all processors.
+#     random_state int, RandomState instance or None, default=None
+#         Determines the random number generator used to initialize the centers. Pass an int for reproducible results across
+#         multiple function calls. See Glossary.
+#     dissimilarity{‘euclidean’, ‘precomputed’}, default=’euclidean’
+#         ‘euclidean’: Pairwise Euclidean distances between points in the dataset.
+#         ‘precomputed’: Pre-computed dissimilarities are passed directly to fit and fit_transform.
+#
+#     - - - INFORMATION - - -
+#     https://scikit-learn.org/stable/modules/generated/sklearn.manifold.MDS.html
+#     '''
+#     fun = MDS(n_components=None,
+#               metric=True, # True is best option
+#               n_init=4,
+#               max_iter=300, # best option
+#               verbose=0,
+#               eps=0.001,
+#               n_jobs=None,
+#               random_state=None,
+#               dissimilarity='euclidean'
+#     )
+#     if self.all_hp:
+#         hyperpars = {
+#             # 1) start with parameter ranges:
+#             'n_init': [2,5], # best options between 2 and 5
+#             'max_iter': [5,500],  # best option is 300
+#             'eps': [1e-15, 0.1], # as lower as better, no effect on speed
+#         }
+#     else:
+#         hyperpars = {
+#             # 2) update 20221031:
+#             'eps': 0.001 # dummy variable
+#     }
+#     params = fun.get_params()
+#     return fun, params, hyperpars
+
+
+
+# # ---------------------------------------------------------------------
+    # def py_fast_ica(self)-> (object, dict, dict):
+    #     '''
+    #     slow and very low losses
+    #     - - - DESCRIPTION - - -
+    #     FastICA: a fast algorithm for Independent Component Analysis.
+    #     Method is to efficiently find a projection of given data which minimises entropy.
+    #     ICA is an algorithm that finds directions in the feature space corresponding to projections with high
+    #     non-Gaussianity. These directions need not be orthogonal in the original feature space, but they are
+    #     orthogonal in the whitened feature space, in which all directions correspond to the same variance.
+    #     PCA, on the other hand, finds orthogonal directions in the raw feature space that correspond to directions
+    #     accounting for maximum variance.
+    #     Running ICA corresponds to finding a rotation in this space to identify the directions of largest
+    #     non-Gaussianity.
+    #     use:
+    #     estimate sources given noisy measurements. Imagine 3 instruments playing simultaneously and 3 microphones
+    #     recording the mixed signals. ICA is used to recover the sources ie. what is played by each instrument.
+    #     Importantly, PCA fails at recovering our instruments since the related signals reflect non-Gaussian processes.
+    #
+    #     - - - PARAMETERS - - -
+    #     algorithm{‘parallel’, ‘deflation’}, default=’parallel’
+    #         Apply parallel or deflational algorithm for FastICA.
+    #
+    #     whiten bool, default=True
+    #         If whiten is false, the data is already considered to be whitened, and no whitening is performed.
+    #
+    #     # XXX: these should be optimized, as they can be a bottleneck.
+    #     fun{‘logcosh’, ‘exp’, ‘cube’} or callable, default=’logcosh’
+    #         The functional form of the G function used in the approximation to neg-entropy.
+    #         The approximation to the negentropy used in fastICA dramatically decreases the computational time.
+    #         Could be either ‘logcosh’, ‘exp’, or ‘cube’. You can also provide your own function. It should return a tuple containing
+    #         the value of the function, and of its derivative, in the point.
+    #         Example:
+    #         def my_g(x):
+    #             return x ** 3, (3 * x ** 2).mean(axis=-1)
+    #
+    #     fun_args dict, default=None
+    #         Arguments to send to the functional form. If empty and if fun=’logcosh’, fun_args will take value {‘alpha’ : 1.0}.
+    #
+    #     max_iter int, default=200
+    #         Maximum number of iterations during fit.
+    #
+    #     tol float, default=1e-4
+    #         Tolerance on update at each iteration.
+    #
+    #     w_init ndarray of shape (n_components, n_components), default=None
+    #         The mixing matrix to be used to initialize the algorithm.
+    #
+    #     - - - INFORMATION - - -
+    #     https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.FastICA.html
+    #     '''
+    #     fun = FastICA(
+    #           n_components=None,
+    #           algorithm='parallel',
+    #           whiten=True, # !!! not needed but if not set to True: n_components will be set to n_features
+    #           # XXX functional form of the G function used in the approximation to neg-entropy
+    #           fun='cube',  # 20221031 updated from default: 'logcosh', exp and cube are faster
+    #           fun_args=None,
+    #           max_iter=200,
+    #           tol=0.0001,
+    #           w_init=None, # custom: The mixing matrix to be used to initialize the algorithm.
+    #           random_state=42
+    #     )
+    #     if self.all_hp:
+    #         # 1) start with parameter ranges:
+    #         hyperpars = {
+    #              'algorithm': [0, 1], # fastica algorithm: ‘parallel’ (default), ‘deflation’
+    #              'fun': [0, 2], # 'logcosh','exp','cube'
+    #              'max_iter': [5, 1000], # maximum iterations
+    #              'tol': [1e-12, 0.2], # Tolerance on update at each iteration.
+    #         }
+    #     # 2) update 20221031: loss: 0.875; speed: ok; reduce as much as possible
+    #     else:
+    #         hyperpars = {
+    #             'whiten': True # dummy variable
+    #         }
+    #     params = fun.get_params()
+    #     return fun, params, hyperpars
+
+
+
+    # # ---------------------------------------------------------------------
+    # def py_factor_analysis(self) -> (object, dict, dict):
+    #     '''
+    #      - - - DESCRIPTION - - -
+    #     FactorAnalysis
+    #         is a statistical method used to describe variability among observed, correlated variables
+    #         FactorAnalysis performs a maximum likelihood estimate of the so-called loading matrix, the transformation of the
+    #         latent variables to the observed ones, using SVD based approach.
+    #         This allows better model selection than probabilistic PCA in the presence of heteroscedastic noise
+    #         USE: model analisis, image decomposition, psychometrics, marketing
+    #
+    #     - - - PARAMETERS - - -
+    #     tol float, default=1e-2
+    #         Stopping tolerance for log-likelihood increase.
+    #
+    #     copy bool, default=True
+    #         Whether to make a copy of X. If False, the input X gets overwritten during fitting.
+    #
+    #     max_iter int, default=1000
+    #         Maximum number of iterations.
+    #
+    #     noise_variance_init ndarray of shape (n_features,), default=None
+    #         The initial guess of the noise variance for each feature. If None, it defaults to np.ones(n_features).
+    #
+    #     # XXX: these should be optimized, as they can be a bottleneck.
+    #     svd_method {‘lapack’, ‘randomized’}, default=’randomized’
+    #         Which SVD method to use. If ‘lapack’ use standard SVD from scipy.linalg, if ‘randomized’ use fast
+    #         randomized_svd function. Defaults to ‘randomized’. For most applications ‘randomized’ will be
+    #         sufficiently precise while providing significant speed gains. Accuracy can also be improved by
+    #         setting higher values for iterated_power. If this is not sufficient, for maximum precision you
+    #         should choose ‘lapack’.
+    #
+    #     # XXX: these should be optimized, as they can be a bottleneck.
+    #     iterated_power int, default=3
+    #         Number of iterations for the power method. 3 by default. Only used if svd_method equals ‘randomized’.
+    #
+    #     rotation{‘varimax’, ‘quartimax’}, default=None
+    #         If not None, apply the indicated rotation. Currently, varimax and quartimax are implemented.
+    #         See “The varimax criterion for analytic rotation in factor analysis” H. F. Kaiser, 1958.
+    #
+    #     - - - INFORMATION - - -
+    #     https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.FactorAnalysis.html
+    #     '''
+    #     fun = FactorAnalysis(
+    #         n_components=None,
+    #         tol=0.01,
+    #         copy=True,
+    #         max_iter=50,  # updated: default=1000,
+    #         noise_variance_init=None,  # custom noise variances for each feature.
+    #         svd_method='randomized',  # ‘lapack’, default: ‘randomized’
+    #         iterated_power=0,  # updated: default = 3
+    #         random_state=42
+    #     )
+    #     if self.all_hp:
+    #         hyperpars = {
+    #             # 1) start with parameter ranges:
+    #             'max_iter': [5, 1000],  # maximum iterations
+    #             'tol': [0.001, 0.2],  # tolerance for expectation–maximization algorithm (log-likelihood)
+    #             'svd_method': [0, 1],  # randomized is better
+    #             'iterated_power': [0, 6],  # 0 is best
+    #         }
+    #     else:
+    #         hyperpars = {
+    #             # 2) update 20221031: loss: 0.875; speed: ok; reduce as much as possible
+    #             'noise_variance_init': None  # dummy variable
+    #         }
+    #     params = fun.get_params()
+    #     return fun, params, hyperpars
+
+
+
+    # # ---------------------------------------------------------------------
+    # def py_non_negative_matrix_factorization(self) -> (object, dict, dict):
+    #     '''
+    #     - - - DESCRIPTION - - -
+    #     Find two non-negative matrices (W, H) whose product approximates the non- negative matrix X.
+    #     USE: dimensionality reduction, source separation or topic extraction
+    #
+    #     - - - PARAMETERS - - -
+    #     init{‘random’, ‘nndsvd’, ‘nndsvda’, ‘nndsvdar’, ‘custom’}, default=None
+    #         Method used to initialize the procedure. Default: None.
+    #         None: ‘nndsvda’ if n_components <= min(n_samples, n_features), otherwise random. (v.11)
+    #         'random': non-negative random matrices, scaled with: sqrt(X.mean() / n_components)
+    #         'nndsvd': Nonnegative Double Singular Value Decomposition (NNDSVD) initialization (better for sparseness)
+    #          'nndsvda': NNDSVD with zeros filled with the average of X (better when sparsity is not desired) # removed
+    #         'nndsvdar' NNDSVD with zeros filled with small random values (generally faster, less accurate alternative to
+    #          NNDSVDa for when sparsity is not desired)
+    #         'custom': use custom matrices W and H
+    #
+    #     solver{‘cd’, ‘mu’}, default=’cd’
+    #         Numerical solver to use: ‘cd’ is a Coordinate Descent solver. ‘mu’ is a Multiplicative Update solver.
+    #
+    #     beta_loss float or {‘frobenius’, ‘kullback-leibler’, ‘itakura-saito’}, default=’frobenius’
+    #         Beta divergence to be minimized, measuring the distance between X and the dot product WH. Note that values different
+    #         from ‘frobenius’ (or 2) and ‘kullback-leibler’ (or 1) lead to significantly slower fits. Note that for beta_loss <= 0
+    #         (or ‘itakura-saito’), the input matrix X cannot contain zeros. Used only in ‘mu’ solver.
+    #
+    #     tol float, default=1e-4
+    #         Tolerance of the stopping condition (based on change of H)
+    #
+    #     max_iter int, default=200
+    #         Maximum number of iterations before timing out.
+    #
+    #     random_state int, RandomState instance or None, default=None
+    #         Used for initialisation (when init == ‘nndsvdar’ or ‘random’), and in Coordinate Descent. Pass an int for
+    #         reproducible results across multiple function calls. See Glossary.
+    #
+    #     alpha float, default=0.0
+    #         Constant that multiplies the regularization terms. Set it to zero to have no regularization. When using alpha
+    #         instead of alpha_W and alpha_H, the regularization terms are not scaled by the n_features (resp. n_samples)
+    #         factors for W (resp. H).
+    #         Deprecated since version 1.0: Use alpha_W and alpha_H instead.
+    #
+    #     alpha_H float or “same”, default=”same” New in version 1.0.
+    #         Constant that multiplies the regularization terms of H. Set it to zero to have no regularization on H.
+    #         If “same” (default), it takes the same value as alpha_W.
+    #
+    #     l1_ratio float, default=0.0 New in version 1.0.
+    #         The regularization mixing parameter, with 0 <= l1_ratio <= 1. For l1_ratio = 0 the penalty is an elementwise L2
+    #         penalty (aka Frobenius Norm). For l1_ratio = 1 it is an elementwise L1 penalty. For 0 < l1_ratio < 1, the penalty
+    #         is a combination of L1 and L2.
+    #
+    #     verbose int, default=0
+    #         Whether to be verbose.
+    #
+    #     shuffle bool, default=False
+    #         If true, randomize the order of coordinates in the CD solver.
+    #
+    #     regularization{‘both’, ‘components’, ‘transformation’, None}, default=’both’
+    #         Select whether the regularization affects the components (H), the transformation (W), both or none of them.
+    #
+    #     - - - INFORMATION - - -
+    #     https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.NMF
+    #     '''
+    #     fun = NMF(
+    #           n_components=None,
+    #           init=None, # None: ‘nndsvd’ if n_components <= min(n_samples, n_features), otherwise random. ‘random’, ‘nndsvd’, ‘nndsvda’, ‘nndsvdar’, ‘custom’
+    #           solver='cd', # Numerical solver 'cd' oordinate descent ,'mu' multuplicative update
+    #           beta_loss='frobenius', # distance between X and W*H ‘frobenius’, ‘kullback-leibler’, ‘itakura-saito’ (kl slow)
+    #           tol=0.05, # updated from: default: 0.0001,
+    #           max_iter=200,
+    #           random_state=42,
+    #           alpha=1, # from v1.0 on substituted by alpha_w, alpha_h
+    #           l1_ratio=0.0, # For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
+    #           verbose=0,
+    #           shuffle=False
+    #           )
+    #     if self.all_hp:
+    #         hyperpars = {
+    #              ## 1) start with parameter ranges:
+    #              'init': [0, 2], # ‘random’, ‘nndsvda’, ‘nndsvdar’
+    #              'solver': [0, 1], # ‘cd’, ‘mu’
+    #              'beta_loss': [0, 1], # ‘frobenius’, ‘itakura-saito’
+    #              'tol': [1e-6, 0.2],
+    #              'max_iter': [5, 1000],
+    #              'alpha': [0.1, 10],
+    #              'l1_ratio': [0.0, 1.0],
+    #         }
+    #     else:
+    #         hyperpars = {
+    #                 ## 2) update 20221031: loss: 0.956; speed: fast; 52steps! reduce as much as possible
+    #                 'init': [0, 2],  #
+    #                 'alpha': [0.1, 10],  #
+    #                 'l1_ratio': [0.0, 1.0],  #
+    #     }
+    #     params = fun.get_params()
+    #     return fun, params, hyperpars
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # def dictionary_learning(self) -> (object, dict, dict):
     # '''
     # NOT USED: slower version of minibatch_dictionary_learning
@@ -1253,8 +1734,87 @@ import numpy as np
     #     string = str(' n_=' + str(n_) + ' m_=' + str(m_) )
     #     self.printout(fun_name='som', n=n, string=string)
     #     return fun.fit_transform(self.data), string
+
+
+# # ---------------------------------------------------------------------
+# def py_pca_sparse_mini_batch(self) -> (object, dict, dict):
+#     '''
+#      - - - DESCRIPTION - - -
+#       sparse pca works much better, no need for another pca method
+#     Mini-batch sparse PCA (MiniBatchSparsePCA)
+#     DETAILS: MB-SparsePCA is a variant of SparsePCA that is faster but less accurate.
+#     The increased speed is reached by iterating over small chunks of the set of features, for a given number of iterations.
+#     results are very different on higher or lower alphas.
+#     mushroom dataset: alpha=0.1, ridge=0.01
+#     - - - PARAMETERS - - -
+#      n_components : int, default=None
+#         Number of sparse atoms to extract. If None, then ``n_components``
+#         is set to ``n_features``.
+#     alpha : int, default=1
+#         Sparsity controlling parameter. Higher values lead to sparser
+#         components.
+#     ridge_alpha : float, default=0.01
+#         Amount of ridge shrinkage to apply in order to improve
+#         conditioning when calling the transform method.
+#     n_iter : int, default=100
+#         Number of iterations to perform for each mini batch.
+#     callback : callable, default=None
+#         Callable that gets invoked every five iterations.
+#     batch_size : int, default=3
+#         The number of features to take in each mini batch.
+#     verbose : int or bool, default=False
+#         Controls the verbosity; the higher, the more messages. Defaults to 0.
+#     shuffle : bool, default=True
+#         Whether to shuffle the data before splitting it in batches.
+#     n_jobs : int, default=None
+#         Number of parallel jobs to run.
+#         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
+#         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
+#         for more details.
+#     method : {'lars', 'cd'}, default='lars'
+#         Method to be used for optimization.
+#         lars: uses the least angle regression method to solve the lasso problem
+#         (linear_model.lars_path)
+#         cd: uses the coordinate descent method to compute the
+#         Lasso solution (linear_model.Lasso). Lars will be faster if
+#         the estimated components are sparse.
+#     random_state : int, RandomState instance or None, default=None
+#         Used for random shuffling when ``shuffle`` is set to ``True``,
+#         during online dictionary learning. Pass an int for reproducible results
+#         across multiple function calls.
+#
+#     - - - INFORMATION - - -
+#     '''
+#     fun = MiniBatchSparsePCA(
+#          n_components=None,
+#          alpha=1,
+#          ridge_alpha=0.01,
+#          n_iter=0, # default: 100
+#          callback=None,
+#          batch_size=3,
+#          verbose=False,
+#          shuffle=True,
+#          n_jobs=None,
+#          method='cd',  # default: 'lars', cd much faster
+#          random_state=42
+#     )
+#     if self.all_hp:
+#         hyperpars = {
+#              # 1) start with parameter ranges:
+#              'alpha': [0.001, 10], # no effect on loss, remove and set to default
+#              'ridge_alpha': [0.0001, 10], # no effect on loss, remove and set to default
+#              'n_iter': [1,1000], # effect on speed and loss, as smaller as better
+#              'method': [0,1], # no effect on loss, but cd much faster
+#         }
+#     else:
+#         hyperpars = {
+#             # 2) update 20221031:  loss: 0.991 speed: ok, reduce carefull
+#              'random_state': 42 # dummy variable
+#     }
+#     params = fun.get_params()
+#     return fun, params, hyperpars
     #
-    #
+
 
     # def quadratic_discriminant_analysis(self) -> (object, dict, dict):
         # '''

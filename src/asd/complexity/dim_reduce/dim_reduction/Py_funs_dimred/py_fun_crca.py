@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from typing import Union
+from utils_logger import logger
 from scipy.spatial.distance import cdist
 from sklearn.metrics import pairwise_distances as pdist
 from sklearn.decomposition import PCA
@@ -31,10 +32,10 @@ class Crca(BaseEstimator):
     '''
     def __init__(self,
                  n_components: Union[int, None],
-                 lmbd: float = 1,
-                 alpha: int = 1,
-                 max_iter: int = 5,
-                 tol: float = 1e-8
+                 lmbda: Union[float, None],
+                 alpha: Union[float, None],
+                 max_iter: Union[int, None],
+                 tol: Union[float, None]
         ):
         """
         Creates the CCA object.
@@ -42,7 +43,7 @@ class Crca(BaseEstimator):
         ----------
         n_components : int
             The new dimension.
-        lmbd : float
+        lmbda : float
             Distance limit to update points. It decreases over time : lambda(t) = lambda/(t+1).
         alpha : float
             Learning rate. It decreases over time : alpha(t) = alpha/(t+1)
@@ -52,7 +53,7 @@ class Crca(BaseEstimator):
             Tolerance for the stopping criteria.
         """
         self.n_components = n_components
-        self.lmbd = lmbd
+        self.lmbda = lmbda
         self.alpha = alpha
         self.max_iter = max_iter
         self.tol = tol
@@ -60,8 +61,9 @@ class Crca(BaseEstimator):
 
     def _stress(self, dist_y: np.array, dist_x: np.array, lmbda: float):
         """
-        Calculates the stress function given the distances in original space (dist_y)
+        Calculates the stress function (quadratic cost function) given the distances in original space (dist_y)
         and the distances in reduced space (dist_x).
+
         Parameters
         ----------
         dist_y : numpy.array
@@ -71,7 +73,7 @@ class Crca(BaseEstimator):
         lmbda : float
             Distance limit to update points.
         """
-        stress = np.mean((dist_y - dist_x) ** 2 * (lmbda > dist_x).astype(int))
+        stress = np.mean((dist_y - dist_x) ** 2 * (lmbda > dist_x).astype(int)) # 0/1
         return stress
 
 
@@ -98,7 +100,7 @@ class Crca(BaseEstimator):
 
         for q in range(self.max_iter):
             alpha = max(0.001, self.alpha / (1 + q))
-            lmbda = max(0.1, self.lmbd / (1 + q))
+            lmbda = max(0.1, self.lmbda / (1 + q))
             for i in range(n):
                 dist_x = cdist(data_x[i].reshape(1, -1), data_x)
                 dy = np.delete(dist_y[i], i, 0)
@@ -111,7 +113,7 @@ class Crca(BaseEstimator):
             stress[q] = self._stress(dist_y[triu], dist_x[triu], lmbda)
             if stress[q] < self.tol:
                 break
-        self.data_x = data_x
+
         return data_x
 
 

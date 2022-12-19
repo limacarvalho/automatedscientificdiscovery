@@ -1,4 +1,3 @@
-from dimension_tools.dimension_suite.dim_reduce.dim_reduction.dimred_call_functions import call_dimred_functions
 from dimension_tools.dimension_suite.dim_reduce.dim_reduction.dimred_main import Dimreduction
 from ..helper_data.global_vars import *
 
