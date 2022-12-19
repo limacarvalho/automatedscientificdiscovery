@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-
+# Import asd libaries
 import predictability.utils as asdpu
 import predictability.core as asdpc
 import relevance.relevance as relevance
@@ -25,8 +25,6 @@ df_input = st.session_state["df_input"]
 st.title("Data discovery")
 st.markdown("")
 st.header("Data overview")
-####df_input = st.session_state["df_input"]
-
 
 # Print normalized dataframe based on user selection
 st.dataframe(df_input.head())
@@ -123,11 +121,16 @@ if st.session_state["discovery_type"] == "Predictability":
 
         if st.button("Start discovery", on_click=pred_discovery_click) or st.session_state["button_pred_start_discovery"]:
             ###### Implement tbe code of Predictability ######
-            metrics_dict, datas_dict = asdpc.run_predictability(data=df_input, input_cols=pred_input_column, output_cols=pred_output_column, col_set=pred_col_set, primkey_cols=pred_primekey_cols, targets=pred_target_column, method=pred_ml_method, greedy=pred_greedy, refined_n_best=pred_refined_n_best)
-            st.spinner(text="Calculation in progress...")
+            @st.cache(allow_output_mutation=True)
+            def pred_discovery():
+                metrics_dict, datas_dict = asdpc.run_predictability(data=df_input, input_cols=pred_input_column, output_cols=pred_output_column, col_set=pred_col_set, primkey_cols=pred_primekey_cols, targets=pred_target_column, method=pred_ml_method, greedy=pred_greedy, refined_n_best=pred_refined_n_best)
+                st.spinner(text="Calculation in progress...")
+                return metrics_dict, datas_dict
+            metrics_dict, datas_dict = pred_discovery()                 
             st.markdown("""
             Discovery finished.
-            """)                  
+            """)
+
             # Visualize the output of the predictability part           
             st.markdown("""
             Output of the predictability part:
@@ -141,7 +144,6 @@ if st.session_state["discovery_type"] == "Predictability":
                 st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=True, refined_input_datas_dict=None, plot_along=pred_plot_along))
                 
             ###### Extended part with refine_predictability ###### 
-  
             if st.button('Use refined predictability routine.', on_click=pred_refined_click) or st.session_state["button_pred_refined_predictability"]:
                 st.markdown("***")
                 if "button_pred_refined_discovery" not in st.session_state:
@@ -154,11 +156,17 @@ if st.session_state["discovery_type"] == "Predictability":
                 pred_plot_along_refined = st.multiselect("Plot-along:", ("linear", "mean", "pl", "init"), help="Allows for specifying further prediction methods to be plotted along the kNN/MLP ones, based on the refined predictability routine.")
                 
                 if st.button("Start refined discovery", on_click=pred_refined_discovery_click) or st.session_state["button_pred_refined_discovery"]:                
-                    list_n_best = asdpu.tuple_selection(all_metrics=metrics_dict, n_best=pred_refined_n_best)
-                    evaluation_metrics, all_data = asdpc.refine_predictability(best_tuples=list_n_best, data_dict=datas_dict, time_left_for_this_task=pred_time_left_for_this_task, use_ray=True, generations=100, population_size=100, n_jobs=-1)
+                    @st.cache(allow_output_mutation=True)
+                    def pred_refined_discovery():
+                        list_n_best = asdpu.tuple_selection(all_metrics=metrics_dict, n_best=pred_refined_n_best)
+                        evaluation_metrics, all_data = asdpc.refine_predictability(best_tuples=list_n_best, data_dict=datas_dict, time_left_for_this_task=pred_time_left_for_this_task, use_ray=True, generations=100, population_size=100, n_jobs=-1)
+                        return evaluation_metrics, all_data                    
+                    
+                    evaluation_metrics, all_data = pred_refined_discovery()
+
                     st.markdown("""
                     Refined discovery finished.
-                    """)                    
+                    """)
                     struc_dict_refined = all_data[list(all_data.keys())[0]]
                     st.write(asdpu.plot_result(input_datas_dict=all_data, plot_comb=struc_dict_refined, refined_dict=True, refined_input_datas_dict=datas_dict, plot_along=pred_plot_along))
 
@@ -238,9 +246,17 @@ elif st.session_state["discovery_type"] == "Relevance":
             st.session_state["button_relevance_start_discovery"] = True   
 
         if st.button("Start discovery", on_click=relevance_discovery_click) or st.session_state["button_relevance_start_discovery"]:
-             ###### Implement tbe code of Relevance ######
-            return_relevance = relevance.relevance(relevance_df, relevance_column, relevance_target, relevance_options)
-                
+            ###### Implement tbe code of Relevance ######
+            @st.cache(allow_output_mutation=True)
+            def relevance_discovery():
+                return_relevance = relevance.relevance(relevance_df, relevance_column, relevance_target, relevance_options)
+                return return_relevance
+
+            return_relevance = relevance_discovery()
+            st.markdown("""
+            Discovery finished.
+            """)
+
             # Visualize the output (the return values) of the relevance function
             st.markdown("""
             Output of the relevance part:
@@ -288,8 +304,15 @@ elif st.session_state["discovery_type"] == "Complexity":
 
         if st.button("Start discovery", on_click=complexity_discovery_click) or st.session_state["button_complexity_start_discovery"]:
             ###### Implement tbe code of Complexity ######
-            intrinsic_dimension, best_results, df_summary = complexity.intrinsic_dimension(complex_data_high, str(complex_ident), complex_column, float(complex_cutoff_loss), complex_ml_method)
+            @st.cache(allow_output_mutation=True)
+            def complexity_discovery():
+                intrinsic_dimension, best_results, df_summary = complexity.intrinsic_dimension(complex_data_high, str(complex_ident), complex_column, float(complex_cutoff_loss), complex_ml_method)
+                return intrinsic_dimension, best_results, df_summary
 
+            intrinsic_dimension, best_results, df_summary = complexity_discovery()
+            st.markdown("""
+            Discovery finished.
+            """)
             # Visualize the output (the return values) of the complexity function
             st.markdown("""
             Output of the complexity part:
