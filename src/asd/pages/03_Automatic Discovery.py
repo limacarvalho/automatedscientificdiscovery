@@ -139,9 +139,9 @@ if st.session_state["discovery_type"] == "Predictability":
             struc_dict = datas_dict[list(datas_dict.keys())[0]]
                 
             if pred_refined_n_best == 0:
-                st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=False, refined_input_datas_dict=None, plot_along=pred_plot_along))
+                st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_plot=False, refined_input_datas_dict=None, plot_along=pred_plot_along))
             else:
-                st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_dict=True, refined_input_datas_dict=None, plot_along=pred_plot_along))
+                st.write(asdpu.plot_result(input_datas_dict=datas_dict, plot_comb=struc_dict, refined_plot=True, refined_input_datas_dict=None, plot_along=pred_plot_along))
                 
             ###### Extended part with refine_predictability ###### 
             if st.button('Use refined predictability routine.', on_click=pred_refined_click) or st.session_state["button_pred_refined_predictability"]:
@@ -168,7 +168,7 @@ if st.session_state["discovery_type"] == "Predictability":
                     Refined discovery finished.
                     """)
                     struc_dict_refined = all_data[list(all_data.keys())[0]]
-                    st.write(asdpu.plot_result(input_datas_dict=all_data, plot_comb=struc_dict_refined, refined_dict=True, refined_input_datas_dict=datas_dict, plot_along=pred_plot_along))
+                    st.write(asdpu.plot_result(input_datas_dict=all_data, plot_comb=struc_dict_refined, refined_plot=True, refined_input_datas_dict=datas_dict, plot_along=pred_plot_along))
 
         else:
             st.markdown("""
