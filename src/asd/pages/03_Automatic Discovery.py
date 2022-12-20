@@ -51,26 +51,26 @@ if st.session_state["discovery_type"] == "Predictability":
     pred_target_column = st.multiselect("Target columns (numeric):", predict_num_columns, help="The subset of columns that should be treated exclusively as targets.")
     pred_target_column_count = len(pred_target_column)
     if len(pred_target_column) == 0:
-        pred_target_column = "None"
+        pred_target_column = []
     if "All" in pred_target_column:
         pred_target_column.clear()
         pred_target_column = predict_num_columns_without    
     pred_primekey_cols = st.multiselect("Primekey columns (numeric):", predict_num_columns, help="The subset of columns corresponding to primary keys. These will neither be used as inputs nor outputs.")
     if len(pred_primekey_cols) == 0:
-        pred_primekey_cols = "None"
+        pred_primekey_cols = []
     if "All" in pred_primekey_cols:
         pred_primekey_cols.clear()
         pred_primekey_cols = predict_num_columns_without             
     pred_col_set = st.multiselect("Column set (numeric):", predict_num_columns, help="The (sub-)set of columns that should be considered.")
     if len(pred_col_set) == 0:
-        pred_col_set = "None"
+        pred_col_set = []
     if "All" in pred_col_set:
         pred_col_set.clear()
         pred_col_set = predict_num_columns_without 
     pred_input_column = st.slider('Input fit:', min_value=0, max_value=pred_target_column_count, value=1, step=1, help="The number of input columns for the fit. For a 4-1 fit, input_cols = 4.")
     pred_output_column = st.slider('Output fit:', min_value=0, max_value=pred_target_column_count, value=1, step=1, help="The number of target columns for the fit. For a 4-1 fit, output_cols = 1.")
     pred_refined_n_best = st.slider('Refined-n-best:', min_value=0, max_value=100, value=1, step=1, help="Sets the number of how many of the best results will go into the refined_predictability routine.") 
-    pred_ml_method = st.selectbox("ML-method:", ("kNN", "MLP"), help="Choose between kNN (k-nearest-neighbours) or MLP (Multi-Layer Perceptron).")
+    pred_ml_method = st.selectbox("Method:", ("kNN", "MLP"), help="Choose between kNN (k-nearest-neighbours) or MLP (Multi-Layer Perceptron).")
     pred_greedy = st.checkbox('Use greedy algorithm')
 
     if pred_ml_method and pred_input_column and pred_output_column:
@@ -123,7 +123,7 @@ if st.session_state["discovery_type"] == "Predictability":
             ###### Implement tbe code of Predictability ######
             @st.cache(allow_output_mutation=True)
             def pred_discovery():
-                metrics_dict, datas_dict = asdpc.run_predictability(data=df_input, input_cols=pred_input_column, output_cols=pred_output_column, col_set=pred_col_set, primkey_cols=pred_primekey_cols, targets=pred_target_column, method=pred_ml_method, greedy=pred_greedy, refined_n_best=pred_refined_n_best)
+                metrics_dict, datas_dict = asdpc.run_predictability(data=df_input, input_cols=pred_input_column, output_cols=pred_output_column, col_set=pred_col_set, primkey_cols=pred_primekey_cols, targets=pred_target_column, method=pred_ml_method, scoring="r2", scaling="test", hidden_layers=None, alphas=None, max_iter=10000, greedy=pred_greedy, refined_n_best=pred_refined_n_best, n_jobs=-1, verbose=1, random_state_split=1)
                 st.spinner(text="Calculation in progress...")
                 return metrics_dict, datas_dict
             metrics_dict, datas_dict = pred_discovery()                 
@@ -198,20 +198,35 @@ elif st.session_state["discovery_type"] == "Relevance":
     ##relevance_lgbm_objective = st.checkbox('Use lightgbm model')
     relevance_pred_class = st.selectbox("Modeling task:", ("regression", "classification"), help="Specify problem type, i.e., 'regression' or 'classification'.")
     relevance_list_base_models = st.multiselect("Base models:", ('All', 'briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf'), help="List of base models to be used to fit on the data.")
-    relevance_n_trials = st.slider("Sampled parameter settings:", min_value=0, max_value=300, value=100, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
-    relevance_boosted_round = st.slider("N-estimators:", min_value=0, max_value=300, value=100, help="N_estimators parameter for XGBoost and LightGBM.")    
-    relevance_max_depth = st.slider("Max tree depth:", min_value=0, max_value=100, value=30, help="Max tree depth parameter for XGBoost, LightGBM and RandomForest.") 
-    relevance_rf_n_estimators = st.slider("N-estimators, RandomForest:", min_value=0, max_value=3000, value=1500, help="N_estimators parameter of RandomForest.") 
-    relevance_bagging_estimators = st.slider("Bagging estimators:", min_value=0, max_value=300, value=100, help="Bagging estimators.")
-    relevance_n_neighbors = st.slider("NNeighbors of KNN:", min_value=0, max_value=100, value=30, help="N-Neighbors of KNN.")
-    relevance_cv_splits = st.slider("Cross-validation splits:", min_value=0, max_value=20, value=3, help="Determines the cross-validation splitting strategy.")
-    relevance_ensemble_bagging_estimators = st.slider("Ensemble bagging estimators:", min_value=0, max_value=100, value=50, help="N_estimators parameter of Bagging. This is the second baggin method which is used an an ensemble on top of base estimators.")
-    relevance_ensemble_n_trials = st.slider("Ensemble-n-trials:", min_value=0, max_value=100, value=50, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
-    relevance_attr_algos = st.multiselect("Xai:", ('All', 'IG', 'SHAP', 'GradientSHAP', 'knockoffs'), help="Xai methods.")
-    relevance_fdr = st.slider("Fdr:", min_value=0.0, max_value=1.0, value=0.1, help="Target false discovery rate.")
-    relevance_fstats = st.multiselect("Fstats methods:", ('All', 'lasso', 'ridge', 'randomforest'), help="Methods to calculate fstats.")
-    relevance_knockoff_runs = st.slider("Knockoff runs:", min_value=0, max_value=100000, value=20000, help="Number of reruns for each knockoff setting.")    
-    relevance_df = df_input
+    relevance_advanced = st.checkbox('Advanced')
+    relevance_attr_algos = ["All"]
+    relevance_fstats = ["All"]
+    relevance_n_trials = 100
+    relevance_boosted_round = 100
+    relevance_max_depth = 30
+    relevance_rf_n_estimators = 1500
+    relevance_bagging_estimators = 100
+    relevance_n_neighbors = 30
+    relevance_cv_splits = 3
+    relevance_ensemble_bagging_estimators = 50
+    relevance_ensemble_n_trials = 50
+    relevance_fdr = 0.1
+    relevance_knockoff_runs = 20000
+    if relevance_advanced:
+        relevance_n_trials = st.slider("Sampled parameter settings:", min_value=0, max_value=300, value=100, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
+        relevance_boosted_round = st.slider("N-estimators:", min_value=0, max_value=300, value=100, help="N_estimators parameter for XGBoost and LightGBM.")    
+        relevance_max_depth = st.slider("Max tree depth:", min_value=0, max_value=100, value=30, help="Max tree depth parameter for XGBoost, LightGBM and RandomForest.") 
+        relevance_rf_n_estimators = st.slider("N-estimators, RandomForest:", min_value=0, max_value=3000, value=1500, help="N_estimators parameter of RandomForest.") 
+        relevance_bagging_estimators = st.slider("Bagging estimators:", min_value=0, max_value=300, value=100, help="Bagging estimators.")
+        relevance_n_neighbors = st.slider("NNeighbors of KNN:", min_value=0, max_value=100, value=30, help="N-Neighbors of KNN.")
+        relevance_cv_splits = st.slider("Cross-validation splits:", min_value=0, max_value=20, value=3, help="Determines the cross-validation splitting strategy.")
+        relevance_ensemble_bagging_estimators = st.slider("Ensemble bagging estimators:", min_value=0, max_value=100, value=50, help="N_estimators parameter of Bagging. This is the second baggin method which is used an an ensemble on top of base estimators.")
+        relevance_ensemble_n_trials = st.slider("Ensemble-n-trials:", min_value=0, max_value=100, value=50, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
+        relevance_attr_algos = st.multiselect("Xai:", ('All', 'IG', 'SHAP', 'GradientSHAP', 'knockoffs'), help="Xai methods.")
+        relevance_fdr = st.slider("Fdr:", min_value=0.0, max_value=1.0, value=0.1, help="Target false discovery rate.")
+        relevance_fstats = st.multiselect("Fstats methods:", ('All', 'lasso', 'ridge', 'randomforest'), help="Methods to calculate fstats.")
+        relevance_knockoff_runs = st.slider("Knockoff runs:", min_value=0, max_value=100000, value=20000, help="Number of reruns for each knockoff setting.")    
+        relevance_df = df_input
     if "All" in relevance_column:
         relevance_column.clear()
         relevance_column = relevance_num_columns_without    
@@ -257,7 +272,7 @@ elif st.session_state["discovery_type"] == "Relevance":
             Discovery finished.
             """)
 
-            # Visualize the output (the return values) of the relevance function
+            #Visualize the output (the return values) of the relevance function
             st.markdown("""
             Output of the relevance part:
             """)
@@ -280,14 +295,14 @@ elif st.session_state["discovery_type"] == "Complexity":
     complex_num_columns.insert(0, "All")
     complex_column = st.multiselect("Columns (numeric):", complex_num_columns, help="Select columns of your dataframe.")
     complex_ident = st.text_input('Identifier:', placeholder="Enter an identifier")
-    complex_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0, help="Cutoff for loss of dim reduction quality control.")
-    complex_ml_method = st.multiselect("ML-method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"), help="Dim reduction functions to use.")
+    complex_cutoff_loss = st.slider("Cutoff loss", min_value=0.0, max_value=1.0, value=0.99, help="Cutoff for loss of dim reduction quality control.")
+    complex_ml_method = st.multiselect("Method:", ("All","py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"), help="Dim reduction functions to use.")
     complex_data_high = df_input
     if "All" in complex_column:
         complex_column.clear()
         complex_column = complex_num_columns_without     
     if "All" in complex_ml_method:
-        complex_ml_method = ["py_pca", "py_pca_sparse", "py_pca_incremental", "py_truncated_svd", "py_crca", "py_sammon", "r_adr", "r_mds", "r_ppca", "r_rpcag", "r_ispe"]
+        complex_ml_method = ["all_functions"]
     if complex_column and complex_ident and complex_cutoff_loss:
     
         ###### Part 1, Complexity function of ml-algorithm ######  
@@ -313,7 +328,7 @@ elif st.session_state["discovery_type"] == "Complexity":
             st.markdown("""
             Discovery finished.
             """)
-            # Visualize the output (the return values) of the complexity function
+            #Visualize the output (the return values) of the complexity function
             st.markdown("""
             Output of the complexity part:
             """)
