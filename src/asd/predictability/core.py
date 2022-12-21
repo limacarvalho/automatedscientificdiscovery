@@ -79,6 +79,7 @@ def run_predictability(data,
         2-``output_cols`` fit. This goes on until the greedily best input tuple combination for a
         ``input_cols``-``output_cols`` fit is found.
         Note that this is done for all possible choices of targets.
+        Further note that greedy will use ``method="kNN"``
     :param refined_n_best:  int, default=1
         If non-zero, the ``refined_predictability`` routine will be triggered subsequently. Sets the number of how many
         of the best results will go into the ``refined_predictability`` routine.
@@ -201,16 +202,37 @@ def run_predictability(data,
         # also get the list of possible target choices to allow for iteratively scanning through all those
         initial_tuples, target_choices = get_column_combinations(data_cols, 1, output_cols, targets,
                                                                  return_targets=True)
+
+        # get the overall number of combinations that will be analysed (for the counter)
+        num_greedy_combinations = int(len(targets) * ((input_cols) * (len(data_cols) - len(targets)) -
+                                                      .5 * input_cols * (input_cols - 1)))
         # # # #
         # do the initial predictability step, with 1 input column
         #
         for curr_couple in initial_tuples:
-            curr_metrics, curr_datas, counter_tuples = parallel_pred_step_kNN.remote(data_id, curr_couple, 1,
-                                                                                     scaling, scoring, verbose, n_jobs,
-                                                                                     counter_tuples,
-                                                                                     len(initial_tuples),
-                                                                                     random_state_split,
-                                                                                     greedy=True)
+            if method == "kNN":
+                curr_metrics, curr_datas, counter_tuples = parallel_pred_step_kNN.remote(data_id, curr_couple, 1,
+                                                                                         scaling, scoring, verbose,
+                                                                                         n_jobs,
+                                                                                         counter_tuples,
+                                                                                         num_greedy_combinations,
+                                                                                         random_state_split,
+                                                                                         greedy=True)
+            elif method == "MLP":
+                curr_metrics, curr_datas, counter_tuples = parallel_pred_step_MLP.remote(data_id, curr_couple, 1,
+                                                                                         hidden_layers,
+                                                                                         alphas,
+                                                                                         scaling,
+                                                                                         max_iter, scoring, verbose,
+                                                                                         n_jobs,
+                                                                                         counter_tuples,
+                                                                                         num_greedy_combinations,
+                                                                                         random_state_split,
+                                                                                         greedy=True)
+            else:
+                logger.error("The specified method '", method, "' is not an allowed option. Allowed options are 'kNN' "
+                                                               "and 'MLP'; or keep unspecified.", exc_info=True)
+
             # add target to dataframe to later find best input per target
             # curr_metrics["target"] = curr_couple[-output_cols:]
             initial_metrics_list.append(curr_metrics)
@@ -222,13 +244,21 @@ def run_predictability(data,
         # get the best 1-input "combination" per target choice and save those and their metrics
         best_initial_choices = []
         for curr_target in target_choices:
-            curr_best_initial_choice = initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
-                by="kNN r2", ascending=False).iloc[0].name
-            best_initial_choices.append(curr_best_initial_choice)
+            if "kNN r2" in initial_metrics.columns:
+                curr_best_initial_choice = initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
+                    by="kNN r2", ascending=False).iloc[0].name
+                best_initial_choices.append(curr_best_initial_choice)
+                curr_best_initial_choice_metrics = \
+                    initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
+                        by="kNN r2", ascending=False).drop(columns="target").iloc[0].to_dict()
+            elif "MLP r2" in initial_metrics.columns:
+                curr_best_initial_choice = initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
+                    by="MLP r2", ascending=False).iloc[0].name
+                best_initial_choices.append(curr_best_initial_choice)
+                curr_best_initial_choice_metrics = \
+                    initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
+                        by="MLP r2", ascending=False).drop(columns="target").iloc[0].to_dict()
 
-            curr_best_initial_choice_metrics = \
-                initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
-                    by="kNN r2", ascending=False).drop(columns="target").iloc[0].to_dict()
             # append empty entries to be in line with higher dim. inputs later
             choice_as_saved = (input_cols - 1) * (" ",) + curr_best_initial_choice
             metrics_list.append({choice_as_saved: curr_best_initial_choice_metrics})
@@ -254,14 +284,33 @@ def run_predictability(data,
                                     in poss_added_input_cols]
 
                 for curr_tuple in curr_data_tuples:
-                    curr_metrics, curr_datas, counter_tuples = parallel_pred_step_kNN.remote(data_id, curr_tuple,
-                                                                                             nth_iter,
-                                                                                             scaling, scoring, verbose,
-                                                                                             n_jobs,
-                                                                                             counter_tuples,
-                                                                                             len(curr_data_tuples),
-                                                                                             random_state_split,
-                                                                                             greedy=True)
+                    if method == "kNN":
+                        curr_metrics, curr_datas, counter_tuples = parallel_pred_step_kNN.remote(data_id, curr_tuple,
+                                                                                                 nth_iter,
+                                                                                                 scaling, scoring,
+                                                                                                 verbose,
+                                                                                                 n_jobs,
+                                                                                                 counter_tuples,
+                                                                                                 num_greedy_combinations,
+                                                                                                 random_state_split,
+                                                                                                 greedy=True)
+                    elif method == "MLP":
+                        curr_metrics, curr_datas, counter_tuples = parallel_pred_step_MLP.remote(data_id, curr_tuple,
+                                                                                                 nth_iter,
+                                                                                                 hidden_layers,
+                                                                                                 alphas,
+                                                                                                 scaling, max_iter,
+                                                                                                 scoring, verbose,
+                                                                                                 n_jobs,
+                                                                                                 counter_tuples,
+                                                                                                 num_greedy_combinations,
+                                                                                                 random_state_split,
+                                                                                                 greedy=True)
+                    else:
+                        logger.error("The specified method '", method,
+                                     "' is not an allowed option. Allowed options are 'kNN' "
+                                     "and 'MLP'; or keep unspecified.", exc_info=True)
+
                     # add target to dataframe to later find best input per target
                     curr_metrics_list.append(curr_metrics)
                     curr_datas_list.append(curr_datas)
@@ -274,12 +323,20 @@ def run_predictability(data,
 
             best_curr_choices = []
             for curr_target in target_choices:
-                curr_best_choice = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
-                    by="kNN r2", ascending=False).iloc[0].name
-                best_curr_choices.append(curr_best_choice)
+                if "kNN r2" in curr_metrics.columns:
+                    curr_best_choice = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
+                        by="kNN r2", ascending=False).iloc[0].name
+                    best_curr_choices.append(curr_best_choice)
 
-                curr_best_choice_metrics = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
-                    by="kNN r2", ascending=False).drop(columns="target").iloc[0].to_dict()
+                    curr_best_choice_metrics = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
+                        by="kNN r2", ascending=False).drop(columns="target").iloc[0].to_dict()
+                elif "MLP r2" in curr_metrics.columns:
+                    curr_best_choice = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
+                        by="MLP r2", ascending=False).iloc[0].name
+                    best_curr_choices.append(curr_best_choice)
+
+                    curr_best_choice_metrics = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
+                        by="MLP r2", ascending=False).drop(columns="target").iloc[0].to_dict()
 
                 # append empty entries to be in line with higher dim. inputs later
                 choice_as_saved = (input_cols - nth_iter) * (" ",) + curr_best_choice

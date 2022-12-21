@@ -202,7 +202,8 @@ def parallel_pred_step_MLP(data,
                            n_jobs,
                            counter_tuples,
                            len_data_tuples,
-                           random_state_split
+                           random_state_split,
+                           greedy=False
                            ):
     """
     The explicit step of predictability prediction for one combination tuple if the MLP is chosen as method. It performs
@@ -255,6 +256,9 @@ def parallel_pred_step_MLP(data,
     :param random_state_split: int
         Specifies shuffling during ``sklearn.model_selection``'s ``train_test_split``. Set to a specific integer value
         for reproducibility.
+    :param greedy: boolean, default=False
+        Specifies whether the function is run by the greedy predictability routine. If ``True``, also returns the
+        targets in the metric dict
     :return: dict, dict
         First dict contains all evaluation metrics, the second one all data (train, test, predict values, GridSearch
         parameters, CV scores). Both are nested dictionaries, where the outermost key corresponds to the current
@@ -274,6 +278,8 @@ def parallel_pred_step_MLP(data,
 
             for TYPE in ["MLP", "linear", "mean", "pow. law"]
             (all `None` for "pow. law" if no power law fit performed)
+
+            Also includes "target" if ``greedy=True"
 
          data dict:
 
@@ -464,22 +470,41 @@ def parallel_pred_step_MLP(data,
                 f'Test R2 score: {r2_score(curr_y_test, curr_y_test_pred)}')
 
     # save metrics into dict
-    curr_metric_dict = {curr_tuple: {"MLP r2": curr_mlp_r2, "linear r2": curr_lin_r2,
-                                     "pow. law r2": curr_pl_r2, "mean r2": curr_mean_r2,
-                                     "MLP RMSE": curr_mlp_rmse, "linear RMSE": curr_lin_rmse,
-                                     "pow. law RMSE": curr_pl_rmse, "mean RMSE": curr_mean_rmse,
-                                     "MLP RMSE/std": curr_mlp_rmse / curr_y_test_std,
-                                     "linear RMSE/std": curr_lin_rmse / curr_y_test_std,
-                                     "pow. law RMSE/std": curr_pl_rmse_std,
-                                     "mean RMSE/std": curr_mean_rmse / curr_y_test_std,
-                                     "MLP MAPE": curr_mlp_mape, "linear MAPE": curr_lin_mape,
-                                     "pow. law MAPE": curr_pl_mape, "mean MAPE": curr_mean_mape,
-                                     "MLP rae": curr_mlp_rae, "linear rae": curr_lin_rae,
-                                     "pow. law rae": curr_pl_rae, "mean rae": curr_mean_rae,
-                                     "MLP dcor": curr_mlp_dcor, "linear dcor": curr_lin_dcor,
-                                     "pow. law dcor": curr_pl_dcor, "mean dcor": curr_mean_dcor,
-                                     }
-                        }
+    if not greedy:
+        curr_metric_dict = {curr_tuple: {"MLP r2": curr_mlp_r2, "linear r2": curr_lin_r2,
+                                         "pow. law r2": curr_pl_r2, "mean r2": curr_mean_r2,
+                                         "MLP RMSE": curr_mlp_rmse, "linear RMSE": curr_lin_rmse,
+                                         "pow. law RMSE": curr_pl_rmse, "mean RMSE": curr_mean_rmse,
+                                         "MLP RMSE/std": curr_mlp_rmse / curr_y_test_std,
+                                         "linear RMSE/std": curr_lin_rmse / curr_y_test_std,
+                                         "pow. law RMSE/std": curr_pl_rmse_std,
+                                         "mean RMSE/std": curr_mean_rmse / curr_y_test_std,
+                                         "MLP MAPE": curr_mlp_mape, "linear MAPE": curr_lin_mape,
+                                         "pow. law MAPE": curr_pl_mape, "mean MAPE": curr_mean_mape,
+                                         "MLP rae": curr_mlp_rae, "linear rae": curr_lin_rae,
+                                         "pow. law rae": curr_pl_rae, "mean rae": curr_mean_rae,
+                                         "MLP dcor": curr_mlp_dcor, "linear dcor": curr_lin_dcor,
+                                         "pow. law dcor": curr_pl_dcor, "mean dcor": curr_mean_dcor,
+                                         }
+                            }
+    else:
+        curr_metric_dict = {curr_tuple: {"MLP r2": curr_mlp_r2, "linear r2": curr_lin_r2,
+                                         "pow. law r2": curr_pl_r2, "mean r2": curr_mean_r2,
+                                         "MLP RMSE": curr_mlp_rmse, "linear RMSE": curr_lin_rmse,
+                                         "pow. law RMSE": curr_pl_rmse, "mean RMSE": curr_mean_rmse,
+                                         "MLP RMSE/std": curr_mlp_rmse / curr_y_test_std,
+                                         "linear RMSE/std": curr_lin_rmse / curr_y_test_std,
+                                         "pow. law RMSE/std": curr_pl_rmse_std,
+                                         "mean RMSE/std": curr_mean_rmse / curr_y_test_std,
+                                         "MLP MAPE": curr_mlp_mape, "linear MAPE": curr_lin_mape,
+                                         "pow. law MAPE": curr_pl_mape, "mean MAPE": curr_mean_mape,
+                                         "MLP rae": curr_mlp_rae, "linear rae": curr_lin_rae,
+                                         "pow. law rae": curr_pl_rae, "mean rae": curr_mean_rae,
+                                         "MLP dcor": curr_mlp_dcor, "linear dcor": curr_lin_dcor,
+                                         "pow. law dcor": curr_pl_dcor, "mean dcor": curr_mean_dcor,
+                                         "target": curr_tuple[input_cols:]
+                                         }
+                            }
 
     # save values into dict
     if do_pl_fit:
@@ -831,8 +856,12 @@ def tuple_selection(all_metrics,
         List of the ``n_best``-many combination tuples that shall be further investigated.
     """
 
-    # first sort predictability results by r2-score of kNN regressor
-    metrics_df = pd.DataFrame.from_dict(all_metrics).transpose().sort_values(by="kNN r2", ascending=False)
+    # first sort predictability results by r2-score of kNN or MLP regressor, depending on what the main routine used
+    metrics_df = pd.DataFrame.from_dict(all_metrics).transpose()
+    if "kNN r2" in metrics_df.columns:
+        metrics_df = metrics_df.sort_values(by="kNN r2", ascending=False)
+    elif "MLP r2" in metrics_df.columns:
+        metrics_df = metrics_df.sort_values(by="MLP r2", ascending=False)
 
     # for first setup, just use best 10%, 20 max – if not explicitly specified via argument n_best
     initial_number = len(metrics_df)
