@@ -2,7 +2,7 @@ import pandas as pd
 import time
 import ray
 
-from predictability.utils import get_column_combinations, parallel_pred_step_MLP, \
+from .utils import get_column_combinations, parallel_pred_step_MLP, \
     parallel_pred_step_kNN, scoring_dict, tuple_selection, refinement_step, parallel_refinement_step
 
 from utils_logger import logger
@@ -79,7 +79,6 @@ def run_predictability(data,
         2-``output_cols`` fit. This goes on until the greedily best input tuple combination for a
         ``input_cols``-``output_cols`` fit is found.
         Note that this is done for all possible choices of targets.
-        Further note that greedy will use ``method="kNN"``
     :param refined_n_best:  int, default=1
         If non-zero, the ``refined_predictability`` routine will be triggered subsequently. Sets the number of how many
         of the best results will go into the ``refined_predictability`` routine.
