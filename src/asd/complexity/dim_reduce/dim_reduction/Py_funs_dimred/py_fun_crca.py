@@ -9,14 +9,14 @@ from sklearn.base import BaseEstimator
 
 
 class Crca(BaseEstimator):
-
     '''
-    Curvilinear Component Analysis implementation for Python adapted from:
-    Author: Felipe Augusto Machado (https://github.com/FelipeAugustoMachado)
+    Curvilinear Component Analysis implementation for Python adapted from the below source.
+    We thank author: Felipe Augusto Machado for the implementation of this algorithm.
+    source: https://github.com/FelipeAugustoMachado/Curvilinear-Component-Analysis-Python/blob/master/cca.py
 
-    ''
     This code was implemented using the following article https://ieeexplore.ieee.org/document/554199 and the
     book "Nonlinear Dimensionality Reduction" by Michel Verleysen, John A. R. Lee.
+
     The Algorithm
     Curvilinear Component Analysis (CCA) is a Non-linear Dimensionality Reduction technic, basead on the
     distance betweens the points: it tries to create a new space, with a small dimension, which the distance
@@ -26,9 +26,6 @@ class Crca(BaseEstimator):
 
     we adapted it to the sklearn and our nomenclature and added some sklearn functionality for seamless
     integration into our pipeline.
-
-    Original code can be found in repository:
-    https://github.com/FelipeAugustoMachado/Curvilinear-Component-Analysis-Python/blob/master/cca.py
     '''
     def __init__(self,
                  n_components: Union[int, None],
