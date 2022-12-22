@@ -293,6 +293,8 @@ def parallel_pred_step_MLP(data,
             - "y_test_pred_mean",
             - "GridSearchParams",
             - "scores"
+
+            Also includes "target" if ``greedy=True"
     """
 
     # to measure the current tuple's analysis time
@@ -507,24 +509,52 @@ def parallel_pred_step_MLP(data,
                             }
 
     # save values into dict
-    if do_pl_fit:
-        curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
-                                       "y_train": curr_y_train, "y_test": curr_y_test,
-                                       "y_test_pred": curr_y_test_pred, "y_test_pred_linear": curr_y_test_pred_linear,
-                                       "y_test_pred_pl": curr_y_test_pred_pl, "y_test_pred_mean": curr_y_test_pred_mean,
-                                       "y_train_pred": curr_y_train_pred,
-                                       "GridSearchParams": curr_best_params, "scores": clf.cv_results_
-                                       }
-                          }
+    if not greedy:
+        if do_pl_fit:
+            curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
+                                           "y_train": curr_y_train, "y_test": curr_y_test,
+                                           "y_test_pred": curr_y_test_pred,
+                                           "y_test_pred_linear": curr_y_test_pred_linear,
+                                           "y_test_pred_pl": curr_y_test_pred_pl,
+                                           "y_test_pred_mean": curr_y_test_pred_mean,
+                                           "y_train_pred": curr_y_train_pred,
+                                           "GridSearchParams": curr_best_params, "scores": clf.cv_results_
+                                           }
+                              }
+        else:
+            curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
+                                           "y_train": curr_y_train, "y_test": curr_y_test,
+                                           "y_test_pred": curr_y_test_pred,
+                                           "y_test_pred_linear": curr_y_test_pred_linear,
+                                           "y_test_pred_mean": curr_y_test_pred_mean,
+                                           "y_train_pred": curr_y_train_pred,
+                                           "GridSearchParams": curr_best_params, "scores": clf.cv_results_
+                                           }
+                              }
     else:
-        curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
-                                       "y_train": curr_y_train, "y_test": curr_y_test,
-                                       "y_test_pred": curr_y_test_pred, "y_test_pred_linear": curr_y_test_pred_linear,
-                                       "y_test_pred_mean": curr_y_test_pred_mean,
-                                       "y_train_pred": curr_y_train_pred,
-                                       "GridSearchParams": curr_best_params, "scores": clf.cv_results_
-                                       }
-                          }
+        if do_pl_fit:
+            curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
+                                           "y_train": curr_y_train, "y_test": curr_y_test,
+                                           "y_test_pred": curr_y_test_pred,
+                                           "y_test_pred_linear": curr_y_test_pred_linear,
+                                           "y_test_pred_pl": curr_y_test_pred_pl,
+                                           "y_test_pred_mean": curr_y_test_pred_mean,
+                                           "y_train_pred": curr_y_train_pred,
+                                           "GridSearchParams": curr_best_params, "scores": clf.cv_results_,
+                                           "target": curr_tuple[input_cols:]
+                                           }
+                              }
+        else:
+            curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
+                                           "y_train": curr_y_train, "y_test": curr_y_test,
+                                           "y_test_pred": curr_y_test_pred,
+                                           "y_test_pred_linear": curr_y_test_pred_linear,
+                                           "y_test_pred_mean": curr_y_test_pred_mean,
+                                           "y_train_pred": curr_y_train_pred,
+                                           "GridSearchParams": curr_best_params, "scores": clf.cv_results_,
+                                           "target": curr_tuple[input_cols:]
+                                           }
+                              }
 
     logger.info("The analysis of this tuple took " + str(round(time.time() - curr_start, 2)) + "s.")
     # for logging the progress of the analysis
@@ -618,6 +648,8 @@ def parallel_pred_step_kNN(data,
             - "y_test_pred_mean",
             - "GridSearchParams",
             - "scores"
+
+            Also includes "target" if ``greedy=True"
 
         The last returned value is the counter for the loop over all combinations
     """
@@ -815,24 +847,52 @@ def parallel_pred_step_kNN(data,
                             }
 
     # save values into dict
-    if do_pl_fit:
-        curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
-                                       "y_train": curr_y_train, "y_test": curr_y_test,
-                                       "y_train_pred": curr_y_train_pred,
-                                       "y_test_pred": curr_y_test_pred, "y_test_pred_linear": curr_y_test_pred_linear,
-                                       "y_test_pred_mean": curr_y_test_pred_mean, "y_test_pred_pl": curr_y_test_pred_pl,
-                                       "GridSearchParams": curr_best_params, "scores": clf.cv_results_
-                                       }
-                          }
+    if not greedy:
+        if do_pl_fit:
+            curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
+                                           "y_train": curr_y_train, "y_test": curr_y_test,
+                                           "y_train_pred": curr_y_train_pred,
+                                           "y_test_pred": curr_y_test_pred,
+                                           "y_test_pred_linear": curr_y_test_pred_linear,
+                                           "y_test_pred_mean": curr_y_test_pred_mean,
+                                           "y_test_pred_pl": curr_y_test_pred_pl,
+                                           "GridSearchParams": curr_best_params, "scores": clf.cv_results_
+                                           }
+                              }
+        else:
+            curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
+                                           "y_train": curr_y_train, "y_test": curr_y_test,
+                                           "y_train_pred": curr_y_train_pred,
+                                           "y_test_pred": curr_y_test_pred,
+                                           "y_test_pred_linear": curr_y_test_pred_linear,
+                                           "y_test_pred_mean": curr_y_test_pred_mean,
+                                           "GridSearchParams": curr_best_params, "scores": clf.cv_results_
+                                           }
+                              }
     else:
-        curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
-                                       "y_train": curr_y_train, "y_test": curr_y_test,
-                                       "y_train_pred": curr_y_train_pred,
-                                       "y_test_pred": curr_y_test_pred, "y_test_pred_linear": curr_y_test_pred_linear,
-                                       "y_test_pred_mean": curr_y_test_pred_mean,
-                                       "GridSearchParams": curr_best_params, "scores": clf.cv_results_
-                                       }
-                          }
+        if do_pl_fit:
+            curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
+                                           "y_train": curr_y_train, "y_test": curr_y_test,
+                                           "y_train_pred": curr_y_train_pred,
+                                           "y_test_pred": curr_y_test_pred,
+                                           "y_test_pred_linear": curr_y_test_pred_linear,
+                                           "y_test_pred_mean": curr_y_test_pred_mean,
+                                           "y_test_pred_pl": curr_y_test_pred_pl,
+                                           "GridSearchParams": curr_best_params, "scores": clf.cv_results_,
+                                           "target": curr_tuple[input_cols:]
+                                           }
+                              }
+        else:
+            curr_data_dict = {curr_tuple: {"X_train": curr_X_train, "X_test": curr_X_test,
+                                           "y_train": curr_y_train, "y_test": curr_y_test,
+                                           "y_train_pred": curr_y_train_pred,
+                                           "y_test_pred": curr_y_test_pred,
+                                           "y_test_pred_linear": curr_y_test_pred_linear,
+                                           "y_test_pred_mean": curr_y_test_pred_mean,
+                                           "GridSearchParams": curr_best_params, "scores": clf.cv_results_,
+                                           "target": curr_tuple[input_cols:]
+                                           }
+                              }
 
     logger.info("The analysis of this tuple took " + str(round(time.time() - curr_start, 2)) + "s.")
     # for logging the progress of the analysis

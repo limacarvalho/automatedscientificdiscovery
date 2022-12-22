@@ -94,7 +94,9 @@ def run_predictability(data,
         First dict contains all evaluation metrics, the second one all data (train, test, predicted
         values, GridSearch parameters, CV scores). Both are nested dictionaries, where the outermost keys correspond to
         the respective combination tuples ("input column 1", ..., "input column ``input_cols``", "target column 1", ...,
-        "target column ``output_cols``").
+        "target column ``output_cols``"). Note that for ``greedy=True``, the lower-dimensional tuples (which
+        successively built up the final best tuple) are filled up with leading empty entries to have the same length
+        ``input_cols+output_cols`` as the final tuple.
 
         For each combination, the inner dictionaries are then composed of the following keys with the corresponding
         values if ``refined=False``:
@@ -240,6 +242,8 @@ def run_predictability(data,
         initial_datas_list = ray.get(initial_datas_list)
         initial_metrics = pd.DataFrame.from_dict(dict((key, d[key]) for d in initial_metrics_list for key in d)). \
             transpose()
+        initial_datas = pd.DataFrame.from_dict(dict((key, d[key]) for d in initial_datas_list for key in d)). \
+            transpose()
         # get the best 1-input "combination" per target choice and save those and their metrics
         best_initial_choices = []
         for curr_target in target_choices:
@@ -248,19 +252,22 @@ def run_predictability(data,
                     by="kNN r2", ascending=False).iloc[0].name
                 best_initial_choices.append(curr_best_initial_choice)
                 curr_best_initial_choice_metrics = \
-                    initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
-                        by="kNN r2", ascending=False).drop(columns="target").iloc[0].to_dict()
+                    initial_metrics.loc[curr_best_initial_choice].drop(columns="target").to_dict()
+                curr_best_initial_choice_datas = \
+                    initial_datas.loc[curr_best_initial_choice].drop(columns="target").to_dict()
             elif "MLP r2" in initial_metrics.columns:
                 curr_best_initial_choice = initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
                     by="MLP r2", ascending=False).iloc[0].name
                 best_initial_choices.append(curr_best_initial_choice)
                 curr_best_initial_choice_metrics = \
-                    initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
-                        by="MLP r2", ascending=False).drop(columns="target").iloc[0].to_dict()
+                    initial_metrics.loc[curr_best_initial_choice].drop(columns="target").to_dict()
+                curr_best_initial_choice_datas = \
+                    initial_datas.loc[curr_best_initial_choice].drop(columns="target").to_dict()
 
             # append empty entries to be in line with higher dim. inputs later
             choice_as_saved = (input_cols - 1) * (" ",) + curr_best_initial_choice
             metrics_list.append({choice_as_saved: curr_best_initial_choice_metrics})
+            datas_list.append({choice_as_saved: curr_best_initial_choice_datas})
 
         # dict that collects the best choices
         best_choices = {}
@@ -319,6 +326,8 @@ def run_predictability(data,
 
             curr_metrics = pd.DataFrame.from_dict(dict((key, d[key]) for d in curr_metrics_list for key in d)). \
                 transpose()
+            curr_datas = pd.DataFrame.from_dict(dict((key, d[key]) for d in curr_datas_list for key in d)). \
+                transpose()
 
             best_curr_choices = []
             for curr_target in target_choices:
@@ -326,20 +335,19 @@ def run_predictability(data,
                     curr_best_choice = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
                         by="kNN r2", ascending=False).iloc[0].name
                     best_curr_choices.append(curr_best_choice)
-
-                    curr_best_choice_metrics = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
-                        by="kNN r2", ascending=False).drop(columns="target").iloc[0].to_dict()
+                    curr_best_choice_metrics = curr_metrics.loc[curr_best_choice].drop(columns="target").to_dict()
+                    curr_best_choice_datas = curr_datas.loc[curr_best_choice].drop(columns="target").to_dict()
                 elif "MLP r2" in curr_metrics.columns:
                     curr_best_choice = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
                         by="MLP r2", ascending=False).iloc[0].name
                     best_curr_choices.append(curr_best_choice)
-
-                    curr_best_choice_metrics = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
-                        by="MLP r2", ascending=False).drop(columns="target").iloc[0].to_dict()
+                    curr_best_choice_metrics = curr_metrics.loc[curr_best_choice].drop(columns="target").to_dict()
+                    curr_best_choice_datas = curr_datas.loc[curr_best_choice].drop(columns="target").to_dict()
 
                 # append empty entries to be in line with higher dim. inputs later
                 choice_as_saved = (input_cols - nth_iter) * (" ",) + curr_best_choice
                 metrics_list.append({choice_as_saved: curr_best_choice_metrics})
+                datas_list.append({choice_as_saved: curr_best_choice_datas})
 
             best_choices[nth_iter] = best_curr_choices
             nth_iter += 1
