@@ -162,7 +162,7 @@ class Preprocess_data:
         Preprocessing of data and scaling with some posterior checks.
         1)
         :param data: Union[np.array, pd.DataFrame],
-            high dimennsional data
+            high dimensional data
         :return: (np.array, list),
             np.array:
                 array of scaled data
@@ -175,7 +175,7 @@ class Preprocess_data:
             colnames = data.columns
             data_ = data.select_dtypes(exclude=['object'])
             colnames_objects = list(set(data.columns).difference(data_.columns))
-            logger.error(msg=('remove object type columns PRIOR scaling: '+str(colnames_objects)))
+            logger.warning(msg=('remove object type columns PRIOR scaling: '+str(colnames_objects)))
             data = data_
         # np.array
         elif data.dtype.names:
@@ -216,11 +216,11 @@ class Preprocess_data:
 
 def save_csv(data: Union[np.array, pd.DataFrame], path: str):
     '''
-    save csv file without indizes column
+    save csv file without indizes added by pandas.
     :param data: Union[np.array, pd.DataFrame],
-        data table to be saved
+        dataframe to be saved
     :param path: str,
-        complete path for saving data 'dirbla/blabla.csv'
+        complete path for saving data 'dir_bla/filename_bla.csv'
     '''
     data.to_csv(path, index=False)
 
@@ -256,7 +256,6 @@ def empty_dict(fun_id: str, dim_low: Union[int, None]) -> dict:
     :return: dict,
         dictionary with dummy variables
     '''
-    # TODO: synchronize with empty dicts in dim_reduce
     dict_empty = {'Q': np.array([[1, 2], [1, 2]]), # np.array: coranking matrix
                   'rel_err': 0.0,  # float: relative error 0...1 (1=perfect)
                   'r2': 0.0,    # float: r-squared value

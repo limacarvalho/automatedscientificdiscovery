@@ -2,8 +2,11 @@
 class Dimred_functions_R:
     '''
     This class contains wrappers for R dimensionality reduction functions.
-    thanks to Kisung You for the functions and information in the R-dimtools package.
+    thanks to Kisung You (main author and maintaner), Changhee Suh (Contributor)
+    Dennis Shung (Contributor) for the functions and information of the R-dimtools package.
     repository: https://github.com/kisungyou/Rdimtools/tree/master/R
+    website: https://www.kisungyou.com/Rdimtools/index.html
+
     we implemented and tested many of these functions and choose the ones that worked best
     for our purposes.
     The wrapper contains information from the indicted resources and some documentation of 

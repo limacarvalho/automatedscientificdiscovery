@@ -20,7 +20,7 @@ def exclude_functions(functions: Union[str, list]) -> bool:
     check if function list or string provided by the customer starts with '!'.
     These functions will be excluded from the list. If this is not the case,
     the functions will be included
-    :param functions: Union[str, list],
+    :param functions: Union[str, list], default=['All']
         functions provided by the customer.
     :return: bool,
         True in case functions starts with '!', else: False
@@ -40,7 +40,7 @@ def call_dimred_functions(custom_functions: Union[str, list], data_high: np.arra
         high dimensional data
     :param custom_functions: Union[str, list],
         list of strings or string with function identifiers:
-        example: 'py_pca', default: 'all_functions'
+        example: 'py_pca', default: 'All'
     :return: dict,
         function identifiers and function calls
     '''
@@ -66,6 +66,7 @@ def call_dimred_functions(custom_functions: Union[str, list], data_high: np.arra
         'r_ispe': rdim.funR_ispe(),
     }
 
+
     # message strings
     string_except = 'choosing this dimred function(s) failed.\n' \
                     'check the correct spelling of function(s).\n' \
@@ -76,7 +77,7 @@ def call_dimred_functions(custom_functions: Union[str, list], data_high: np.arra
         custom_functions = [custom_functions]
 
     # default: calls all functions listed above
-    if custom_functions[0] == 'all_functions':
+    if custom_functions[0] == 'All':
         try:
             return dim_reduce_functions
         except:
@@ -135,7 +136,7 @@ class Dimreduction:
     def __init__(self, fun_id: str, data_high: np.array, dim_low: int):
         '''
         :param fun_id: str,
-            function_identifier
+            identifier dimensionality reduction function
         :param data_high: np.array,
             high dimensional data
         :param dim_low: int,
@@ -144,8 +145,6 @@ class Dimreduction:
         self.fun_id = fun_id
         self.data_high = data_high
         self.dim_low = int(dim_low)
-
-
         # dimreduction wrapper which returns:
         #   fun: function call
         #   params_fun: updated default hyperparameters

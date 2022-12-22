@@ -7,7 +7,17 @@ from utils_logger import logger
 
 
 class Sammon(BaseEstimator):
-    '''Python Sammon mapping from https://github.com/tompollard/sammon with small modifications'''
+    '''Python Sammon mapping
+    Simple python implementation of Sammon's non-linear mapping algorithm.
+    We thank author Tom Pollard for the implementation of this algorithm according to (1).
+    source: https://github.com/tompollard/sammon (with small modifications
+
+    (1) Sammon, John W. Jr., "A Nonlinear Mapping for Data Structure Analysis",
+    IEEE Transactions on Computers, vol. C-18, no. 5, pp 401-409, May 1969.
+
+    we adapted it to the sklearn and our nomenclature and added some sklearn functionality for seamless
+    integration into our pipeline.
+    '''
 
     def __init__(
         self,
@@ -57,31 +67,7 @@ class Sammon(BaseEstimator):
                             'msdcale' if input is 'distance'
         The default options are retrieved by calling sammon(x) with no
         parameters.
-        File        : sammon.py
-        Date        : 18 April 2014
-        Authors     : Tom J. Pollard (tom.pollard.11@ucl.ac.uk)
-                    : Ported from MATLAB implementation by
-                      Gavin C. Cawley and Nicola L. C. Talbot
-        Description : Simple python implementation of Sammon's non-linear
-                      mapping algorithm [1].
-        References  : [1] Sammon, John W. Jr., "A Nonlinear Mapping for Data
-                      Structure Analysis", IEEE Transactions on Computers,
-                      vol. C-18, no. 5, pp 401-409, May 1969.
-        Copyright   : (c) Dr Gavin C. Cawley, November 2007.
-        This program is free software; you can redistribute it and/or modify
-        it under the terms of the GNU General Public License as published by
-        the Free Software Foundation; either version 2 of the License, or
-        (at your option) any later version.
-        This program is distributed in the hope that it will be useful,
-        but WITHOUT ANY WARRANTY; without even the implied warranty of
-        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-        GNU General Public License for more details.
-        You should have received a copy of the GNU General Public License
-        along with this program; if not, write to the Free Software
-        Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
-        - - - REPOSITORY - - -
-        https://github.com/tompollard/sammon
         """
         # Create distance matrix unless given by parameters
         # We only use inputdist = 'raw' and init = pca, therefore we dont use this part
