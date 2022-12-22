@@ -59,19 +59,20 @@ if st.session_state["discovery_type"] == "Predictability":
     if "All" in pred_target_column:
         pred_target_column.clear()
         pred_target_column = predict_num_columns_without    
-    pred_primekey_cols = st.multiselect("Primekey columns (numeric):", predict_num_columns, help="The subset of columns corresponding to primary keys. These will neither be used as inputs nor outputs.")
+    pred_primekey_cols_input = set(predict_num_columns) - set(pred_target_column) 
+    pred_primekey_cols = st.multiselect("Primekey columns (numeric):", pred_primekey_cols_input, help="The subset of columns corresponding to primary keys. These will neither be used as inputs nor outputs.")
     if len(pred_primekey_cols) == 0:
         pred_primekey_cols = []
     if "All" in pred_primekey_cols:
         pred_primekey_cols.clear()
-        pred_primekey_cols = predict_num_columns_without             
-    pred_col_set_input = set(predict_num_columns) - set(pred_primekey_cols)
-    #### This input should excluded: pred_col_set = st.multiselect("Column set (numeric):", pred_col_set_input, help="The (sub-)set of columns that should be considered.")
-    ####if len(pred_col_set) == 0:
-        ####pred_col_set = []
-    ####if "All" in pred_col_set:
-        ####pred_col_set.clear()
-        ####pred_col_set = predict_num_columns_without
+        pred_primekey_cols = set(predict_num_columns_without) - set(pred_target_column)            
+    pred_col_set_input = set(predict_num_columns) - set(pred_primekey_cols) 
+    pred_col_set = st.multiselect("Column set (numeric):", pred_col_set_input, help="The (sub-)set of columns that should be considered.")
+    if len(pred_col_set) == 0:
+        pred_col_set = []
+    if "All" in pred_col_set:
+        pred_col_set.clear()
+        pred_col_set = set(predict_num_columns_without) - set(pred_primekey_cols)
     pred_output_column = st.number_input('Output fit:', min_value=0, max_value=pred_target_column_count, help="The number of target columns for the fit. For a 4-1 fit, output_cols = 1.")
     pred_input_column_count = (pred_target_column_count - pred_output_column)
     pred_input_column = st.number_input('Input fit:', min_value=0, max_value=pred_input_column_count, help="The number of input columns for the fit. For a 4-1 fit, input_cols = 4.")
@@ -79,7 +80,7 @@ if st.session_state["discovery_type"] == "Predictability":
     pred_ml_method = st.selectbox("Method:", ("kNN", "MLP"), help="Choose between kNN (k-nearest-neighbours) or MLP (Multi-Layer Perceptron).")
     pred_greedy = st.checkbox('Use greedy algorithm')
 
-    if pred_target_column and pred_primekey_cols and pred_ml_method and pred_output_column:
+    if pred_target_column and pred_primekey_cols and pred_col_set and pred_ml_method and pred_output_column:
         ###### Part 1, Predictability: get_column_combinations of ml-algorithm ###### 
         st.markdown("***")
         st.subheader("Get combinations of your data")
@@ -129,7 +130,7 @@ if st.session_state["discovery_type"] == "Predictability":
             ###### Implement tbe code of Predictability ######
             @st.cache(allow_output_mutation=True)
             def pred_discovery():
-                metrics_dict, datas_dict = asdpc.run_predictability(data=predict_num_columns_ml, input_cols=pred_input_column, output_cols=pred_output_column, col_set=pred_col_set_input, primkey_cols=pred_primekey_cols, targets=pred_target_column, method=pred_ml_method, scoring="r2", scaling="test", hidden_layers=None, alphas=None, max_iter=10000, greedy=pred_greedy, refined_n_best=pred_refined_n_best, n_jobs=-1, verbose=1, random_state_split=1)
+                metrics_dict, datas_dict = asdpc.run_predictability(data=predict_num_columns_ml, input_cols=pred_input_column, output_cols=pred_output_column, col_set=pred_col_set, primkey_cols=pred_primekey_cols, targets=pred_target_column, method=pred_ml_method, scoring="r2", scaling="test", hidden_layers=None, alphas=None, max_iter=10000, greedy=pred_greedy, refined_n_best=pred_refined_n_best, n_jobs=-1, verbose=1, random_state_split=1)
                 st.spinner(text="Calculation in progress...")
                 return metrics_dict, datas_dict
             metrics_dict, datas_dict = pred_discovery()                 
@@ -201,7 +202,7 @@ elif st.session_state["discovery_type"] == "Relevance":
     # If it is not a list
     #df_input_ext = df_input[relevance_column]
  
-    # Additional part
+    # Additional part 
     ##relevance_xgb_objective = st.checkbox('Use XGBoost model')
     ##relevance_lgbm_objective = st.checkbox('Use lightgbm model')
     relevance_pred_class = st.selectbox("Modeling task:", ("regression", "classification"), help="Specify problem type, i.e., 'regression' or 'classification'.")
