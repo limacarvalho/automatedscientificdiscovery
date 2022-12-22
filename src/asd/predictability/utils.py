@@ -1080,13 +1080,14 @@ def parallel_refinement_step(data_dict,
 def plot_result(input_datas_dict,
                 plot_comb,
                 refined_plot=False,
-                refined_input_datas_dict=None,
+                initial_datas_dict=None,
                 plot_along=[]
                 ):
     """
     A plotting routine for a quick view on the results.
     :param input_datas_dict: dict
-        Dictionary from predictability routine containing all the data lists.
+        Dictionary containing the main plotting data. Output from ``run_predictability`` routine or, if having executed,
+        output of ``refine_predictability``.
     :param plot_comb: tuple
         The combination tuple whose results shall be plotted.
     :param refined_plot: boolean, default=False
@@ -1094,8 +1095,8 @@ def plot_result(input_datas_dict,
         ``refined_n_best>0`` in the ``run_predictability`` run behind the ``input_datas_dict`` or a
         ``refined_input_datas_dict`` is given. The result of the initial ``run_predictability`` run can be plotted
         along via ``plot_along`` containing "init".
-    :param refined_input_datas_dict: dict
-        Output dictionary of a ``refine_predictability`` run. Necessary if ``refined_dict=True`` and
+    :param initial_datas_dict: dict
+        Output dictionary of a ``run_predictability`` run. Necessary if ``refined_dict=True`` and
         ``input_datas_dict`` is not the output of a ``run_predictbaility`` run with ``refined_n_best>0``.
     :param plot_along: list
         Allows for specifying further prediction methods to be plotted along the kNN/MLP ones. Possible choices are
@@ -1105,32 +1106,40 @@ def plot_result(input_datas_dict,
         The plotting figure.
     """
 
-    plotting_dict = copy.deepcopy(input_datas_dict)
+    plotting_dict = copy.deepcopy(input_datas_dict[plot_comb])
 
     main_plot = "ASD"
     if refined_plot:
         main_plot = "refASD"
-        if refined_input_datas_dict:
-            plotting_dict[plot_comb]["y_test_pred_init"] = refined_input_datas_dict[plot_comb]["y_test_pred"]
-            plotting_dict[plot_comb]["y_test_init"] = refined_input_datas_dict[plot_comb]["y_test"]
-            plotting_dict[plot_comb]["y_test_pred_linear"] = refined_input_datas_dict[plot_comb]["y_test_pred_linear"]
-            plotting_dict[plot_comb]["y_test_pred_mean"] = refined_input_datas_dict[plot_comb]["y_test_pred_mean"]
-        elif "refined_datas" in plotting_dict[plot_comb].keys():
+        if initial_datas_dict:
+            plotting_dict["y_test_pred_init"] = initial_datas_dict[plot_comb]["y_test_pred"]
+            plotting_dict["y_test_init"] = initial_datas_dict[plot_comb]["y_test"]
+            plotting_dict["y_test_pred_linear"] = initial_datas_dict[plot_comb]["y_test_pred_linear"]
+            plotting_dict["y_test_pred_mean"] = initial_datas_dict[plot_comb]["y_test_pred_mean"]
+            try:
+                plotting_dict["y_test_pred_pl"] = initial_datas_dict[plot_comb]["y_test_pred_pl"]
+            except:
+                pass
+        elif "refined_datas" in plotting_dict.keys():
             # save init data as such labelled data
-            plotting_dict[plot_comb]["y_test_pred_init"] = input_datas_dict[plot_comb]["y_test_pred"].copy()
-            plotting_dict[plot_comb]["y_test_init"] = input_datas_dict[plot_comb]["y_test"].copy()
-            plotting_dict[plot_comb]["y_test_pred_linear"] = input_datas_dict[plot_comb]["y_test_pred_linear"].copy()
-            plotting_dict[plot_comb]["y_test_pred_mean"] = input_datas_dict[plot_comb]["y_test_pred_mean"].copy()
+            plotting_dict["y_test_pred_init"] = input_datas_dict[plot_comb]["y_test_pred"].copy()
+            plotting_dict["y_test_init"] = input_datas_dict[plot_comb]["y_test"].copy()
+            plotting_dict["y_test_pred_linear"] = input_datas_dict[plot_comb]["y_test_pred_linear"].copy()
+            plotting_dict["y_test_pred_mean"] = input_datas_dict[plot_comb]["y_test_pred_mean"].copy()
+            try:
+                plotting_dict["y_test_pred_pl"] = input_datas_dict[plot_comb]["y_test_pred_pl"]
+            except:
+                pass
             # load refined data accordingly
-            plotting_dict[plot_comb]["y_test_pred"] = input_datas_dict[plot_comb]["refined_datas"]["y_test_pred"].copy()
-            plotting_dict[plot_comb]["y_test"] = input_datas_dict[plot_comb]["refined_datas"]["y_test"].copy()
+            plotting_dict["y_test_pred"] = input_datas_dict[plot_comb]["refined_datas"]["y_test_pred"].copy()
+            plotting_dict["y_test"] = input_datas_dict[plot_comb]["refined_datas"]["y_test"].copy()
         else:
             logger.error("Cannot plot refined data as there's no refined datas dict given and no refined data is "
                          "included in the initial datas dict.")
     # make dict a dataframe, name columns appropriately and compute error of kNN prediction
     results_df = pd.DataFrame(
-        [plotting_dict[plot_comb]["y_test_pred"].flatten(),
-         plotting_dict[plot_comb]["y_test"].flatten()]).transpose()
+        [plotting_dict["y_test_pred"].flatten(),
+         plotting_dict["y_test"].flatten()]).transpose()
     results_df.columns = ["pred", "true"]
     results_df["error"] = results_df["pred"] - results_df["true"]
 
@@ -1150,12 +1159,12 @@ def plot_result(input_datas_dict,
         for comparison in plot_along:
             # even if power law is chosen as additional method, some tuples may not have been fitted via power law
             # due to non-positive values:
-            if (comparison == "pl") and ("y_test_pred_pl" not in plotting_dict[plot_comb].keys()):
+            if (comparison == "pl") and ("y_test_pred_pl" not in plotting_dict.keys()):
                 logger.error("no power law fit performed, some columns did not include positive values only",
                              exc_info=True)
             else:
                 # load data, compute error
-                results_df["pred_" + comparison] = plotting_dict[plot_comb]["y_test_pred_" + comparison]
+                results_df["pred_" + comparison] = plotting_dict["y_test_pred_" + comparison]
                 results_df["error_" + comparison] = results_df["pred_" + comparison] - results_df["true"]
                 # add plot
                 fig.add_trace(go.Scatter(
@@ -1187,7 +1196,7 @@ def plot_result(input_datas_dict,
         for comparison in plot_along:
             # even if power law is chosen as additional method, some tuples may not have been fitted via power law
             # due to non-positive values:
-            if (comparison == "pl") and ("y_test_pred_pl" not in plotting_dict[plot_comb].keys()):
+            if (comparison == "pl") and ("y_test_pred_pl" not in plotting_dict.keys()):
                 continue
             else:
                 fig.add_trace(
@@ -1222,7 +1231,7 @@ def plot_result(input_datas_dict,
         for comparison in plot_along:
             # even if power law is chosen as additional method, some tuples may not have been fitted via power law
             # due to non-positive values:
-            if (comparison == "pl") and ("y_test_pred_pl" not in plotting_dict[plot_comb].keys()):
+            if (comparison == "pl") and ("y_test_pred_pl" not in plotting_dict.keys()):
                 continue
             else:
                 fig.add_trace(
