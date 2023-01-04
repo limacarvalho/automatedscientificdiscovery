@@ -186,6 +186,9 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+
+
+
 # IPython
 profile_default/
 ipython_config.py
@@ -406,4 +409,27 @@ $RECYCLE.BIN/
 *.vcf
 *.xml
 
+# Ignore for XAI
+
+xai/app/__pycache__/
+xai/app/test/results/
+xai/app/test/data/
+
+
+xai/app/*/.ipynb_checkpoints/*
+xai/app/**/*.ipynb_checkpoints/
+xai/app/ml/models/saved/temp/*
+xai/app/notebooks/file.log
+xai/app/notebooks/lightning_logs/*
+
+
+xai/app/notebooks/model_path/*
+
+xai/app/ml/models/saved/base/brisk_neural_net/*
+
+
+
+
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,linux,python,r,c,terraform
+xai/app/ml/models/saved/covid/tmp/xgboost/slug/slug_xgboost_67.pickle
+/dev/
