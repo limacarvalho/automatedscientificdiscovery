@@ -12,7 +12,7 @@ from streamlit_pandas_profiling import st_profile_report
 st.set_page_config(layout="wide")
 
 # Current OS Path/Directory of the script
-current_path = Path.cwd()
+main_asd_path = Path(__file__).parents[1]
 
 # Implement mainframe output
 st.title("Data summary of the input data")
@@ -40,7 +40,7 @@ elif "df_input" not in st.session_state:
     st.write("The default dataset contains Covid 2020 data. If you want a different dataset, please upload a .csv file.")
     st.write("")
     st.write("")
-    df_input = pd.read_csv(f"{current_path}/datasets/20220727_covid_159rows_52cols_2020.csv")
+    df_input = pd.read_csv(f"{main_asd_path}/datasets/20220727_covid_159rows_52cols_2020.csv")
     st.session_state["df_input"] = df_input
     st.write("As a brief overview, the default dataset (Covid) is displayed:")
     st.dataframe(df_input)
