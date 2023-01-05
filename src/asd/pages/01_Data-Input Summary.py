@@ -1,13 +1,18 @@
-# Import libraries
+# Standard library imports
 import io
 
+# Third party imports
 import pandas as pd
 import streamlit as st
+from pathlib import Path
 from pandas_profiling import ProfileReport
 from streamlit_pandas_profiling import st_profile_report
 
 # Set streamlit layout
 st.set_page_config(layout="wide")
+
+# Current OS Path/Directory of the script
+current_path = Path.cwd()
 
 # Implement mainframe output
 st.title("Data summary of the input data")
@@ -27,7 +32,7 @@ if file_upload is not None:
     st.write("")
     df_input = pd.read_csv(file_upload)
     st.session_state["df_input"] = df_input
-    st.write("As a brief overview, your dataset si displayed:")
+    st.write("As a brief overview, your dataset is displayed:")
     st.dataframe(df_input)
     st.markdown("")
     st.markdown("")
@@ -35,7 +40,7 @@ elif "df_input" not in st.session_state:
     st.write("The default dataset contains Covid 2020 data. If you want a different dataset, please upload a .csv file.")
     st.write("")
     st.write("")
-    df_input = pd.read_csv(r"datasets/20220727_covid_159rows_52cols_2020.csv")
+    df_input = pd.read_csv(f"{current_path}/datasets/20220727_covid_159rows_52cols_2020.csv")
     st.session_state["df_input"] = df_input
     st.write("As a brief overview, the default dataset (Covid) is displayed:")
     st.dataframe(df_input)
@@ -46,7 +51,7 @@ elif "df_input" in st.session_state:
     st.write("Your chosen dataset is used.")
     st.write("")
     st.write("")
-    st.write("As a brief overview, your dataset si displayed:")
+    st.write("As a brief overview, your dataset is displayed:")
     st.dataframe(df_input)
     st.markdown("")
     st.markdown("")
