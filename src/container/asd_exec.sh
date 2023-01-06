@@ -20,14 +20,14 @@ echo -e "\n===============================================\n" | tee -a $asd_init
 python --version 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
 gcc --version 2> /dev/null | tee -a $asd_init_debug_file
-echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
-nvidia-smi 2> /dev/null | tee -a $asd_init_debug_file
-echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
-nvcc --version 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n===============================================\n" |  tee -a $asd_init_debug_file
 lscpu 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n===============================================\n" |  tee -a $asd_init_debug_file
 lsmem 2> /dev/null | tee -a $asd_init_debug_file
+echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
+nvidia-smi 2> /dev/null | tee -a $asd_init_debug_file
+echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
+nvcc --version 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n===============================================\n" |  tee -a $asd_init_debug_file
 
 # Starts main AS Python Stremlit app

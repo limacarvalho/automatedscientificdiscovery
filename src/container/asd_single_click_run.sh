@@ -1,5 +1,37 @@
 #!/bin/bash
 
+# Check if docker is installed
+docker --version
+if [ $? -ne 0 ]; then
+    echo "!!! ERROR !!! Docker not installed"
+    exit 1
+else
+    echo "+++ Docker is available +++"
+fi
+
+# ASD Folder
+asd_folder=~/asd_container
+mkdir -p $asd_folder
+
+# Create Dockerfile locally
+cat << EOFMAIN > $asd_folder/Dockerfile
+FROM tensorflow/tensorflow:2.11.0-gpu
+LABEL "com.asd.project"="Automated Scientific Discovery"
+LABEL version="1.0"
+LABEL description="The Automated Scientific Discovery project is a Python module/app that automatically discovers hidden relationships in the measurement data."
+COPY . /opt/asd/
+RUN chmod +x /opt/asd/setup_init.sh && /opt/asd/setup_init.sh
+ENV LD_LIBRARY_PATH="/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/:/usr/local/cuda-11.0/targets/x86_64-linux/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
+ENV PYTHONPATH="/opt/asd/python-asd/src/asd/"
+EXPOSE 80/tcp
+RUN chmod +x /opt/asd/asd_exec.sh
+CMD /opt/asd/asd_exec.sh
+EOFMAIN
+
+# Create setup_init file locally
+cat << EOFMAIN > $asd_folder/setup_init.sh
+#!/bin/bash
+
 # +------------------------------+----------------------------------+
 # |              ASD Container runtime setup script                 |
 # +------------------------------+----------------------------------+
@@ -312,3 +344,88 @@ git sparse-checkout set --no-cone '/*' '!src/container'
 # More info about git sparse checkout at https://git-scm.com/docs/git-sparse-checkout
 
 exit 0
+EOFMAIN
+
+# Create asd_exec file locally
+cat << EOFMAIN > $asd_folder/asd_exec.sh
+
+#!bin/bash
+
+# +------------------------------+----------------------------------+
+# |                 ASD Container runtime script                    |
+# +------------------------------+----------------------------------+
+# | Version                      | 1.0                              |
+# | Language                     | Linux Bash                       |
+# | Platform                     | x86_64                           |
+# | Input Parameters             | None                             |
+# | GPU / non-GPU support        | Yes / Yes                        |
+# | Runs on Docker Image         | tensorflow/tensorflow:2.11.0-gpu |
+# +------------------------------+----------------------------------+
+
+# Debug information
+asd_init_debug_file="/opt/asd/asd-container-start-versions.txt"
+
+echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
+echo -e Execution time: $(date -u) | tee -a $asd_init_debug_file
+echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
+python --version 2> /dev/null | tee -a $asd_init_debug_file
+echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
+gcc --version 2> /dev/null | tee -a $asd_init_debug_file
+echo -e "\n===============================================\n" |  tee -a $asd_init_debug_file
+lscpu 2> /dev/null | tee -a $asd_init_debug_file
+echo -e "\n===============================================\n" |  tee -a $asd_init_debug_file
+lsmem 2> /dev/null | tee -a $asd_init_debug_file
+echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
+nvidia-smi 2> /dev/null | tee -a $asd_init_debug_file
+echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
+nvcc --version 2> /dev/null | tee -a $asd_init_debug_file
+echo -e "\n===============================================\n" |  tee -a $asd_init_debug_file
+
+# Starts main AS Python Stremlit app
+streamlit run /opt/asd/python-asd/src/asd/ASD-Project_Intro.py --server.port 80
+EOFMAIN
+
+# Build Docker Container Image
+cd $asd_folder
+image_downloaded=$(docker images --filter=reference='asd-container*:*1.0' | wc -l)
+
+if [ $image_downloaded -eq 1 ]; then
+    docker build -t asd-container:1.0 .
+else
+    echo "+++ ASD Docker image is already available locally +++"
+fi
+
+sleep 5
+
+# Success message
+SUCCESS_MSG=$(cat << EOF
++----------------------------------------------------------------------------+
+|             +++ The ASD Container is currently running +++                 |
++-----------------------------------------+----------------------------------+
+| To stop the container run:              | docker container stop asd        |
+| To delete the container run:            | docker container rm asd          |
++-----------------------------------------+----------------------------------+
+EOF
+)
+
+# Start ASD Docker container
+docker container run -d --name asd -p 80:80 --gpus=all asd-container:1.0
+if [ $? -eq 0 ]; then
+    echo -e "$SUCCESS_MSG"
+elif [ $? -eq 125 ]; then
+    docker container run -d --name asd -p 80:80 asd-container:1.0
+    echo -e "$SUCCESS_MSG"
+elif [ $? -ne 0 ]; then
+    echo -e ""
+    echo -e "!!! It seems that it was an issue executing the ASD container. Do you have Docker installed?"
+    echo -e "!!! If the container is already running intentionally, please ignore this message !!!"
+    echo -e "!!! If the container already exists try to run:"
+    echo -e ""
+    echo -e "    docker container start asd && docker container logs asd"
+fi
+
+echo -e ""
+echo -e "+----------------------------------------------------------------------------+"
+# Prints container logs
+sleep 5
+docker container logs asd
