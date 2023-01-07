@@ -1,7 +1,7 @@
 
-from asd.relevance.ml.models import common
-from asd.relevance.utils import config
-from asd.relevance.utils.asd_logging import logger as  customlogger
+from relevance.ml.models import common
+from relevance.utils import config
+from relevance.utils.asd_logging import logger as  customlogger
 
 import numpy as np
 import pandas as pd
@@ -27,21 +27,21 @@ class SlugRF():
                     name,
                     pred_class,
                     score_func=None,
-                    metric_func=None,                    
+                    metric_func=None,
                     max_depth=30,
                     max_n_estimators=1000,
                     n_trials=100,
                     cv_splits=3,
                     timeout=None,
                 ) -> None:
-        
+
         self.max_depth  = max_depth
         self.max_n_estimators = max_n_estimators
-        self.pred_class = pred_class                    
+        self.pred_class = pred_class
         self.n_trials = n_trials
         self.cv_splits = cv_splits # number of folds
         self.random_state = config.rand_state
-        
+
         self.model_file_name = name
 
         self.score_func = score_func
@@ -54,8 +54,8 @@ class SlugRF():
 
 
         self.timeout = timeout
-        
-        
+
+
 
     def __get_model__(self):
 
@@ -71,8 +71,8 @@ class SlugRF():
 
         return model
 
-        
-        
+
+
     def fit(self, X_train, X_test, y_train, y_test):
 
         customlogger.info( self.model_file_name + ': fit')
@@ -84,9 +84,9 @@ class SlugRF():
             "min_samples_leaf": tune.randint(11, 60),
         }
 
-        self.gs = TuneSearchCV(self.__get_model__(), 
-                                    param_dists, 
-                                    n_trials=self.n_trials, 
+        self.gs = TuneSearchCV(self.__get_model__(),
+                                    param_dists,
+                                    n_trials=self.n_trials,
                                     scoring=self.score_func,
                                     cv=self.cv_splits,
                                     search_optimization ='hyperopt',
@@ -97,7 +97,7 @@ class SlugRF():
 
         pred_test = self.gs.predict(X_test)
         pred_train = self.gs.predict(X_train)
-        
+
         err_train = self.metric_func(pred_train, y_train)
         err_test = self.metric_func(pred_test, y_test)
 
@@ -110,7 +110,7 @@ class SlugRF():
         if metric_func is None:
             metric_func = self.metric_func
 
-        pred = self.gs.predict(X)        
+        pred = self.gs.predict(X)
 
         return metric_func(pred, y)
 
@@ -118,4 +118,3 @@ class SlugRF():
 
     def predict(self, df_X):
         return self.gs.predict(df_X)
-    

@@ -6,12 +6,12 @@ from pprint import pprint
 from sklearn import metrics
 from sklearn.metrics import make_scorer
 
-from asd.relevance import relevance
-from asd.relevance.ml.models import common
+from relevance import relevance
+from relevance.ml.models import common
 # from ml.models import common
 import dataset_handler
 # from test import dataset_handler
-from asd.relevance.utils import rayer
+from relevance.utils import rayer
 
 # from utils import rayer
 
@@ -28,7 +28,7 @@ def use_tokamat_ds():
 
     df_X = df[df.columns[~df.columns.isin(potential_targets)]]
     df_X = df_X.drop(['TOK_ID', 'LCUPDATE', 'DATE', 'NEL', 'ENBI'], axis = 1)
-    
+
     return df_X, df_y
 
 
@@ -54,7 +54,7 @@ def test_case_1():
 
 
     mean_squared_error = make_scorer(score_func=metrics.mean_squared_error, greater_is_better=False)
-    
+
 
     ### the above two are small datasets so better keep the tree depths low
     options = {
@@ -73,12 +73,12 @@ def test_case_1():
         'cv_splits': 3,
         'ensemble_n_estimators': 10,
         'ensemble_n_trials': 10,
-        
+
         'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoffs'],
         'fdr': 0.1,
         'fstats': ['lasso', 'ridge', 'randomforest'],
         'knockoff_runs' : 20000
-    }        
+    }
 
     # rayer.get_local_cluster(num_cpus=4)
 
@@ -112,7 +112,7 @@ def test_case_2():
         'cv_splits': 3,
         'ensemble_n_estimators': 50,
         'ensemble_n_trials': 50,
-        
+
         'attr_algos' : ['IG', 'SHAP', 'GradientSHAP', 'knockoffs'],
         'fdr': 0.1,
         'fstats': ['lasso', 'ridge', 'randomforest'],
@@ -123,11 +123,10 @@ def test_case_2():
 
     pprint(ret)
 
-        
-if __name__ == '__main__':    
+
+if __name__ == '__main__':
     # rayer.get_local_cluster()
     # rayer.get_global_cluster()
     test_case_2()
-    
-    
-    
+
+

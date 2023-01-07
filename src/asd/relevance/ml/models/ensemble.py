@@ -1,10 +1,10 @@
 
 
-from asd.relevance.ml.models import common
-from asd.relevance.utils import helper, config
-from asd.relevance.utils.asd_logging import logger as  customlogger
+from relevance.ml.models import common
+from relevance.utils import helper, config
+from relevance.utils.asd_logging import logger as  customlogger
 
-from asd.relevance.ml.models.base.tune import BriskBagging, BriskKNN, BriskXGBoost, SlugXGBoost, SlugLGBM, SlugRF
+from relevance.ml.models.base.tune import BriskBagging, BriskKNN, BriskXGBoost, SlugXGBoost, SlugLGBM, SlugRF
 
 from sklearn.metrics import make_scorer
 from sklearn import metrics
@@ -20,7 +20,7 @@ import ray
 # customlogger = logger.logging.getLogger('console_info')
 
 list_base_models = ['briskxgboost', 'slugxgboost', 'slugrf', 'briskknn', 'briskbagging', 'sluglgbm']
-                              
+
 
 
 class Ensemble:
@@ -41,7 +41,7 @@ class Ensemble:
                  ensemble_bagging_estimators=50,
                  ensemble_n_trials=50,
                  timeout=None) -> None:
-        '''    
+        '''
         The goal of ensemble class is to fit several base models and then fit an ensemble model to achieve automated learning.\n
         Arg:\n
         \txgb_objective (str): objective function if xgboost model is given in list_base_model. I.e., default='binary:logistic', see doc. of XGBoost for more details.
@@ -67,38 +67,38 @@ class Ensemble:
 
 
         self.xgb_objective = xgb_objective
-        self.lgbm_objective = lgbm_objective        
+        self.lgbm_objective = lgbm_objective
 
 
         self.ensemble_bagging_estimators = ensemble_bagging_estimators
         self.ensemble_n_trials = ensemble_n_trials
         self.ensemble = None
 
-        
+
         self.base_models = []
 
         self._base_models = []
-                        
-        
+
+
         list_base_models = [x.lower() for x in list_base_models]
-        
-        
-        if (score_func is None) and (pred_class=='regression'): 
+
+
+        if (score_func is None) and (pred_class=='regression'):
             score_func = 'neg_mean_absolute_error'
 
-        if (score_func is None) and (pred_class=='classification'): 
+        if (score_func is None) and (pred_class=='classification'):
             score_func =  make_scorer(metrics.log_loss, greater_is_better=False)
 
 
-        if len(list_base_models)==0:            
+        if len(list_base_models)==0:
             list_base_models = ['briskbagging', 'briskknn', 'briskxgboost', 'slugxgboost', 'sluglgbm','slugrf']
             # ['briskxgboost', 'slugxgboost', 'slugann', 'slugrf', 'slugknn', 'briskbagging']
-            
-        
+
+
         for model in list_base_models:
             if model=='briskbagging':
                 brisk_bagging = BriskBagging(name='brisk_bagging',
-                                                                        pred_class=pred_class, 
+                                                                        pred_class=pred_class,
                                                                         n_estimators=bagging_estimators,
                                                                         n_trials=n_trials,
                                                                         score_func=score_func,
@@ -110,7 +110,7 @@ class Ensemble:
 
             if model=='briskknn':
                 brisk_knn = BriskKNN(name='brisk_knn',
-                                                            pred_class=pred_class, 
+                                                            pred_class=pred_class,
                                                             score_func=score_func,
                                                             metric_func=metric_func,
                                                             n_neighbors=n_neighbors,
@@ -121,8 +121,8 @@ class Ensemble:
 
             if model=='briskxgboost':
                 brisk_xgb = BriskXGBoost(name='brisk_xgboost',
-                                                                    objective=self.xgb_objective, 
-                                                                    pred_class=pred_class, 
+                                                                    objective=self.xgb_objective,
+                                                                    pred_class=pred_class,
                                                                     n_estimators=boosted_round,
                                                                     n_trials=n_trials,
                                                                     score_func=score_func,
@@ -134,10 +134,10 @@ class Ensemble:
 
             if model=='slugxgboost':
                 slug_xgb = SlugXGBoost(name='slug_xgboost',
-                                                                objective=self.xgb_objective, 
+                                                                objective=self.xgb_objective,
                                                                 pred_class=pred_class,
                                                                 score_func=score_func,
-                                                                metric_func=metric_func,                    
+                                                                metric_func=metric_func,
                                                                 n_estimators=boosted_round,
                                                                 max_depth=max_depth,
                                                                 n_trials=n_trials,
@@ -146,7 +146,7 @@ class Ensemble:
                                                                     )
                 self._base_models.append(slug_xgb)
 
-        
+
             if model=='sluglgbm':
                 slug_lgbm = SlugLGBM(name='slug_lgbm',
                                                                 objective=self.lgbm_objective,
@@ -160,12 +160,12 @@ class Ensemble:
                                                                 timeout=None,
                                                                     )
                 self._base_models.append(slug_lgbm)
-        
+
             if model=='slugrf':
                 slug_rf = SlugRF(name='slug_rf',
                                                     pred_class=pred_class,
                                                     score_func=score_func,
-                                                    metric_func=metric_func,                    
+                                                    metric_func=metric_func,
                                                     max_depth=max_depth,
                                                     max_n_estimators=rf_n_estimators,
                                                     n_trials=n_trials,
@@ -177,7 +177,7 @@ class Ensemble:
 
 
         self.ensemble = BriskBagging(name='ensemble_brisk_bagging',
-                                                                    pred_class=pred_class, 
+                                                                    pred_class=pred_class,
                                                                     n_estimators=ensemble_bagging_estimators,
                                                                     n_trials=ensemble_n_trials,
                                                                     score_func=score_func,
@@ -185,33 +185,33 @@ class Ensemble:
                                                                     cv_splits=cv_splits,
                                                                     timeout=timeout)
 
-    
 
-                
-        
+
+
+
     def _fetch_models_pll(self, X_train, X_test, y_train, y_test, threshold=None):
 
         lazy_results = []
         # results = None
-                
+
         customlogger.info("Ensemble: starting discovery process for models " + str(self._base_models))
-                                    
+
         X_train_id = ray.put(X_train)
         y_train_id = ray.put(y_train)
         X_test_id = ray.put(X_test)
         y_test_id = ray.put(y_test)
 
-                
+
         for base_model in self._base_models:
             lazy_results.append(__run_discoveries__.remote(base_model, X_train_id, X_test_id, y_train_id, y_test_id))
-            
+
 
         self._base_models = ray.get(lazy_results)
 
         self.select(threshold)
 
         self.fit(X_train, X_test, y_train, y_test)
-        
+
         customlogger.info("base model training completed")
 
 
@@ -232,7 +232,7 @@ class Ensemble:
         '''
 
         customlogger.info("Ensemble: starting discovery process for models " + str(self._base_models))
-                                            
+
         for base_model in self._base_models:
             base_model.fit(X_train, X_test, y_train, y_test)
 
@@ -240,7 +240,7 @@ class Ensemble:
         self.select(threshold)
 
         self.fit(X_train, X_test, y_train, y_test)
-        
+
         customlogger.info("base model training completed")
 
 
@@ -280,7 +280,7 @@ class Ensemble:
         customlogger.info("filtered out " +  str( len(self._base_models) - len(self.base_models) ) + " models.")
 
 
-    
+
     def fit(self,  X_train, X_test, y_train, y_test):
         '''
         Fit the ensemble model on the trained base models.\n
@@ -292,7 +292,7 @@ class Ensemble:
         '''
 
         if self.base_models is None:
-            customlogger.info("Fit base models first.")  
+            customlogger.info("Fit base models first.")
             return None
 
         if len(self.base_models)==1:
@@ -303,14 +303,14 @@ class Ensemble:
 
         df_X_train_ensemble = pd.DataFrame()
         df_X_test_ensemble = pd.DataFrame()
-        
+
         for base_model in self.base_models:
             temp_X_train = pd.DataFrame(base_model.predict(X_train))
-            temp_X_test = pd.DataFrame(base_model.predict(X_test))            
+            temp_X_test = pd.DataFrame(base_model.predict(X_test))
             df_X_train_ensemble = pd.concat([df_X_train_ensemble, temp_X_train], axis=1)
             df_X_test_ensemble = pd.concat([df_X_test_ensemble, temp_X_test], axis=1 )
-            
-        customlogger.info("Ensemble: fiting ensemble on " + str(df_X_train_ensemble.shape[1]) + " models")  
+
+        customlogger.info("Ensemble: fiting ensemble on " + str(df_X_train_ensemble.shape[1]) + " models")
 
         ### rename cols
         col_range = range(0, df_X_train_ensemble.shape[1])
@@ -321,7 +321,7 @@ class Ensemble:
         df_X_train_ensemble.columns = col_ids
         df_X_test_ensemble.columns = col_ids
 
-        
+
         ### fit Random forest on the all the base models to get one single outcome
 
 
@@ -330,7 +330,7 @@ class Ensemble:
 
 
 
-    
+
     def predict(self, df_X):
         '''
         Return predictions.\n
@@ -339,7 +339,7 @@ class Ensemble:
         '''
 
         if self.base_models is None:
-            customlogger.info("Fit base models first.")  
+            customlogger.info("Fit base models first.")
             return None
 
         if len(self.base_models)==1:
@@ -347,17 +347,17 @@ class Ensemble:
 
 
         df_pred = pd.DataFrame()
-        
+
 
         #ss = StandardScaler()
         # df_X_scalar = pd.DataFrame(ss.fit_transform(df_X), columns = df_X.columns)
-        
+
         for base_model in self.base_models:
             pred = pd.DataFrame(base_model.predict(df_X))
-            
+
             df_pred = pd.concat([df_pred, pred], axis=1)
 
-        
+
 
         ### rename cols
         col_range = range(0, df_pred.shape[1])
@@ -367,13 +367,13 @@ class Ensemble:
             col_ids.append(str(i))
         df_pred.columns = col_ids
         df_pred.columns = col_ids
-        
+
         return self.ensemble.predict(df_pred)
 
 
 
-    
-    
+
+
 ### not a class method, throws error when made otherwise
 @ray.remote(num_returns=1)
 def __run_discoveries__(base_model, X_train, X_test, y_train, y_test):

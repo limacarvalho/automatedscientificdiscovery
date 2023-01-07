@@ -8,10 +8,10 @@ import traceback
 
 from sklearn.model_selection import train_test_split
 
-from asd.relevance.ml.models import common
+from relevance.ml.models import common
 import dataset_handler
-from asd.relevance.ml.xai.non_model import KnockoffSetting, simulate_knockoffs
-from asd.relevance.utils import helper, rayer
+from relevance.ml.xai.non_model import KnockoffSetting, simulate_knockoffs
+from relevance.utils import helper, rayer
 import time
 
 
@@ -29,7 +29,7 @@ def use_tokamat_ds():
 
     df_X = df[df.columns[~df.columns.isin(potential_targets)]]
     df_X = df_X.drop(['TOK_ID', 'LCUPDATE', 'DATE', 'NEL', 'ENBI'], axis = 1)
-    
+
     return df_X, df_y
 
 
@@ -42,7 +42,7 @@ def use_covid_ds():
 
 
 if __name__ == '__main__':
-    
+
     print('########### Connecting ray cluster ###################')
 
     rayer.get_local_cluster()
