@@ -221,6 +221,7 @@ elif st.session_state["discovery_type"] == "Relevance":
     relevance_ensemble_n_trials = 50
     relevance_fdr = 0.1
     relevance_knockoff_runs = 20000
+    relevance_df = df_input
     if relevance_advanced:
         relevance_n_trials = st.slider("Sampled parameter settings:", min_value=0, max_value=300, value=100, help="Number of parameter settings that are sampled. n_trials trades off runtime vs quality of the solution.")
         relevance_boosted_round = st.slider("N-estimators:", min_value=0, max_value=300, value=100, help="N_estimators parameter for XGBoost and LightGBM.")
@@ -235,7 +236,6 @@ elif st.session_state["discovery_type"] == "Relevance":
         relevance_fdr = st.slider("Fdr:", min_value=0.0, max_value=1.0, value=0.1, help="Target false discovery rate.")
         relevance_fstats = st.multiselect("Fstats methods:", ('All', 'lasso', 'ridge', 'randomforest'), help="Methods to calculate fstats.")
         relevance_knockoff_runs = st.slider("Knockoff runs:", min_value=0, max_value=100000, value=20000, help="Number of reruns for each knockoff setting.")
-        relevance_df = df_input
     if "All" in relevance_column:
         relevance_column.clear()
         relevance_column = relevance_num_columns_without

@@ -5,13 +5,13 @@
 
 from sklearn.model_selection import train_test_split
 
-from asd.relevance.utils import helper, rayer
-from asd.relevance.ml.models.ensemble import Ensemble
+from relevance.utils import helper, rayer
+from relevance.ml.models.ensemble import Ensemble
 
 from sklearn.metrics import make_scorer
 from sklearn import metrics
 
-from asd.relevance.ml.models import common
+from relevance.ml.models import common
 import dataset_handler
 import pandas as pd
 import time
@@ -33,12 +33,12 @@ def test_case_1():
 
     df_X = df[df.columns[~df.columns.isin(potential_targets)]]
     df_X = df_X.drop(['TOK_ID', 'LCUPDATE', 'DATE', 'NEL', 'ENBI'], axis = 1)
-    
+
     X_train, X_test, y_train, y_test = train_test_split(df_X, df_y, test_size=0.33)
 
     r2_scoring = make_scorer(score_func=metrics.r2_score, greater_is_better=True)
-    
-    ens_mdl = Ensemble(   
+
+    ens_mdl = Ensemble(
                                 xgb_objective='count:poisson',  # ["reg:squarederror", "count:poisson", "binary:logistic",  "binary:hinge" ]
                                 lgbm_objective='poisson',    # https://lightgbm.readthedocs.io/en/latest/Parameters.html
                                 pred_class='regression',
@@ -57,7 +57,7 @@ def test_case_1():
                                 timeout=None
                  )
 
-    
+
     ens_mdl.fetch_models(X_train, X_test, y_train, y_test)
 
     print('########### Base Model Scores ###################')

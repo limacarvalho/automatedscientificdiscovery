@@ -1,7 +1,7 @@
 
-from asd.relevance.ml.models import common
-from asd.relevance.utils import config
-from asd.relevance.utils.asd_logging import logger as  customlogger
+from relevance.ml.models import common
+from relevance.utils import config
+from relevance.utils.asd_logging import logger as  customlogger
 
 import numpy as np
 import pandas as pd
@@ -28,22 +28,22 @@ class SlugXGBoost():
                     objective,
                     pred_class,
                     score_func=None,
-                    metric_func=None,                    
+                    metric_func=None,
                     n_estimators=100,
                     max_depth=30,
                     n_trials=100,
                     cv_splits=3,
                     timeout=None,
                 ) -> None:
-        
+
         self.objective = objective
-        self.pred_class = pred_class                    
+        self.pred_class = pred_class
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.n_trials = n_trials
         self.cv_splits = cv_splits # number of folds
         self.random_state = config.rand_state
-        
+
         self.model_file_name = name
 
         self.score_func = score_func
@@ -56,8 +56,8 @@ class SlugXGBoost():
 
 
         self.timeout = timeout
-        
-        
+
+
 
     def __get_model__(self):
 
@@ -73,14 +73,14 @@ class SlugXGBoost():
 
         return model
 
-        
-        
+
+
     def fit(self, X_train, X_test, y_train, y_test):
 
         customlogger.info( self.model_file_name + ': fit')
 
         param_dists = {
-            #"metric": "rmse",            
+            #"metric": "rmse",
             "lambda": tune.loguniform(1e-3, 0.1),
             "alpha": tune.loguniform(1e-3, 0.1),
             "max_depth": tune.randint(10, self.max_depth),
@@ -91,12 +91,12 @@ class SlugXGBoost():
             "colsample_bylevel": tune.loguniform(1e-8, 1.0),
             "colsample_bynode": tune.loguniform(1e-8, 1.0),
             "max_bin": tune.choice([64, 128, 512, 1024, 2048, 3072]),
-        }        
+        }
 
 
-        self.gs = TuneSearchCV(self.__get_model__(), 
-                                    param_dists, 
-                                    n_trials=self.n_trials, 
+        self.gs = TuneSearchCV(self.__get_model__(),
+                                    param_dists,
+                                    n_trials=self.n_trials,
                                     scoring=self.score_func,
                                     cv=self.cv_splits,
                                     loggers= ['csv'],
@@ -108,7 +108,7 @@ class SlugXGBoost():
 
         pred_test = self.gs.predict(X_test)
         pred_train = self.gs.predict(X_train)
-        
+
         err_train = self.metric_func(pred_train, y_train)
         err_test = self.metric_func(pred_test, y_test)
 
@@ -121,7 +121,7 @@ class SlugXGBoost():
         if metric_func is None:
             metric_func = self.metric_func
 
-        pred = self.gs.predict(X)        
+        pred = self.gs.predict(X)
 
         return metric_func(pred, y)
 
@@ -129,4 +129,3 @@ class SlugXGBoost():
 
     def predict(self, df_X):
         return self.gs.predict(df_X)
-    

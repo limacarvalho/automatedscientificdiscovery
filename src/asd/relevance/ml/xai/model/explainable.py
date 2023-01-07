@@ -15,8 +15,8 @@ from xgboost.sklearn import XGBRegressor, XGBClassifier
 from captum.attr import IntegratedGradients, GradientShap, DeepLift, NoiseTunnel
 import shap
 
-from asd.relevance.utils import helper, config
-from asd.relevance.utils.asd_logging import logger as  customlogger
+from relevance.utils import helper, config
+from relevance.utils.asd_logging import logger as  customlogger
 
 list_xai_algos = ['ig', 'shap', 'gradientshap', 'knockoffs']
 
@@ -24,22 +24,22 @@ list_xai_algos = ['ig', 'shap', 'gradientshap', 'knockoffs']
 
 @ray.remote(num_returns=1)
 def __get_gs_attr__(model, df_X, stdevs, n_samples):
-    
+
     gs = GradientShap(model)
 
-    df_X_tensor = helper.df_to_tensor(df_X)                
+    df_X_tensor = helper.df_to_tensor(df_X)
 
     # select a set of background examples to take an expectation over
     background = df_X.loc[np.random.choice(df_X.shape[0], df_X.shape[0], replace=False)]
     baseline_dist = helper.df_to_tensor(background)
 
-    gs_attr, delta = gs.attribute(df_X_tensor, stdevs=stdevs, n_samples=n_samples, 
+    gs_attr, delta = gs.attribute(df_X_tensor, stdevs=stdevs, n_samples=n_samples,
                                                     baselines=baseline_dist, return_convergence_delta=True
                                    )
 
     gs_attr_df_shapley = pd.DataFrame(gs_attr.numpy(), columns=df_X.columns)
     gs_attr_df_shapley_list = gs_attr_df_shapley.abs().mean().values
-    
+
     return gs_attr_df_shapley_list
 
 
@@ -50,22 +50,22 @@ def __get_ig_attr__(model, df_X, n_steps):
     # df_X = ray.get(df_X_id)
     # print(df_X)
     df_X_tensor = helper.df_to_tensor(df_X)
-    
+
     ig = IntegratedGradients(model)
     ig_attr = ig.attribute(df_X_tensor, n_steps = n_steps)
 
     ig_attr_df_shapley = pd.DataFrame(ig_attr.numpy(), columns=df_X.columns)
     ig_attr_df_shapley_list = ig_attr_df_shapley.abs().mean().values #.sort_values(ascending=False).values
-    
+
     return ig_attr_df_shapley_list
 
 
 @ray.remote(num_returns=1)
 def __get_shapley_torch_attr__(model, df_X, n_background):
-    
+
     df_background = df_X.sample(n = n_background)
     df_tensor_background = helper.df_to_tensor(df_background)
-    df_X_tensor = helper.df_to_tensor(df_X)                
+    df_X_tensor = helper.df_to_tensor(df_X)
 
     explainer_shap = shap.DeepExplainer(model=model, data=df_tensor_background)
 
@@ -119,7 +119,7 @@ class Explainable:
         self.raw = None
         self.ensemble_set = ensemble_set
         self.df_X = df_X
-                
+
         ### IG arguments
         self.ig_n_steps = 50
 
@@ -135,33 +135,33 @@ class Explainable:
 
 
 
-    def get_attr(self, attr_algos):                
+    def get_attr(self, attr_algos):
         '''
         Measure variable importance based on SHAP
         attr_algos (list): list of exlainable AI methods, i.e., ['IG', 'SHAP', 'GradientSHAP']. See https://github.com/pytorch/captum and https://github.com/slundberg/shap.
         return pd.Series: list of varaibles sorted as per their importance, zeros equate to no importance at all.
         '''
-        
-        attr_algos = [x.lower() for x in attr_algos]
-        
-        col_names = []
-        lazy_results = []                    
-        
-        df_X_id = ray.put(self.df_X)
-        
-        
-        customlogger.info("attribution methods  " + str(attr_algos))
-        
-        for base_model in self.ensemble_set.base_models:    
-            customlogger.info("calculating variable importance on  " + str(base_model.model_file_name))
-            
 
-            for attr_algo in attr_algos:                
+        attr_algos = [x.lower() for x in attr_algos]
+
+        col_names = []
+        lazy_results = []
+
+        df_X_id = ray.put(self.df_X)
+
+
+        customlogger.info("attribution methods  " + str(attr_algos))
+
+        for base_model in self.ensemble_set.base_models:
+            customlogger.info("calculating variable importance on  " + str(base_model.model_file_name))
+
+
+            for attr_algo in attr_algos:
                 if type(base_model.gs.best_estimator) == nn.Sequential:
                     if attr_algo == 'ig':
                         lazy_results.append(__get_ig_attr__.remote(base_model.gs.best_estimator, df_X_id, self.ig_n_steps))
                         col_names.append(base_model.model_file_name + '_' + attr_algo)
-                    elif attr_algo == 'shap':          
+                    elif attr_algo == 'shap':
                         lazy_results.append(__get_shapley_torch_attr__.remote(base_model.gs.best_estimator, df_X_id, self.shapley_n_background))
                         col_names.append(base_model.model_file_name + '_' + attr_algo)
                     elif attr_algo == 'gradientshap':
@@ -179,28 +179,28 @@ class Explainable:
 
         if len(lazy_results)==0:
             return None
-        
+
         results = ray.get(lazy_results)
-        
+
         del df_X_id
-                        
+
         return self.__beautify_scores__(attr_algos, results, col_names)
 
 
 
-    def __beautify_scores__(self, attr_algos, results, col_names):                
+    def __beautify_scores__(self, attr_algos, results, col_names):
 
         df_results = pd.DataFrame(results).T
 
         if df_results.shape[1] < 1:
             return None
-        
+
         df_results.index = self.df_X.columns
-        df_results.columns = col_names 
+        df_results.columns = col_names
         df_results['cols'] = df_results.index
-                
-        self.raw = df_results 
-                
+
+        self.raw = df_results
+
         df_scores_ranked = pd.DataFrame()
 
         for col in df_results:
@@ -209,10 +209,10 @@ class Explainable:
                 df_scores_ranked.replace(to_replace = df_scores_ranked.min(), value = 0, inplace=True)
 
         res = df_scores_ranked.mode(axis=1, numeric_only=True).mean(axis=1)
-        res.index = df_results['cols']        
+        res.index = df_results['cols']
 
         res = res.sort_values(ascending=False)
-        
+
         self.df_scores = res
-                
+
         return res
