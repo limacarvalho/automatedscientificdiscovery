@@ -10,7 +10,7 @@ else
 fi
 
 # ASD Folder
-asd_folder=~/asd_container
+asd_folder=~/.asd_container
 mkdir -p $asd_folder
 
 # Create Dockerfile locally
@@ -22,13 +22,14 @@ LABEL description="The Automated Scientific Discovery project is a Python module
 COPY . /opt/asd/
 RUN chmod +x /opt/asd/setup_init.sh && /opt/asd/setup_init.sh
 ENV LD_LIBRARY_PATH="/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/:/usr/local/cuda-11.0/targets/x86_64-linux/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
-ENV PYTHONPATH="/opt/asd/python-asd/src/asd/"
+ENV PYTHONPATH="/opt/asd/python-asd/src/asd:/opt/asd/python-asd/src/asd/complexity:/opt/asd/python-asd/src/asd/complexity/dim_reduce:/opt/asd/python-asd/src/asd/predictability:/opt/asd/python-asd/src/asd/relevance:/opt/asd/python-asd/src/asd/relevance/ml:/opt/asd/python-asd/src/asd/relevance/utils"
 EXPOSE 80/tcp
 RUN chmod +x /opt/asd/asd_exec.sh
 CMD /opt/asd/asd_exec.sh
 EOFMAIN
 
 # Create setup_init file locally
+asd_init_debug_file="/opt/asd/asd-container-build-versions.txt"
 cat << EOFMAIN > $asd_folder/setup_init.sh
 #!/bin/bash
 
@@ -61,7 +62,6 @@ python -m pip install git+https://github.com/h2oai/datatable.git
 python -m pip install bokeh==2.4.3
 
 # Debug information
-asd_init_debug_file="/opt/asd/asd-container-build-versions.txt"
 
 echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" | tee -a $asd_init_debug_file
 python --version 2> /dev/null | tee -a $asd_init_debug_file
@@ -322,7 +322,7 @@ export LD_LIBRARY_PATH=/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/
 echo 'LD_LIBRARY_PATH="/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/:/usr/local/cuda-11.0/targets/x86_64-linux/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"' >> /etc/environment
 
 # Setting Python PATH
-echo 'PYTHONPATH="/opt/asd/python-asd/src/asd/"' >> /etc/environment
+echo 'PYTHONPATH="/opt/asd/python-asd/src/asd:/opt/asd/python-asd/src/asd/complexity:/opt/asd/python-asd/src/asd/complexity/dim_reduce:/opt/asd/python-asd/src/asd/predictability:/opt/asd/python-asd/src/asd/relevance:/opt/asd/python-asd/src/asd/relevance/ml:/opt/asd/python-asd/src/asd/relevance/utils"' >> /etc/environment
 
 # Protobuf settings
 curl -o /usr/local/lib/python3.8/dist-packages/google/protobuf/internal/builder.py https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py
@@ -347,8 +347,8 @@ exit 0
 EOFMAIN
 
 # Create asd_exec file locally
+asd_init_debug_file="/opt/asd/asd-container-start-versions.txt"
 cat << EOFMAIN > $asd_folder/asd_exec.sh
-
 #!bin/bash
 
 # +------------------------------+----------------------------------+
@@ -363,8 +363,6 @@ cat << EOFMAIN > $asd_folder/asd_exec.sh
 # +------------------------------+----------------------------------+
 
 # Debug information
-asd_init_debug_file="/opt/asd/asd-container-start-versions.txt"
-
 echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
 echo -e Execution time: $(date -u) | tee -a $asd_init_debug_file
 echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
@@ -381,8 +379,21 @@ echo -e "\n===============================================\n" | tee -a $asd_init
 nvcc --version 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n===============================================\n" |  tee -a $asd_init_debug_file
 
+# Success message
+cat > /tmp/success_msg.txt <<- EOM
+
+--> Localhost URL: http://localhost:80
+
++----------------------------------------------------------------------------+
+|             +++ The ASD Container is currently running +++                 |
++-----------------------------------------+----------------------------------+
+| To stop the container run:              | docker container stop asd        |
+| To delete the container run:            | docker container rm asd          |
++-----------------------------------------+----------------------------------+
+EOM
+
 # Starts main AS Python Stremlit app
-streamlit run /opt/asd/python-asd/src/asd/ASD-Project_Intro.py --server.port 80
+streamlit run /opt/asd/python-asd/src/asd/ASD-Project_Intro.py --server.port 80 --logger.level debug && cat /tmp/success_msg.txt
 EOFMAIN
 
 # Build Docker Container Image
@@ -397,35 +408,31 @@ fi
 
 sleep 5
 
-# Success message
-SUCCESS_MSG=$(cat << EOF
-+----------------------------------------------------------------------------+
-|             +++ The ASD Container is currently running +++                 |
-+-----------------------------------------+----------------------------------+
-| To stop the container run:              | docker container stop asd        |
-| To delete the container run:            | docker container rm asd          |
-+-----------------------------------------+----------------------------------+
-EOF
-)
-
 # Start ASD Docker container
-docker container run -d --name asd -p 80:80 --gpus=all asd-container:1.0
-if [ $? -eq 0 ]; then
+# Start GPU container by default
+list_of_gpus=$(nvidia-smi -L) &> /dev/null
+SUCCESS_MSG="+++ ASD Container started successfully +++"
+if [ -z "$list_of_gpus" ]
+then
+    if docker container run -d --name asd -p 80:80 asd-container:1.0 ; then
+        echo -e "$SUCCESS_MSG"
+    else
+        echo -e ""
+        echo -e "!!! It seems that it was an issue executing the ASD container. Do you have Docker installed?"
+        echo -e "!!! If the container is already running intentionally, please ignore this message !!!"
+        echo -e "!!! If the container already exists try to run:"
+        echo -e ""
+        echo -e "    docker container start asd && docker container logs asd"
+    fi
+else
+    # If no Nvidia drivers available the container runs normally without GPU ssupport
+    docker container run -d --name asd -p 80:80 --gpus=all asd-container:1.0
     echo -e "$SUCCESS_MSG"
-elif [ $? -eq 125 ]; then
-    docker container run -d --name asd -p 80:80 asd-container:1.0
-    echo -e "$SUCCESS_MSG"
-elif [ $? -ne 0 ]; then
-    echo -e ""
-    echo -e "!!! It seems that it was an issue executing the ASD container. Do you have Docker installed?"
-    echo -e "!!! If the container is already running intentionally, please ignore this message !!!"
-    echo -e "!!! If the container already exists try to run:"
-    echo -e ""
-    echo -e "    docker container start asd && docker container logs asd"
 fi
 
 echo -e ""
-echo -e "+----------------------------------------------------------------------------+"
 # Prints container logs
 sleep 5
 docker container logs asd
+# Change back to User's home directory
+cd $HOME

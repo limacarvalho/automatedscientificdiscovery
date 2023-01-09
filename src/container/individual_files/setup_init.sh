@@ -29,7 +29,6 @@ python -m pip install git+https://github.com/h2oai/datatable.git
 python -m pip install bokeh==2.4.3
 
 # Debug information
-asd_init_debug_file="/opt/asd/asd-container-build-versions.txt"
 
 echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" | tee -a $asd_init_debug_file
 python --version 2> /dev/null | tee -a $asd_init_debug_file
@@ -290,7 +289,7 @@ export LD_LIBRARY_PATH=/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/
 echo 'LD_LIBRARY_PATH="/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/:/usr/local/cuda-11.0/targets/x86_64-linux/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"' >> /etc/environment
 
 # Setting Python PATH
-echo 'PYTHONPATH="/opt/asd/python-asd/src/asd/"' >> /etc/environment
+echo 'PYTHONPATH="/opt/asd/python-asd/src/asd:/opt/asd/python-asd/src/asd/complexity:/opt/asd/python-asd/src/asd/complexity/dim_reduce:/opt/asd/python-asd/src/asd/predictability:/opt/asd/python-asd/src/asd/relevance:/opt/asd/python-asd/src/asd/relevance/ml:/opt/asd/python-asd/src/asd/relevance/utils"' >> /etc/environment
 
 # Protobuf settings
 curl -o /usr/local/lib/python3.8/dist-packages/google/protobuf/internal/builder.py https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py
