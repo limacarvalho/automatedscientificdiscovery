@@ -273,7 +273,7 @@ elif st.session_state["discovery_type"] == "Relevance":
             ###### Implement tbe code of Relevance ######
             @st.cache(allow_output_mutation=True)
             def relevance_discovery():
-                return_relevance = relevance.relevance(relevance_df, relevance_column, relevance_target, relevance_options)
+                return_relevance = relevance(relevance_df, relevance_column, relevance_target, relevance_options)
                 return return_relevance
 
             return_relevance = relevance_discovery()
