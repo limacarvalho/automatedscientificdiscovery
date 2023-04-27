@@ -1,82 +1,86 @@
-# Automated Scientific Discovery - Python
+![MPI IPP Logo](https://www.ipp.mpg.de/assets/institutes/headers/ipp-desktop-de-5b77946a9fe513bfee29e3020802db2cab74d92e920731557a284e1ef9261788.svg)
 
-![OS](https://img.shields.io/badge/OS-Linux-red?style=flat&logo=linux)
-[![made-with-python](https://img.shields.io/badge/Made%20with-Python%203.8-1f425f.svg?logo=python)](https://gitlab.com/automatedscientificdiscovery)
-[![Docker](https://img.shields.io/badge/Docker-available-green.svg?style=flat&logo=docker)](https://gitlab.com/automatedscientificdiscovery)
-[![Maintenance](https://img.shields.io/badge/Maintained-yes-green.svg)](https://gitlab.com/automatedscientificdiscovery)
-[![GitHub](https://img.shields.io/github/license/emalderson/ThePhish)](https://gitlab.com/automatedscientificdiscovery)
-[![Documentation](https://img.shields.io/badge/Documentation-complete-green.svg?style=flat)](https://gitlab.com/automatedscientificdiscovery)
+# Automated Scientific Discovery (ASD)
 
-⚡ Python-related code ⚡
+Automated Scientific Discovery is an open-source Machine Learning/Bayesian Statistics tool aimed at discovering predictability and categories in scientific databases. This tool is designed for scientists without AI domain knowledge and 
+focuses on a limited signal domain (scientific signals/parameters) and a limited purpose (finding predictability).
 
-## Access/Clone repository
-- Make sure you have git installed on your local machine
-  - If not get the latest version from https://git-scm.com/downloads or install using the appropriate package manager (eg. brew, choco, apt, etc)
-- Run ```git clone https://gitlab.com/automatedscientificdiscovery/python-asd.git``` from a directory of your choice in your local machine  (if prompted enter your GitLab credentials)
-- Access the newly download folder
-- Run ```git checkout develop```
-- Create your own project-related folder (eg. predictability, complexity, relevance, etc)
--  Upload your code to the newly created folder
-- Make sure to change directories to the git repository main directory (eg. python-asd)
-- Run ```git add *```
-- Run ```git status```
-- Verify that the files you want to upload/push are listed in the command output, and that temp files or cache files are not (eg. pyc, wheel, .DS_Store, etc)
-- Run ```git commit -m "REPLACE HERE WITH A MEANINGFUL MESSAGE"```
-- Run ```git push``` (if prompted, enter your GitLab credentials)
+## Features
+
+-   Utilizes MLP neural networks, Kernel density estimation, and Gaussian processes
+-   Employs Bayesian methods for optimizing hyperparameters and calculating uncertainties
+-   Considers errors on input parameters
+-   Novelty detection for analyzing points and detecting novel features
+-   Sensitivity analysis for identifying relevant predictive parameters
+-   Built upon widely used tools such as Ray.io, Torch, XGBoost, Streamlit, Sklearn, Scipy, Optuna, etc
+-   Tested on datasets from nuclear fusion and climate science
+
+## Milestones
+
+1.  **Automatic Model Training**: Demonstrate fully automatic training of 2-3 machine learning models for predicting certain phenomena from given indicators. Models should handle uncertainties, including errors on variables and 
+predictive errors.
+2.  **Automated Clustering**: Demonstrate fully automated clustering in scientific datasets.
+3.  **Visualization Techniques**: Demonstrate visualization techniques for dataset exploration, and specialized visualizations for identifying potential problems in datasets used for machine learning model training.
+4.  **Cross-domain Application**: Demonstrate the system working on at least two datasets from different research fields: nuclear fusion and climate science.
+
+## Future Extensions
+
+-   Application to other research fields in the Helmholtz group
+-   Multi-Cloud backend support for multiprocessing/parallel jobs
+-   Higher level discovery: automated searches for predictability or clusters in whole databases
+-   Automated design of experiments (using Bayesian optimization)
+-   Discovering symbolic expressions (through Bayesian Program Synthesis)
+-   Phase space analysis
+-   Algorithmic complexity theory
+
+## Supported Platforms / Requirements
+- Linux x86_64 (bash or zsh)
+- Docker Engine 23.0.0+
+- 50GB+ local disk space available
+- Core i5+ (or comparable processor) 16GB+ RAM
+- No Apple silicon (M1, M2, etc) supported (further testing and adjustments needed))
+- No GPU support currently (still in development)
+
+## Getting Started
+
+1. Open up your terminal of choice and run the following command:
+```bash
+curl https://raw.githubusercontent.com/limacarvalho/automatedscientificdiscovery/main/src/container/asd.sh -o asd.sh && bash asd.sh
+```
+2. Wait for the container creation/build process to finish (it can take from a few minutes up to an hour depending on local resources available like CPU and mem), you will be able to get the access instructions when the execution 
+finishes up successfully:
+
+```text
++----------------------------------------------------------------------------+
+|             +++ The ASD Container is currently running +++                 |
++-----------------------------------------+----------------------------------+
+| To stop the container run:              | docker container stop asd        |
+| To delete the container run:            | docker container rm asd          |
++-----------------------------------------+----------------------------------+
+
+...
+
+  You can now view your Streamlit app in your browser.
+
+  Network URL: http://172.17.0.2:80
+  External URL: http://18.156.6.181:80
+```
+
+## Main contributors
+- Jakob Svensson (Specialising in Bayesian modelling and AI applied to scientific problems. Seed eScience Research Ltd. PhD physics. Formerly Max Planck Inst. for Plasma physics) ([Researchgate 
+link](https://www.researchgate.net/profile/Jakob-Svensson-5))
+- Michael Koehn (Principal AI Consultant) ([Koehn AI](https://www.koehn.ai/en/))
+- David Winnekens (AI Consultant) ([Koehn AI](https://www.koehn.ai/en/))
+- Kay Eckelt (Senior Data-Science & Research Consultant, Nuclear Fusion) ([Linkedin](https://www.linkedin.com/in/kay-eckelt-phd/?originalSubdomain=es))
+- Wasif Masood (Senior Data Science) ([EmpirischTech](https://empirischtech.at/))
+- Gerrit Tombrink (Data Scientist | Data Visualization) ([GEOLINKED](https://geolinked.de/))
+- João Carvalho (Software / Cloud Engineer) (limacarvalho.com)
+
 
 ## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
-As much as possible, try to follow the following rules/guidelines during development:
-- Try to use Python3.7.7 or latest (To use Ray in the Cluster Python=3.7.7 is needed)
-- Document code whenever feasible using docstrings and comments
-- Do not push code containing API Keys, secrets or any other sensitive information
-- Implement timeouts, retries, and backoff with jitter whenever dependent on external APIs
-- [Type-hints](https://docs.python.org/3/library/typing.html) are recommended
-- Try to follow code formatting rules as described in the PEP8 whenever possible. Use the python module [black](https://github.com/psf/black)
-- Push code to "develop" branch and when validate initiate a pull request to "master"
-- Always make sure to include the requirements.txt file (can be generated from your command line using pip freeze > requirements.txt) or the conda environment list of packages (conda env export > environment. yml) 
-- Rules for Python variables:
-  - A variable name must start with a letter or the underscore character
-  - A variable name cannot start with a number
-  - A variable name can only contain alpha-numeric characters and underscores (A-z, 0-9, and _ )
-  - Variable names are case-sensitive (age, Age and AGE are three different variables)
-- Rules for Python classes:
-  - Start each word with a capital letter. Do not separate words with underscores. This style is called camel case or pascal case.	
-- Do not use hardcoded filesystem references in your code like '/Users/joaocarvalho/Downloads/code_example.py' instead use the pathlib module or any other similar module to deal with filesystem paths
-- Use try/except/else/finally blocks in your code to allow proper error handling and retries
-- Use the logging module instead of 'print' statements (https://blog.sentry.io/2022/07/19/logging-in-python-a-developers-guide/)
-- Use reStructured Text for Docstrings (Sphinx Style) https://www.datacamp.com/tutorial/docstrings-python#sphinx-style:
-  ```class Vehicle(object):
-    '''
-    The Vehicle object contains lots of vehicles
-    :param arg: The arg is used for ...
-    :type arg: str
-    :param `*args`: The variable arguments are used for ...
-    :param `**kwargs`: The keyword arguments are used for ...
-    :ivar arg: This is where we store arg
-    :vartype arg: str
-    '''
-
-
-    def __init__(self, arg, *args, **kwargs):
-        self.arg = arg
-
-    def cars(self, distance, destination):
-        '''We can't travel a certain distance in vehicles without fuels, so here's the fuels
-
-        :param distance: The amount of distance traveled
-        :type amount: int
-        :param bool destinationReached: Should the fuels be refilled to cover required distance?
-        :raises: :class:`RuntimeError`: Out of fuel
-
-        :returns: A Car mileage
-        :rtype: Cars
-        '''  
-        pass
-    ```
-- Please make sure to update tests as appropriate.
+We welcome contributions to improve and extend the project. Please follow the guidelines in CONTRIBUTING.md to submit your changes.
 
 ## License
-[MIT License](https://en.wikipedia.org/wiki/MIT_License)
 
+This project is licensed under the MIT License - see the LICENSE file for details.
