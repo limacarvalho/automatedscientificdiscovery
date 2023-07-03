@@ -1,5 +1,8 @@
 # Standard library imports
 import io
+import csv
+import random
+from typing import NoReturn
 
 # Third party imports
 import pandas as pd
@@ -8,6 +11,46 @@ from pathlib import Path
 from pandas_profiling import ProfileReport
 from streamlit_pandas_profiling import st_profile_report
 
+import csv
+import random
+from typing import NoReturn
+
+
+def generate_csv(size_mb: int) -> NoReturn:
+    """
+    Generate a CSV file of a specified size in megabytes with randomly generated data,
+    including some duplicated values for realism.
+
+    The CSV file has rows of 10 cells, each cell with a floating point number of 17 digits.
+
+    Parameters:
+    size_mb (int): The size of the CSV file to be generated, in megabytes.
+
+    Returns:
+    NoReturn: This function doesn't return anything; it writes to a CSV file.
+
+    """
+    # The row_size is calculated by taking into account that each row has 10 cells with 17 digits and a comma separator
+    row_size = 10 * 17 + 10
+    rows = int(size_mb * 1024 * 1024 / row_size)
+    file_name = f"{size_mb}mb_data.csv"
+    last_row = []
+
+    with open(file_name, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+
+        # For each row, generate a list of 10 random floating point numbers each having 17 digits
+        random_int_for_duplicates = random.randint(2, 5)
+        for i in range(rows):
+            if i % random_int_for_duplicates == 0:  # A random integer between 2 and 5 is used to calculate which row is duplicated for some realism
+                data = last_row
+            else:
+                data = [str(random.uniform(-999999999999999.0, 999999999999999.0)) for _ in range(10)]
+                last_row = data
+
+            # Write the generated data to the CSV file
+            writer.writerow(data)
+
 # Set streamlit layout
 st.set_page_config(layout="wide")
 
@@ -15,15 +58,15 @@ st.set_page_config(layout="wide")
 main_asd_path = Path(__file__).parents[1]
 
 # Implement mainframe output
-st.title("Data summary of the input data")
+st.title("Summary of the input data")
 st.markdown("")
 st.markdown("")
 
 # Implement sidebar output
-st.sidebar.header("Data selection:")
+st.sidebar.header("Upload CSV dataset:")
 
 # Implement sidebar upload button
-file_upload = st.sidebar.file_uploader("Please, open your .csv file", type=["csv"])
+file_upload = st.sidebar.file_uploader("Please, load your .csv file", type=["csv"])
 
 # Implement if statements based on file uploader
 if file_upload is not None:
@@ -37,12 +80,14 @@ if file_upload is not None:
     st.markdown("")
     st.markdown("")
 elif "df_input" not in st.session_state:
-    st.write("The default dataset contains Covid 2020 data. If you want a different dataset, please upload a .csv file.")
+    st.write("The automatically loaded dataset contains randomly generated numerical data for demo purposes. Please upload your .csv file, using the right-menu section 'Upload CSV dataset'.")
     st.write("")
     st.write("")
-    df_input = pd.read_csv(f"{main_asd_path}/datasets/20220727_covid_159rows_52cols_2020.csv")
+    # Generates a random numerical dataset (~ approximately 10 MB in size)
+    generate_csv(10)
+    df_input = pd.read_csv(f"10mb_data.csv")
     st.session_state["df_input"] = df_input
-    st.write("As a brief overview, the default dataset (Covid) is displayed:")
+    st.write("As a brief overview, the default dataset (randomly generated) is displayed:")
     st.dataframe(df_input)
     st.markdown("")
     st.markdown("")
