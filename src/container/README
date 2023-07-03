@@ -1,16 +1,41 @@
-# ASD - Docker Container Image
+# ASD Docker Container
 
--> Description Here
+This is a Docker container for the Automated Scientific Discovery (ASD) project. The ASD project is a Python module/app that automatically discovers hidden relationships in the measurement data. The Docker image is based on the tensorflow/tensorflow:2.12.0 image. Although, the ASD module does not directly depend or use tensorflow, we decided to include the library due to its popularity and adoption in the Software Development and Scientific communities.
 
-## Installation
+## Requirements
 
--> Description Here
-
-```bash
-pip install asd
-```
+1. Docker (The script checks if Docker is installed on your machine)
 
 ## Usage
 
--> Code Here
+1. Clone this repository to your local machine.
+2. Change folders and run the setup script with `bash asd.sh`.
+    - The script will check if Docker is installed on your machine.
+    - If Docker is not installed, the script will output an error message and exit.
+    - If Docker is installed, the script will create a Dockerfile and a setup_init.sh file in the ~/.asd_container directory.
+    - It will then build a Docker image named `asd:<VERSION_NUMBER_HARDCODED_IN_SCRIPT>`.
+3. If the Docker image is successfully built, you can start a container with the following command:
+   ```bash
+   docker run --name asd -p 80:80 -d asd:<VERSION_NUMBER_HARDCODED_IN_SCRIPT>
+   ```
+4. Access the running application in your browser at http://localhost:80
 
+## Stopping and removing the container
+
+To stop the running container, use the following command:
+```bash
+docker container stop asd
+```
+
+To remove the container after stopping it, use the following command:
+```bash
+docker container rm asd
+```
+
+## Note
+
+The Docker image exposes port 80, which is mapped to port 80 of the host machine in the above `docker run` command. If you want to change the port mapping, you can do so by changing the `-p` option in the `docker run` command. For example, to map the container's port 80 to port 8080 of the host machine, you can use the following command:
+```bash
+docker run --name asd -p 8080:80 -d asd:<VERSION_NUMBER_HARDCODED_IN_SCRIPT>
+```
+In this case, you can access the running application in your browser at http://localhost:8080 (SSL is going to be implemented in the future)

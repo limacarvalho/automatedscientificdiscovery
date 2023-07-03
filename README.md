@@ -2,14 +2,13 @@
 
 # Automated Scientific Discovery (ASD)
 
-Automated Scientific Discovery is an open-source Machine Learning/Bayesian Statistics tool aimed at discovering predictability and categories in scientific databases. This tool is designed for scientists without AI domain knowledge and 
+Automated Scientific Discovery is an open-source Machine Learning/Bayesian Statistics tool aimed at discovering predictability and useful information in scientific databases/datasets. This tool is designed for scientists without AI domain knowledge and 
 focuses on a limited signal domain (scientific signals/parameters) and a limited purpose (finding predictability).
 
 ## Features
 
 -   Utilizes MLP neural networks, Kernel density estimation, and Gaussian processes
 -   Employs Bayesian methods for optimizing hyperparameters and calculating uncertainties
--   Considers errors on input parameters
 -   Novelty detection for analyzing points and detecting novel features
 -   Sensitivity analysis for identifying relevant predictive parameters
 -   Built upon widely used tools such as Ray.io, Torch, XGBoost, Streamlit, Sklearn, Scipy, Optuna, etc
