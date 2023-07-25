@@ -18,7 +18,6 @@ private_key_path: /var/lib/headscale/private.key
 noise:
   private_key_path: /var/lib/headscale/noise_private.key
 ip_prefixes:
-  - fd7a:115c:a1e0::/48
   - 100.64.0.0/10
 derp:
   server:
@@ -55,7 +54,7 @@ dns_config:
     - 1.1.1.1
   domains: []
   magic_dns: true
-  base_domain: example.com
+  base_domain: localdomain
 unix_socket: /var/run/headscale/headscale.sock
 unix_socket_permission: "0770"
 logtail:
@@ -69,14 +68,8 @@ screen -dmS headscale bash -c "/usr/bin/headscale serve | tee -a /tmp/headscale_
 # Create a user named "asd" in headscale
 headscale users create asd
 
-# Create a reusable pre-authorization key for user "asd"
-export headscale_preauthkey=$(headscale preauthkeys create --reusable --user asd)
-
-# Print out important variables
-echo -e "-----------------------HEADSCALE VARIABLES----------------------------"
-echo -e "VAR_IPV4: $public_ipv4"
-echo -e "VAR_NODES_AUTH_KEY: $headscale_preauthkey"
-echo -e "----------------------------------------------------------------------"
+# Create a reusable pre-authorization key for user "asd", valid for 1 year (8760 h)
+export headscale_preauthkey=$(headscale preauthkeys create --reusable --expiration 8760h --user asd)
 
 # Sleep for 1 minute
 sleep 60
@@ -87,6 +80,11 @@ do
     # Get current time in ISO 8601 format
     current_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+    echo -e "-----------------------HEADSCALE VARIABLES----------------------------"
+    echo -e "VAR_IPV4: $public_ipv4"
+    echo -e "VAR_NODES_AUTH_KEY: $headscale_preauthkey"
+    echo -e "----------------------------------------------------------------------"
+    echo -e ""
     echo -e "-------------------RETRIEVING REGISTERED NODES------------------------"
     echo -e "TIMESTAMP: $current_time"
 

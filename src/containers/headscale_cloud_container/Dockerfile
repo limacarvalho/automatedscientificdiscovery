@@ -1,8 +1,8 @@
 FROM ubuntu:22.04
 
 LABEL project='Automated Scientific Discovery (ASD)'
-LABEL container.version='1.0'
-LABEL container.creation.date='21Jul2023'
+LABEL container.version='1.2'
+LABEL container.creation.date='25Jul2023'
 
 COPY . /app
 

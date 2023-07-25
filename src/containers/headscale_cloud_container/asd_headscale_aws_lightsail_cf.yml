@@ -8,7 +8,7 @@ Resources:
       ContainerServiceDeployment:
         Containers:
           - ContainerName: headscale
-            Image: 'johncarvalho/asd-dev:headscale2.0'
+            Image: 'johncarvalho/asd-dev:headscale1.2'
             Ports:
               - Port: '80'
                 Protocol: HTTP
