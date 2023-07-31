@@ -3,16 +3,11 @@
 #! Make sure to regularly update the tailscale version and system packages
 
 # -----------------------------------------------------------------------------
-# System environment variables
+# System Hostname
 # -----------------------------------------------------------------------------
 
-# Set VM hostname
 sudo hostname ray-node
 sudo hostnamectl set-hostname ray-node
-# Set system wide variables
-echo "aws_lightsail_headscale_svc_name=headscale-asd" >> /etc/environment
-echo "aws_lightsail_headscale_container_name=headscale" >> /etc/environment
-echo "tailscale_hostname=ray-node" >> /etc/environment
 
 # -----------------------------------------------------------------------------
 # OS packages installation
@@ -409,8 +404,15 @@ source $HOME/.bashrc
 # -----------------------------------------------------------------------------
 
 # Create Tailscale connect script file used by systemd
-cat << 'EOF' > /opt/asd/tailscale_connect_service.sh
-#!/bin/bash
+tailscale_connect_service_path='/opt/asd/tailscale_connect_service.sh'
+sudo echo "#!/bin/bash" >> $tailscale_connect_service_path
+sudo echo -e "" >> $tailscale_connect_service_path
+sudo echo "aws_lightsail_headscale_svc_name=headscale-asd" >> $tailscale_connect_service_path
+sudo echo "aws_lightsail_headscale_container_name=headscale" >> $tailscale_connect_service_path
+sudo echo "tailscale_hostname=ray-node" >> $tailscale_connect_service_path
+sudo echo "aws_region=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r '.region')" >> $tailscale_connect_service_path
+
+cat << 'EOF' >> $tailscale_connect_service_path
 
 # Prevent Multiple Instances. Implements locking mechanism to prevent multiple instances from running
 lockfile="/tmp/mylockfile"
@@ -464,6 +466,9 @@ tailscale() {
 tailscale
 EOF
 
+# Make script executable
+chmod +x $tailscale_connect_service_path
+
 # Create Tailscale connect systemd config file
 cat << 'EOF' > /etc/systemd/system/tailscale-connect.service
 [Unit]
@@ -481,10 +486,10 @@ EOF
 # Create Tailscale connect systemd timer
 cat << 'EOF' > /etc/systemd/system/tailscale-connect.timer
 [Unit]
-Description=Runs Tailscale Connect script every 15 minutes
+Description=Runs Tailscale Connect script every 10 minutes
 
 [Timer]
-OnCalendar=*:0/15
+OnCalendar=*:0/10
 Persistent=true
 
 [Install]
