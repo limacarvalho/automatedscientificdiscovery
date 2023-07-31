@@ -1,6 +1,6 @@
 # ASD Docker Container
 
-This is a Docker container for the Automated Scientific Discovery (ASD) project. The ASD project is a Python module/app that automatically discovers hidden relationships in the measurement data. The Docker image is based on the tensorflow/tensorflow:2.12.0 image. Although, the ASD module does not directly depend or use tensorflow, we decided to include the library due to its popularity and adoption in the Software Development and Scientific communities.
+This is a Docker container for the Automated Scientific Discovery (ASD) project. The ASD project is a Python module/app that automatically discovers hidden relationships in the measurement data. The Docker image is based on the tensorflow/tensorflow:2.13.0 image. Although, the ASD module does not directly depend or use tensorflow, we decided to include the library due to its popularity and adoption in the Software Development and Scientific communities.
 
 ## Requirements
 

@@ -11,10 +11,10 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="asd",
-    version="0.1",
-    author='Arthur',
-    author_email='arthur@unknown.eu',
-    description="Routines for the ASD project",
+    version="1.0",
+    author='Joao Carvalho',
+    author_email='joao@limacarvalho.com',
+    description="ASD project",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(where="src"),
@@ -23,7 +23,7 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.8.10",
     install_requires=install_requirements,
     package_dir={"": "src"},
 )

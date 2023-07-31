@@ -3,12 +3,12 @@
 # +------------------------------+----------------------------------+
 # |              ASD Container runtime setup script                 |
 # +------------------------------+----------------------------------+
-# | Version                      | 1.0                              |
+# | Version                      | 1.1                              |
 # | Language                     | Linux Bash                       |
 # | Platform                     | x86_64                           |
 # | Input Parameters             | None                             |
-# | GPU / non-GPU support        | Yes / Yes                        |
-# | Runs on Docker Image         | tensorflow/tensorflow:2.11.0-gpu |
+# | GPU / non-GPU support        | No GPU Support                   |
+# | Runs on Docker Image         | tensorflow/tensorflow:2.13.0     |
 # +------------------------------+----------------------------------+
 
 # General OS dependencies installation
@@ -34,8 +34,6 @@ echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" | tee -a $asd_init
 python --version 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" | tee -a $asd_init_debug_file
 gcc --version 2> /dev/null | tee -a $asd_init_debug_file
-echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" | tee -a $asd_init_debug_file
-nvidia-smi 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" | tee -a $asd_init_debug_file
 nvcc --version 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" |  tee -a $asd_init_debug_file
@@ -114,7 +112,6 @@ google-auth
 google-auth-oauthlib
 google-pasta
 googleapis-common-protos
-gpustat
 graphviz
 greenlet
 griffe
@@ -209,7 +206,7 @@ pyviz-comms
 PyWavelets
 PyYAML
 qdldl
-ray[default]
+ray[default]==2.6.1
 ray[tune]
 readchar
 requests==2.27.0
@@ -284,30 +281,17 @@ python -m pip install -r /root/requirements.txt
 
 python -m pip freeze > /opt/asd/asd-requirements-with-versions.txt
 
-# Tensorflow settings
-export LD_LIBRARY_PATH=/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-echo 'LD_LIBRARY_PATH="/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/:/usr/local/cuda-11.0/targets/x86_64-linux/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"' >> /etc/environment
-
 # Setting Python PATH
 echo 'PYTHONPATH="/opt/asd/python-asd/src/asd:/opt/asd/python-asd/src/asd/complexity:/opt/asd/python-asd/src/asd/complexity/dim_reduce:/opt/asd/python-asd/src/asd/predictability:/opt/asd/python-asd/src/asd/relevance:/opt/asd/python-asd/src/asd/relevance/ml:/opt/asd/python-asd/src/asd/relevance/utils"' >> /etc/environment
 
 # Protobuf settings
 curl -o /usr/local/lib/python3.8/dist-packages/google/protobuf/internal/builder.py https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py
 
-# CUDA Numa Node settings (disabled by default)
-#cat /sys/bus/pci/devices/0000\:00\:1e.0/numa_node # if value != 0 then sudo echo 0 | sudo tee -a /sys/bus/pci/devices/0000\:00\:1e.0/numa_node in host machine
-#TODO "I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA"
-
 # Installation of R dependencies
-Rscript -e 'install.packages(c("base", "base64enc", "bit", "bit64", "boot", "class", "cluster", "codetools", "compiler", "CVXR", "datasets", "dbscan", "digest", "ECOSolveR", "evaluate", "fastcluster", "fastmap", "foreign", "glue", "gmp", "graphics", "grDevices", "grid", "highr", "htmltools", "htmlwidgets", "jsonlite", "KernSmooth", "knitr", "labdsv", "lattice", "magrittr", "maotai", "MASS", "Matrix", "mclustcomp", "methods", "mgcv", "minpack.lm", "nlme", "nnet", "osqp", "parallel", "R6", "RANN", "rbibutils", "Rcpp", "RcppArmadillo", "RcppDE", "RcppDist", "RcppEigen", "Rcsdp", "Rdimtools", "rdist", "Rdpack", "rgl", "rlang", "Rmpfr", "rpart", "RSpectra", "Rtsne", "scatterplot3d", "scs", "shapes", "spatial", "splines", "stats", "stats4", "stringi", "stringr", "survival", "tcltk", "tools", "utils", "xfun", "yaml"), repos="https://cloud.r-project.org")' | tee -a /opt/asd/asd-container-r-dependencies-installation-log.txt
+Rscript -e 'install.packages(c("base", "base64enc", "bit", "bit64", "boot", "class", "cluster", "codetools", "compiler", "CVXR", "datasets", "dbscan", "digest", "ECOSolveR", "evaluate", "fastcluster", "fastmap", "foreign", "glue", "gmp", "graphics", "grDevices", "grid", "highr", "htmltools", "htmlwidgets", "jsonlite", "KernSmooth", "knitr", "labdsv", "lattice", "magrittr", "maotai", "MASS", "Matrix", "mclustcomp", "methods", "mgcv", "minpack.lm", "nlme", "nnet", "osqp", "parallel", "R6", "RANN", "rbibutils", "Rcpp", "RcppArmadillo", "RcppDE", "RcppDist", "RcppEigen", "Rcsdp", "Rdimtools", "rdist", "Rdpack", "rgl", "rlang", "Rmpfr", "rpart", "RSpectra", "Rtsne", "scatterplot3d", "scs", "shapes", "spatial", "splines", "stats", "stats4", "stringi", "stringr", "survival", "tcltk", "tools", "utils", "xfun", "yaml"), repos="https://cloud.r-project.org")' | tee -a /opt/asd/$CONTAINER_NAME-r-dependencies-installation-log.txt
 
 # Clone the ASD git repository (excluding the 'container folder')
-git clone --depth 1 --filter=blob:none --sparse https://gitlab+deploy-token-1651733:jUZKE9xQWjsFxS3yU-2s@gitlab.com/automatedscientificdiscovery/python-asd.git /opt/asd/python-asd
+git clone https://github.com/limacarvalho/automatedscientificdiscovery.git /opt/asd/python-asd
 cd /opt/asd/python-asd
-git sparse-checkout init --cone
-git sparse-checkout set --no-cone '/*' '!src/container'
-# git sparse-checkout set src (Only clones the src/ folder and all content in it, ignoring all the remaining folders. Files on the top directory are cloned)
-# git sparse-checkout set --no-cone '/*' '!src/asd/datasets' '!src/asd/anyotherfolder' (Clones all the repoitory except for the folders specified)
-# More info about git sparse checkout at https://git-scm.com/docs/git-sparse-checkout
 
 exit 0

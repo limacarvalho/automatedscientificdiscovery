@@ -1,0 +1,66 @@
+# Automated Scientific Discovery (ASD) - CloudFormation - Template
+# Headscale server (https://github.com/juanfont/headscale)
+# To deploy, just access the AWS Console -> CloudFormation -> (Choose the AWS Region) -> Create Stack -> Create template in Designer
+# Paste the following template and trigger the deployment
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Creates an Amazon Lightsail publicly accessible container in the specified AWS region
+
+# -----------------------------------------------------------------------------
+# Parameters
+# -----------------------------------------------------------------------------
+Parameters:
+  HeadscaleServiceName:
+    Description: Name of the Lightsail service for the Headscale server
+    Default: headscale-asd
+    Type: String
+
+  HeadscaleContainerImage:
+    Description: Name of the custom created headscale container image for the ASD project
+    Default: johncarvalho/asd-dev:headscale1.2
+    Type: String
+
+# -----------------------------------------------------------------------------
+# Metadata
+# -----------------------------------------------------------------------------
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: General Settings
+        Parameters:
+          - HeadscaleServiceName
+          - HeadscaleContainerImage
+    ParameterLabels:
+      HeadscaleServiceName:
+        default: Lightsail service name
+      HeadscaleContainerImage:
+        default: Docker hub container image name
+# -----------------------------------------------------------------------------
+# Resources
+# -----------------------------------------------------------------------------
+Resources:
+  HeadScaleLightsailContainerService:
+    Type: 'AWS::Lightsail::Container'
+    Properties:
+      ServiceName: !Ref HeadscaleServiceName
+      Power: nano
+      Scale: 1
+      ContainerServiceDeployment:
+        Containers:
+          - ContainerName: headscale
+            Image: !Ref HeadscaleContainerImage
+            Ports:
+              - Port: '80'
+                Protocol: HTTP
+        PublicEndpoint:
+          ContainerName: headscale
+          ContainerPort: 80
+          HealthCheckConfig:
+            HealthyThreshold: 2
+            UnhealthyThreshold: 10
+            TimeoutSeconds: 59
+            IntervalSeconds: 60
+            Path: /
+            SuccessCodes: 200-499

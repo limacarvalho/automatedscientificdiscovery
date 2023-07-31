@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation Template to Create IAM Role, Security Group, and Auto Scaling Group'
+
+# -----------------------------------------------------------------------------
+# Parameters
+# -----------------------------------------------------------------------------
+Parameters:
+  InstanceType:
+    Description: 'EC2 instance type'
+    Type: 'String'
+    Default: 't3.xlarge'
+    AllowedValues: 
+      - 't3.xlarge'
+      - 'm5a.xlarge'
+      - 'm5a.2xlarge'
+      - 'm5a.4xlarge'
+      - 'c6a.2xlarge'
+      - 'c6a.4xlarge'
+      - 'c6a.8xlarge'
+      - 'c6a.12xlarge'
+      - 'c6a.16xlarge'
+    ConstraintDescription: 'Must be a valid EC2 instance type.'
+
+  VpcId:
+    Type: List<AWS::EC2::VPC::Id>
+    Description: VPC ID where the EC2 instance will be deployed
+
+  SubnetId:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet Id where the EC2 is going to be deployed to'
+
+  Ec2PublicIpAddress:
+    Description: 'Option to set if EC2 instance has public IPv4 address'
+    Default: 'false'
+    Type: 'String'
+
+  UserDataScriptUrl:
+    Description: 'EC2 UserData Script Web accessible URL'
+    Default: 'https://gist.githubusercontent.com/limacarvalho/14263a6fcbf18bbe18302fb9370c3566/raw/a0694b06da9c0e932d0e8c1089b1503989d05c83/ec2_ami_script.sh'
+    Type: 'String' 
+
+  EbsVolumeSize:
+    Description: 'Size for the EC2 EBS volume'
+    Type: 'Number'
+    Default: 150
+
+  AutoScalingGroupMaxSize:
+    Description: 'Maximum Size, in units, for the EC2 Ray nodes Auto Scaling Group'
+    Type: 'String'
+    Default: '4'
+
+  Ec2AmiId:
+    Description: 'EC2 AMI Id to be used in the Auto Scaling Group'
+    Default: 'TODO'
+    Type: 'String' 
+
+# -----------------------------------------------------------------------------
+# Resources
+# -----------------------------------------------------------------------------
+Resources:
+  LightsailFullAccessRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: 'ec2.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy      
+      Policies:
+        - PolicyName:
+            Fn::Sub: ${AWS::StackName}-LightsailFullAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action: 'lightsail:*'
+                Resource: '*'
+        - PolicyName:
+            Fn::Sub: ${AWS::StackName}-Read-Secret
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              Resource:
+                - !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key*"
+            - Effect: Allow
+              Action:
+              - secretsmanager:GetResourcePolicy
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+              - secretsmanager:ListSecretVersionIds
+              Resource:
+                - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*"
+
+  InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: '/'
+      Roles:
+        - !Ref LightsailFullAccessRole
+
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Join [ '', !Ref VpcId ]
+      GroupDescription: 'Security group with no incoming traffic and all outbound traffic allowed'
+      SecurityGroupIngress: []
+      SecurityGroupEgress:
+        - CidrIp: '0.0.0.0/0'
+          IpProtocol: '-1'
+
+  LaunchConfiguration:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref Ec2AmiId
+      SecurityGroups:
+        - !Ref SecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: !Ref EbsVolumeSize
+            DeleteOnTermination: true
+            Encrypted: true
+      IamInstanceProfile: !Ref InstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+    -->   TODO
+          # Execute main installation script
+          curl ${UserDataScriptUrl} -o $HOME/ec2_ami_script.sh
+          chmod +x $HOME/ec2_ami_script.sh
+          bash -c $HOME/ec2_ami_script.sh | tee -a /tmp/ec2_ami_script.log
+
+  AutoScalingGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      VPCZoneIdentifier: !Join [ '', !Ref SubnetId ]
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      MinSize: '1'
+      MaxSize: !Ref AutoScalingGroupMaxSize
+      DesiredCapacity: '1'
+      Tags:
+        - Key: Name
+          Value: ASD-Ami-Creation-Instance
+          PropagateAtLaunch: true
+
+Outputs:
+  AutoScalingGroup:
+    Description: 'Auto Scaling Group Name'
+    Value: !Ref AutoScalingGroup
