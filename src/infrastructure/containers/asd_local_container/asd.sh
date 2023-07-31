@@ -1,12 +1,15 @@
 #!/bin/bash
 
+IMAGE_NAME="asd"
+IMAGE_VERSION="1.1"
+CONTAINER_NAME="asd"
+HTTP_PORT="80"
+
 # Check if docker is installed
-docker --version
-if [ $? -ne 0 ]; then
-    echo "!!! ERROR !!! Docker not installed"
-    exit 1
-else
-    echo "+++ Docker is available +++"
+if ! command -v docker &> /dev/null
+then
+    echo "Docker could not be found. Please install Docker."
+    exit
 fi
 
 # ASD Folder
@@ -15,33 +18,32 @@ mkdir -p $asd_folder
 
 # Create Dockerfile locally
 cat << EOFMAIN > $asd_folder/Dockerfile
-FROM tensorflow/tensorflow:2.11.0-gpu
+FROM tensorflow/tensorflow:2.13.0
 LABEL "com.asd.project"="Automated Scientific Discovery"
-LABEL version="1.0"
+LABEL version=$IMAGE_VERSION
 LABEL description="The Automated Scientific Discovery project is a Python module/app that automatically discovers hidden relationships in the measurement data."
 COPY . /opt/asd/
 RUN chmod +x /opt/asd/setup_init.sh && /opt/asd/setup_init.sh
-ENV LD_LIBRARY_PATH="/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/:/usr/local/cuda-11.0/targets/x86_64-linux/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
 ENV PYTHONPATH="/opt/asd/python-asd/src/asd:/opt/asd/python-asd/src/asd/complexity:/opt/asd/python-asd/src/asd/complexity/dim_reduce:/opt/asd/python-asd/src/asd/predictability:/opt/asd/python-asd/src/asd/relevance:/opt/asd/python-asd/src/asd/relevance/ml:/opt/asd/python-asd/src/asd/relevance/utils"
-EXPOSE 80/tcp
+EXPOSE $HTTP_PORT/tcp
 RUN chmod +x /opt/asd/asd_exec.sh
 CMD /opt/asd/asd_exec.sh
 EOFMAIN
 
 # Create setup_init file locally
-asd_init_debug_file="/opt/asd/asd-container-build-versions.txt"
+asd_init_debug_file="/opt/asd/$CONTAINER_NAME-build-versions.txt"
 cat << EOFMAIN > $asd_folder/setup_init.sh
 #!/bin/bash
 
 # +------------------------------+----------------------------------+
 # |              ASD Container runtime setup script                 |
 # +------------------------------+----------------------------------+
-# | Version                      | 1.0                              |
+# | Version                      | $IMAGE_VERSION                              |
 # | Language                     | Linux Bash                       |
 # | Platform                     | x86_64                           |
 # | Input Parameters             | None                             |
-# | GPU / non-GPU support        | Yes / Yes                        |
-# | Runs on Docker Image         | tensorflow/tensorflow:2.11.0-gpu |
+# | GPU / non-GPU support        | No GPU Support                   |
+# | Runs on Docker Image         | tensorflow/tensorflow:2.13.0     |
 # +------------------------------+----------------------------------+
 
 # General OS dependencies installation
@@ -49,8 +51,22 @@ apt update -y
 DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
 add-apt-repository ppa:git-core/ppa -y
 apt update -y
-apt install git -y
-apt install nano pciutils r-base r-base-dev libgmp-dev libmpfr-dev -y
+apt install nano wget tar zip unzip screen less jq build-essential git gcc make openssl libssl-dev pciutils libffi-dev zlib1g-dev r-base r-base-dev libgmp-dev libmpfr-dev -y
+
+# Install nodejs
+curl -sL https://deb.nodesource.com/setup_18.x | bash -
+apt install -y nodejs
+
+# Install AWS CLI
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+./aws/install
+
+# Install tailscale
+curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list | tee /etc/apt/sources.list.d/tailscale.list  
+apt update
+apt install tailscale -y
 
 # Creates asd directory if not exist
 mkdir -p /opt/asd
@@ -67,8 +83,6 @@ echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" | tee -a $asd_init
 python --version 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" | tee -a $asd_init_debug_file
 gcc --version 2> /dev/null | tee -a $asd_init_debug_file
-echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" | tee -a $asd_init_debug_file
-nvidia-smi 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" | tee -a $asd_init_debug_file
 nvcc --version 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n+++++++++++++++++++++++++++++++++++++++++++++++\n" |  tee -a $asd_init_debug_file
@@ -147,7 +161,6 @@ google-auth
 google-auth-oauthlib
 google-pasta
 googleapis-common-protos
-gpustat
 graphviz
 greenlet
 griffe
@@ -242,7 +255,7 @@ pyviz-comms
 PyWavelets
 PyYAML
 qdldl
-ray[default]
+ray[default]==2.6.1
 ray[tune]
 readchar
 requests==2.27.0
@@ -317,49 +330,36 @@ python -m pip install -r /root/requirements.txt
 
 python -m pip freeze > /opt/asd/asd-requirements-with-versions.txt
 
-# Tensorflow settings
-export LD_LIBRARY_PATH=/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-echo 'LD_LIBRARY_PATH="/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/:/usr/local/cuda-11.0/targets/x86_64-linux/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"' >> /etc/environment
-
 # Setting Python PATH
 echo 'PYTHONPATH="/opt/asd/python-asd/src/asd:/opt/asd/python-asd/src/asd/complexity:/opt/asd/python-asd/src/asd/complexity/dim_reduce:/opt/asd/python-asd/src/asd/predictability:/opt/asd/python-asd/src/asd/relevance:/opt/asd/python-asd/src/asd/relevance/ml:/opt/asd/python-asd/src/asd/relevance/utils"' >> /etc/environment
 
 # Protobuf settings
 curl -o /usr/local/lib/python3.8/dist-packages/google/protobuf/internal/builder.py https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py
 
-# CUDA Numa Node settings (disabled by default)
-#cat /sys/bus/pci/devices/0000\:00\:1e.0/numa_node # if value != 0 then sudo echo 0 | sudo tee -a /sys/bus/pci/devices/0000\:00\:1e.0/numa_node in host machine
-#TODO "I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA"
-
 # Installation of R dependencies
-Rscript -e 'install.packages(c("base", "base64enc", "bit", "bit64", "boot", "class", "cluster", "codetools", "compiler", "CVXR", "datasets", "dbscan", "digest", "ECOSolveR", "evaluate", "fastcluster", "fastmap", "foreign", "glue", "gmp", "graphics", "grDevices", "grid", "highr", "htmltools", "htmlwidgets", "jsonlite", "KernSmooth", "knitr", "labdsv", "lattice", "magrittr", "maotai", "MASS", "Matrix", "mclustcomp", "methods", "mgcv", "minpack.lm", "nlme", "nnet", "osqp", "parallel", "R6", "RANN", "rbibutils", "Rcpp", "RcppArmadillo", "RcppDE", "RcppDist", "RcppEigen", "Rcsdp", "Rdimtools", "rdist", "Rdpack", "rgl", "rlang", "Rmpfr", "rpart", "RSpectra", "Rtsne", "scatterplot3d", "scs", "shapes", "spatial", "splines", "stats", "stats4", "stringi", "stringr", "survival", "tcltk", "tools", "utils", "xfun", "yaml"), repos="https://cloud.r-project.org")' | tee -a /opt/asd/asd-container-r-dependencies-installation-log.txt
+Rscript -e 'install.packages(c("base", "base64enc", "bit", "bit64", "boot", "class", "cluster", "codetools", "compiler", "CVXR", "datasets", "dbscan", "digest", "ECOSolveR", "evaluate", "fastcluster", "fastmap", "foreign", "glue", "gmp", "graphics", "grDevices", "grid", "highr", "htmltools", "htmlwidgets", "jsonlite", "KernSmooth", "knitr", "labdsv", "lattice", "magrittr", "maotai", "MASS", "Matrix", "mclustcomp", "methods", "mgcv", "minpack.lm", "nlme", "nnet", "osqp", "parallel", "R6", "RANN", "rbibutils", "Rcpp", "RcppArmadillo", "RcppDE", "RcppDist", "RcppEigen", "Rcsdp", "Rdimtools", "rdist", "Rdpack", "rgl", "rlang", "Rmpfr", "rpart", "RSpectra", "Rtsne", "scatterplot3d", "scs", "shapes", "spatial", "splines", "stats", "stats4", "stringi", "stringr", "survival", "tcltk", "tools", "utils", "xfun", "yaml"), repos="https://cloud.r-project.org")' | tee -a /opt/asd/$CONTAINER_NAME-r-dependencies-installation-log.txt
 
 # Clone the ASD git repository (excluding the 'container folder')
-git clone --depth 1 --filter=blob:none --sparse https://gitlab+deploy-token-1651733:jUZKE9xQWjsFxS3yU-2s@gitlab.com/automatedscientificdiscovery/python-asd.git /opt/asd/python-asd
+git clone https://github.com/limacarvalho/automatedscientificdiscovery.git /opt/asd/python-asd
 cd /opt/asd/python-asd
-git sparse-checkout init --cone
-git sparse-checkout set --no-cone '/*' '!src/containers/asd_local_container'
-# git sparse-checkout set src (Only clones the src/ folder and all content in it, ignoring all the remaining folders. Files on the top directory are cloned)
-# git sparse-checkout set --no-cone '/*' '!src/asd/datasets' '!src/asd/anyotherfolder' (Clones all the repoitory except for the folders specified)
-# More info about git sparse checkout at https://git-scm.com/docs/git-sparse-checkout
 
 exit 0
 EOFMAIN
 
 # Create asd_exec file locally
-asd_init_debug_file="/opt/asd/asd-container-start-versions.txt"
+asd_init_debug_file="/opt/asd/$CONTAINER_NAME-start-versions.txt"
 cat << EOFMAIN > $asd_folder/asd_exec.sh
 #!bin/bash
 
 # +------------------------------+----------------------------------+
 # |                 ASD Container runtime script                    |
 # +------------------------------+----------------------------------+
-# | Version                      | 1.0                              |
+# | Version                      | $IMAGE_VERSION                              |
 # | Language                     | Linux Bash                       |
 # | Platform                     | x86_64                           |
 # | Input Parameters             | None                             |
-# | GPU / non-GPU support        | Yes / Yes                        |
-# | Runs on Docker Image         | tensorflow/tensorflow:2.11.0-gpu |
+# | GPU / non-GPU support        | No GPU Support                   |
+# | Runs on Docker Image         | tensorflow/tensorflow:2.13.0     |
 # +------------------------------+----------------------------------+
 
 # Debug information
@@ -374,15 +374,13 @@ lscpu 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n===============================================\n" |  tee -a $asd_init_debug_file
 lsmem 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
-nvidia-smi 2> /dev/null | tee -a $asd_init_debug_file
-echo -e "\n===============================================\n" | tee -a $asd_init_debug_file
 nvcc --version 2> /dev/null | tee -a $asd_init_debug_file
 echo -e "\n===============================================\n" |  tee -a $asd_init_debug_file
 
 # Success message
 cat > /tmp/success_msg.txt <<- EOM
 
---> Localhost URL: http://localhost:80
+--> Localhost URL: http://localhost:$HTTP_PORT
 
 +----------------------------------------------------------------------------+
 |             +++ The ASD Container is currently running +++                 |
@@ -393,20 +391,19 @@ cat > /tmp/success_msg.txt <<- EOM
 EOM
 
 # Setting up necessary variables for execution
-export LD_LIBRARY_PATH="/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib/:/usr/local/cuda-11.0/targets/x86_64-linux/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
 export PYTHONPATH="/opt/asd/python-asd/src/asd:/opt/asd/python-asd/src/asd/complexity:/opt/asd/python-asd/src/asd/complexity/dim_reduce:/opt/asd/python-asd/src/asd/predictability:/opt/asd/python-asd/src/asd/relevance:/opt/asd/python-asd/src/asd/relevance/ml:/opt/asd/python-asd/src/asd/relevance/utils"
 
 # Starts main ASD Python Stremlit app
 cat /tmp/success_msg.txt
-streamlit run /opt/asd/python-asd/src/asd/Home.py --server.port 80 --logger.level debug
+streamlit run /opt/asd/python-asd/src/asd/ASD-Project_Intro.py --server.port $HTTP_PORT --logger.level debug
 EOFMAIN
 
 # Build Docker Container Image
 cd $asd_folder
-image_downloaded=$(docker images --filter=reference='asd-container*:*1.0' | wc -l)
+image_downloaded=$(docker images --filter=reference='$CONTAINER_NAME*:*$CONTAINER_NAME' | wc -l)
 
 if [ $image_downloaded -eq 1 ]; then
-    docker build -t asd-container:1.0 .
+    docker build -t $IMAGE_NAME:$IMAGE_VERSION . || { echo 'Docker build failed' ; exit 1; }
 else
     echo "+++ ASD Docker image is already available locally +++"
 fi
@@ -414,27 +411,17 @@ fi
 sleep 5
 
 # Start ASD Docker container
-# Start GPU container by default
-list_of_gpus=$(nvidia-smi -L) &> /dev/null
 SUCCESS_MSG="+++ ASD Container started successfully +++"
-if [ -z "$list_of_gpus" ]
-then
-    if docker container run -d --name asd -p 80:80 asd-container:1.0 ; then
-        echo -e "$SUCCESS_MSG"
-    else
-        echo -e ""
-        echo -e "!!! It seems that it was an issue executing the ASD container. Do you have Docker installed?"
-        echo -e "!!! If the container is already running intentionally, please ignore this message !!!"
-        echo -e "!!! If the container already exists try to run:"
-        echo -e ""
-        echo -e "    docker container start asd && docker container logs asd"
-    fi
-else
-    # If Nvidia drivers are available the container is started using all GPU units available
-    docker container run -d --name asd -p 80:80 --gpus=all asd-container:1.0
+if docker container run -d --name $CONTAINER_NAME -p $HTTP_PORT:$HTTP_PORT --hostname main-asd --privileged $IMAGE_NAME:$IMAGE_VERSION ; then
     echo -e "$SUCCESS_MSG"
+else
+    echo -e ""
+    echo -e "!!! It seems that it was an issue executing the ASD container. Do you have Docker installed?"
+    echo -e "!!! If the container is already running intentionally, please ignore this message !!!"
+    echo -e "!!! If the container already exists try to run:"
+    echo -e ""
+    echo -e "    docker container start asd && docker container logs asd"
 fi
-
 echo -e ""
 # Prints container logs
 sleep 5

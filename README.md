@@ -44,7 +44,7 @@ predictive errors.
 
 1. Open up your terminal of choice and run the following command:
 ```bash
-curl https://raw.githubusercontent.com/limacarvalho/automatedscientificdiscovery/main/src/containers/asd_local_container/asd.sh -o asd.sh && bash asd.sh
+curl https://raw.githubusercontent.com/limacarvalho/automatedscientificdiscovery/main/src/infrastructure/containers/asd_local_container/asd.sh -o asd.sh && bash asd.sh
 ```
 2. Wait for the container creation/build process to finish (it can take from a few minutes up to an hour depending on local resources available like CPU and mem), you will be able to get the access instructions when the execution 
 finishes up successfully:

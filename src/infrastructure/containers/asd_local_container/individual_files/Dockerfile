@@ -1,6 +1,6 @@
-FROM tensorflow/tensorflow:2.11.0-gpu
+FROM tensorflow/tensorflow:2.13.0
 LABEL "com.asd.project"="Automated Scientific Discovery"
-LABEL version="1.0"
+LABEL version="1.1"
 LABEL description="The Automated Scientific Discovery project is a Python module/app that automatically discovers hidden relationships in the measurement data."
 COPY . /opt/asd/
 RUN chmod +x /opt/asd/setup_init.sh && /opt/asd/setup_init.sh
