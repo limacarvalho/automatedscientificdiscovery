@@ -391,7 +391,7 @@ echo -e "
 |                    +++ The ASD Web App can be started manually:  Info  +++                           |
 +------------------------------------------------------+-----------------------------------------------+
 | Execute the following command:                                                                       |
-| streamlit run /opt/asd/python-asd/src/asd/ASD-Project_Intro.py --server.port 80 --logger.level debug |
+| streamlit run /opt/asd/python-asd/src/asd/Home.py --server.port 80 --logger.level debug |
 +------------------------------------------------------+-----------------------------------------------+
 "
 EOF

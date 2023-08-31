@@ -20,7 +20,7 @@ def initialize_ray(step, timeout):
         string with message
     '''
     ray.shutdown()
-    ray.init(num_cpus=globalvar_n_cpus, num_gpus=globalvar_n_gpus)
+    ray.init()
     msg = step + ' MULTIPROCESSING ON: ' + str(globalvar_n_cpus) + ' CPUs ' \
     + str(globalvar_n_gpus) + ' GPUs,  timeout [seconds]: ' + str(timeout)
     logger.info(msg=msg)

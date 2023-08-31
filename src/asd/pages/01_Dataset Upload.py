@@ -52,7 +52,17 @@ def generate_csv(size_mb: int) -> NoReturn:
             writer.writerow(data)
 
 # Set streamlit layout
-st.set_page_config(layout="wide")
+st.set_page_config(
+    page_title="ASD - Dataset Upload",
+    page_icon="https://www.ipp.mpg.de/assets/touch-icon-32x32-a66937bcebc4e8894ebff1f41a366c7c7220fd97a38869ee0f2db65a9f59b6c1.png",
+    layout="wide",
+    initial_sidebar_state="expanded"
+    # menu_items={
+    #     'Get Help': 'https://www.extremelycoolapp.com/help',
+    #     'Report a bug': "https://www.extremelycoolapp.com/bug",
+    #     'About': "# This is a header. This is an *extremely* cool app!"
+    # }
+)
 
 # Current OS Path/Directory of the script
 main_asd_path = Path(__file__).parents[1]

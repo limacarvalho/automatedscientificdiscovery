@@ -4,6 +4,7 @@ IMAGE_NAME="asd"
 IMAGE_VERSION="1.1"
 CONTAINER_NAME="asd"
 HTTP_PORT="80"
+RAY_DASHBOARD_PORT="8265"
 
 # Check if docker is installed
 if ! command -v docker &> /dev/null
@@ -395,7 +396,8 @@ export PYTHONPATH="/opt/asd/python-asd/src/asd:/opt/asd/python-asd/src/asd/compl
 
 # Starts main ASD Python Stremlit app
 cat /tmp/success_msg.txt
-streamlit run /opt/asd/python-asd/src/asd/ASD-Project_Intro.py --server.port $HTTP_PORT --logger.level debug
+current_time=$(date -u +%Y-%m-%dT%H:%M:%S%Z)
+streamlit run /opt/asd/python-asd/src/asd/Home.py --server.port $HTTP_PORT --logger.level debug | tee -a /tmp/streamlit_exec_$current_time.log
 EOFMAIN
 
 # Build Docker Container Image
@@ -412,7 +414,7 @@ sleep 5
 
 # Start ASD Docker container
 SUCCESS_MSG="+++ ASD Container started successfully +++"
-if docker container run -d --name $CONTAINER_NAME -p $HTTP_PORT:$HTTP_PORT --hostname main-asd --privileged $IMAGE_NAME:$IMAGE_VERSION ; then
+if docker container run -d --name $CONTAINER_NAME -p $HTTP_PORT:$HTTP_PORT -p $RAY_DASHBOARD_PORT:$RAY_DASHBOARD_PORT --hostname main-asd --privileged $IMAGE_NAME:$IMAGE_VERSION ; then
     echo -e "$SUCCESS_MSG"
 else
     echo -e ""

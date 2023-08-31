@@ -20,14 +20,10 @@ excludes = [
            ]
 
 
-def get_local_cluster(working_dir=None, num_cpus=None, num_gpus=None):
+def get_local_cluster(working_dir=None):
 
     if working_dir is None:
         working_dir = config.working_dir
-    if num_cpus is None:
-        num_cpus = config.num_cpus
-    if num_gpus is None:
-        num_gpus = config.num_gpus
 
     # runtime_env = {"working_dir": working_dir, "conda": {"dependencies": ["torch", "pip", {"pip": ["scipy", "scikit-learn"]}]}}
 
@@ -36,18 +32,14 @@ def get_local_cluster(working_dir=None, num_cpus=None, num_gpus=None):
     # print(runtime_env)
 
     ray.shutdown()
-    ray.init(num_cpus=num_cpus, num_gpus=num_gpus, runtime_env=runtime_env)
+    ray.init(runtime_env=runtime_env)
 
     return ray
 
-def get_global_cluster(working_dir=None, num_cpus=None, num_gpus=None, ip=None):
+def get_global_cluster(working_dir=None, ip=None):
 
     if working_dir is None:
         working_dir = config.working_dir
-    if num_cpus is None:
-        num_cpus = config.num_cpus
-    if num_gpus is None:
-        num_gpus = config.num_gpus
 
     if ip is None:
         ray_cluster_addr = config.addr
@@ -68,7 +60,7 @@ def get_global_cluster(working_dir=None, num_cpus=None, num_gpus=None, ip=None):
             )
 
         # Start tasks in parallel.
-        ray.autoscaler.sdk.request_resources(num_cpus=num_cpus)
+        ray.autoscaler.sdk.request_resources()
 
     except RuntimeError as error_msg:
         #get_ray_cluster_info = !ray status --address='raycluster-autoscaler-head-svc.dev.svc.cluster.local:6379'

@@ -13,7 +13,17 @@ import relevance.relevance as relevance
 import complexity.dim_reduce.dimreduce_main as complexity
 
 # Set streamlit layout
-st.set_page_config(layout="wide")
+st.set_page_config(
+    page_title="ASD - Automatic Discovery Execution",
+    page_icon="https://www.ipp.mpg.de/assets/touch-icon-32x32-a66937bcebc4e8894ebff1f41a366c7c7220fd97a38869ee0f2db65a9f59b6c1.png",
+    layout="wide",
+    initial_sidebar_state="expanded"
+    # menu_items={
+    #     'Get Help': 'https://www.extremelycoolapp.com/help',
+    #     'Report a bug': "https://www.extremelycoolapp.com/bug",
+    #     'About': "# This is a header. This is an *extremely* cool app!"
+    # }
+)
 
 # Set streamlit session state
 if "discovery_type" not in st.session_state:

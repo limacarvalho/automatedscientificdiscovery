@@ -44,4 +44,5 @@ export PYTHONPATH="/opt/asd/python-asd/src/asd:/opt/asd/python-asd/src/asd/compl
 
 # Starts main ASD Python Stremlit app
 cat /tmp/success_msg.txt
-streamlit run /opt/asd/python-asd/src/asd/ASD-Project_Intro.py --server.port 80 --logger.level debug
+current_time=$(date -u +%Y-%m-%dT%H:%M:%S%Z)
+streamlit run /opt/asd/python-asd/src/asd/Home.py --server.port $HTTP_PORT --logger.level debug | tee -a /tmp/streamlit_exec_$current_time.log

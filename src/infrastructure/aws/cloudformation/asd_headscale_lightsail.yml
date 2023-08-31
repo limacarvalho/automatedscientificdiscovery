@@ -1,11 +1,17 @@
-# Automated Scientific Discovery (ASD) - CloudFormation - Template
-# Headscale server (https://github.com/juanfont/headscale)
+# +--------------------------------------------------------------------------+
+# |                   Automated Scientific Discovery (ASD)                   |
+# +--------------------------------------------------------------------------+
+# | It is based/build using the following opensource technologies/solutions: |
+# | Tailscale (https://github.com/tailscale/tailscale) v1.48.1 +             |
+# | Headscale (https://github.com/juanfont/headscale) v0.22.3 +              |
+# +--------------------------------------------------------------------------+
+# CloudFormation YAML Template file
 # To deploy, just access the AWS Console -> CloudFormation -> (Choose the AWS Region) -> Create Stack -> Create template in Designer
 # Paste the following template and trigger the deployment
 
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
-  Creates an Amazon Lightsail publicly accessible container in the specified AWS region
+  Creates an Amazon Lightsail publicly accessible container in the specified AWS account/region
 
 # -----------------------------------------------------------------------------
 # Parameters
@@ -37,6 +43,7 @@ Metadata:
         default: Lightsail service name
       HeadscaleContainerImage:
         default: Docker hub container image name
+
 # -----------------------------------------------------------------------------
 # Resources
 # -----------------------------------------------------------------------------
