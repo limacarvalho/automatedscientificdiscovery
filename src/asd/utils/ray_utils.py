@@ -59,6 +59,8 @@ class RayCluster:
             self.cluster_status: bool = self.check_status()
             self.local_ray_status_stdout: str
         elif self.mode == "remote":
+            self.aws_env = AWSInfrastructure()
+            self.aws_statemachine: bool = False
             self.cluster_status: bool = self.check_status()
             self.remote_ray_status_stdout: str
         else:
@@ -97,104 +99,109 @@ class RayCluster:
                 )
                 return False
         elif self.mode == "remote":
-            aws_env = AWSInfrastructure()
-            ASD_AWS_RAY_ASG_NAME = "asd_asg"
-            ASD_STATE_MACHINE_ARN = aws_env.ASD_STATE_MACHINE_ARN
+            if self.aws_env.aws_env_status:
+                self.aws_statemachine = True
+                ASD_AWS_RAY_ASG_NAME = "asd_asg"
 
-            iso_datetime_utc = (
-                datetime.now(pytz.timezone("UTC"))
-                .replace(microsecond=0)
-                .strftime("%d-%m-%Y-%H%M%S")
-            )
-            ASD_STATE_MACHINE_EXEC_NAME = f"CheckStatus-{iso_datetime_utc}"
+                iso_datetime_utc = (
+                    datetime.now(pytz.timezone("UTC"))
+                    .replace(microsecond=0)
+                    .strftime("%d-%m-%Y-%H%M%S")
+                )
+                ASD_STATE_MACHINE_EXEC_NAME = f"CheckStatus-{iso_datetime_utc}"
 
-            # Start the state machine
-            execution_response = aws_env.start_statemachine(
-                state_machine_arn=ASD_STATE_MACHINE_ARN,
-                execution_name=ASD_STATE_MACHINE_EXEC_NAME,
-                input_data='{"Action": "CheckStatus"}',
-            )
-            # Poll the state machine until it completes or times out
-            timeout_sleep = 1
-            while (
-                AWSInfrastructure.get_data_from_statemachine(
-                    execution_response["executionArn"]
-                )["status"]
-                == "RUNNING"
-            ):
-                sleep(timeout_sleep)
-                timeout_sleep += 1
-                if timeout_sleep >= 60:
+                # Start the state machine
+                execution_response = self.aws_env.start_statemachine(
+                    execution_name=ASD_STATE_MACHINE_EXEC_NAME,
+                    input_data='{"Action": "CheckStatus"}',
+                )
+                # Poll the state machine until it completes or times out
+                timeout_sleep = 1
+                while (
+                    self.aws_env.get_data_from_statemachine(
+                        execution_response["executionArn"]
+                    )["status"]
+                    == "RUNNING"
+                ):
+                    sleep(timeout_sleep)
+                    timeout_sleep += 1
+                    if timeout_sleep >= 60:
+                        logging.error(
+                            f"!!! ERROR: StateMachine took more than {timeout_sleep} seconds to execute !!! Aborting !!!"
+                        )
+                        exit(1)
+
+                # Extract relevant data from the state machine's output
+                describe_asd_asg = json.loads(
+                    self.aws_env.get_data_from_statemachine(
+                        execution_response["executionArn"]
+                    )["output"]
+                )
+
+                if "asd_asg" in describe_asd_asg:
+                    asd_asg_total_instances = describe_asd_asg[ASD_AWS_RAY_ASG_NAME][
+                        "AutoScalingGroups"
+                    ][0]["MaxSize"]
+                    asd_asg_running_instances = len(
+                        describe_asd_asg[ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0][
+                            "Instances"
+                        ]
+                    )
+                    asd_asg_msg_1 = f"+++ ASD Autoscaling Group currently has a total of {asd_asg_total_instances} instances, {asd_asg_running_instances} currently running +++"
+                    logging.info(asd_asg_msg_1)
+                    asd_asg_available_vcpus = int(
+                        describe_asd_asg["instance_types"]["InstanceTypes"][0]["VCpuInfo"][
+                            "DefaultVCpus"
+                        ]
+                    ) * int(
+                        len(
+                            describe_asd_asg[ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0][
+                                "Instances"
+                            ]
+                        )
+                    )
+                    asd_asg_available_mem_inmb = float(
+                        describe_asd_asg["instance_types"]["InstanceTypes"][0][
+                            "MemoryInfo"
+                        ]["SizeInMiB"]
+                        / 1024
+                    ) * int(
+                        len(
+                            describe_asd_asg[ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0][
+                                "Instances"
+                            ]
+                        )
+                    )
+
+                    asd_asg_msg_2 = (
+                        f"+++ Available Cluster vCPUs: {asd_asg_available_vcpus} +++"
+                    )
+                    asd_asg_msg_3 = f"+++ Available Cluster Memory in GB: {asd_asg_available_mem_inmb} +++"
+                    logging.info(asd_asg_msg_2)
+                    logging.info(asd_asg_msg_3)
+
+                    self.remote_ray_status_stdout = (
+                        f"{asd_asg_msg_1}\n{asd_asg_msg_2}\n{asd_asg_msg_3}\n"
+                    )
+                    return True
+                if "Error" in describe_asd_asg:
+                    no_available_nodes_msg = (
+                        f"+++ There are NO available compute nodes on AWS. Choose 'Create Cluster' +++"
+                    )
+                    logging.info(no_available_nodes_msg)
+                    self.remote_ray_status_stdout = no_available_nodes_msg
+                    return False
+                else:
                     logging.error(
-                        f"!!! ERROR: StateMachine took more than {timeout_sleep} seconds to execute !!! Aborting !!!"
+                        f"!!! Could not retrieve response from StepFunctions StateMachine. ERROR: {describe_asd_asg}"
                     )
-                    exit(1)
-
-            # Extract relevant data from the state machine's output
-            describe_asd_asg = json.loads(
-                AWSInfrastructure.get_data_from_statemachine(
-                    execution_response["executionArn"]
-                )["output"]
-            )
-
-            if "asd_asg" in describe_asd_asg:
-                asd_asg_total_instances = describe_asd_asg[ASD_AWS_RAY_ASG_NAME][
-                    "AutoScalingGroups"
-                ][0]["MaxSize"]
-                asd_asg_running_instances = len(
-                    describe_asd_asg[ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0][
-                        "Instances"
-                    ]
-                )
-                asd_asg_msg_1 = f"+++ ASD Autoscaling Group currently has a total of {asd_asg_total_instances} instances, {asd_asg_running_instances} currently running +++"
-                logging.info(asd_asg_msg_1)
-                asd_asg_available_vcpus = int(
-                    describe_asd_asg["instance_types"]["InstanceTypes"][0]["VCpuInfo"][
-                        "DefaultVCpus"
-                    ]
-                ) * int(
-                    len(
-                        describe_asd_asg[ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0][
-                            "Instances"
-                        ]
-                    )
-                )
-                asd_asg_available_mem_inmb = float(
-                    describe_asd_asg["instance_types"]["InstanceTypes"][0][
-                        "MemoryInfo"
-                    ]["SizeInMiB"]
-                    / 1024
-                ) * int(
-                    len(
-                        describe_asd_asg[ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0][
-                            "Instances"
-                        ]
-                    )
-                )
-
-                asd_asg_msg_2 = (
-                    f"+++ Available Cluster vCPUs: {asd_asg_available_vcpus} +++"
-                )
-                asd_asg_msg_3 = f"+++ Available Cluster Memory in GB: {asd_asg_available_mem_inmb} +++"
-                logging.info(asd_asg_msg_2)
-                logging.info(asd_asg_msg_3)
-
-                self.remote_ray_status_stdout = (
-                    f"{asd_asg_msg_1}\n{asd_asg_msg_2}\n{asd_asg_msg_3}\n"
-                )
-                return True
-            if "Error" in describe_asd_asg:
-                no_available_nodes_msg = (
-                    f"+++ There are NO available compute nodes on AWS +++"
-                )
-                logging.info(no_available_nodes_msg)
-                self.remote_ray_status_stdout = no_available_nodes_msg
-                return False
+                    return False
             else:
-                logging.error(
-                    f"!!! Could not retrieve response from StepFunctions StateMachine. ERROR: {describe_asd_asg}"
-                )
+                no_aws_resources_msg = "!!! No AWS resoures yet deployed for ASD !!!"
+                logging.error(no_aws_resources_msg)
+                self.remote_ray_status_stdout = no_aws_resources_msg
                 return False
+
 
     def start(self) -> bool:
         """
@@ -228,7 +235,44 @@ class RayCluster:
                 logging.warning("!!! Ray Cluster already seems to be running !!!")
                 return False
         elif self.mode == "remote":
-            pass
+            ASD_AWS_RAY_ASG_NAME = "asd_asg"
+
+            iso_datetime_utc = (
+                datetime.now(pytz.timezone("UTC"))
+                .replace(microsecond=0)
+                .strftime("%d-%m-%Y-%H%M%S")
+            )
+            ### WORK HERE
+            ASD_STATE_MACHINE_EXEC_NAME = f"StartCluster-{iso_datetime_utc}"
+
+            # Start the state machine
+            execution_response = self.aws_env.start_statemachine(
+                execution_name=ASD_STATE_MACHINE_EXEC_NAME,
+                input_data='{"Action": "CheckStatus"}',
+            )
+            # Poll the state machine until it completes or times out
+            timeout_sleep = 1
+            while (
+                self.aws_env.get_data_from_statemachine(
+                    execution_response["executionArn"]
+                )["status"]
+                == "RUNNING"
+            ):
+                sleep(timeout_sleep)
+                timeout_sleep += 1
+                if timeout_sleep >= 60:
+                    logging.error(
+                        f"!!! ERROR: StateMachine took more than {timeout_sleep} seconds to execute !!! Aborting !!!"
+                    )
+                    exit(1)
+
+            # Extract relevant data from the state machine's output
+            describe_asd_asg = json.loads(
+                self.aws_env.get_data_from_statemachine(
+                    execution_response["executionArn"]
+                )["output"]
+            )
+
 
     def stop(self) -> bool:
         """

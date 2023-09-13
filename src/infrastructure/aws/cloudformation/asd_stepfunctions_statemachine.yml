@@ -1,0 +1,349 @@
+# +--------------------------------------------------------------------------+
+# |                   Automated Scientific Discovery (ASD)                   |
+# +--------------------------------------------------------------------------+
+# CloudFormation YAML Template file
+# To deploy, just access the AWS Console -> CloudFormation -> (Choose the AWS Region) -> Create Stack -> Create template in Designer
+# Paste the following template and trigger the deployment
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Creates an IAM Role and StepFunctions StateMachine in the specified AWS account/region
+
+# -----------------------------------------------------------------------------
+# Resources
+# -----------------------------------------------------------------------------
+Resources:
+  ASDIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join [ '', [ 'asd-state-machine-', !Ref AWS::Region ] ]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2FullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonVPCReadOnlyAccess
+        - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+      Policies:
+        - PolicyName: Lightsail
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: VisualEditor0
+                Effect: Allow
+                Action: lightsail:*
+                Resource: '*'
+  ASDStateMachine:
+    Type: 'AWS::StepFunctions::StateMachine'
+    Properties:
+      DefinitionString: |
+        {
+          "Comment": "ASD - Infrastructure State Machine",
+          "StartAt": "Choice",
+          "States": {
+            "Choice": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.UploadObjectName",
+                  "IsPresent": true,
+                  "Next": "CreateMultipartUpload",
+                  "Comment": "Upload Objects to S3"
+                },
+                {
+                  "Variable": "$.Action",
+                  "StringEquals": "ShutdownNodes",
+                  "Next": "AutoScalingDown",
+                  "Comment": "Scales In / Shuts down ASD Nodes"
+                },
+                {
+                  "Variable": "$.Action",
+                  "StringEquals": "CheckStatus",
+                  "Comment": "Check the status of the ASD Ray AutoScalingGroup and return operational information",
+                  "Next": "DescribeAutoScalingGroups"
+                }
+              ],
+              "Default": "GetBucketAcl",
+              "Comment": "Choice based on input parameters"
+            },
+            "CreateMultipartUpload": {
+              "Type": "Task",
+              "Next": "UploadPart",
+              "Parameters": {
+                "Bucket": "MyData",
+                "Key": "MyData"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:s3:createMultipartUpload",
+              "Comment": "Creates a Multipart Upload for S3",
+              "ResultPath": null
+            },
+            "UploadPart": {
+              "Type": "Task",
+              "Next": "CompleteMultipartUpload",
+              "Parameters": {
+                "Body": {},
+                "Bucket": "MyData",
+                "Key": "MyData",
+                "PartNumber": 1234,
+                "UploadId": "MyData"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:s3:uploadPart",
+              "Comment": "Uploads part of object to S3",
+              "ResultPath": null
+            },
+            "CompleteMultipartUpload": {
+              "Type": "Task",
+              "Next": "Pass",
+              "Parameters": {
+                "Bucket": "MyData",
+                "Key": "MyData",
+                "UploadId": "MyData"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:s3:completeMultipartUpload",
+              "Comment": "Completes MultiPart Upload process",
+              "ResultPath": null
+            },
+            "Pass": {
+              "Type": "Pass",
+              "End": true
+            },
+            "GetBucketAcl": {
+              "Type": "Task",
+              "Next": "GetCloudFormationHeadscale",
+              "Parameters": {
+                "Bucket": "asd-files-useast1-943339554545"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:s3:getBucketAcl",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "Next": "CreateBucket",
+                  "ResultPath": null,
+                  "Comment": "Creates the ASD S3 Bucket"
+                }
+              ],
+              "ResultPath": null,
+              "Comment": "Evaluates if ASD Bucket 'asd-files-useast1-<ACCOUNT_ID>' exists"
+            },
+            "CreateBucket": {
+              "Type": "Task",
+              "Next": "GetCloudFormationHeadscale",
+              "Parameters": {
+                "Bucket": "asd-files-useast1-943339554545"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:s3:createBucket",
+              "ResultPath": null,
+              "Comment": "Creates the ASD S3 Bucket"
+            },
+            "GetCloudFormationHeadscale": {
+              "Type": "Task",
+              "Parameters": {
+                "StackName": "headscale-asd"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+              "Next": "GetCloudFormationEc2Asg",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "Next": "CreateStackHeadscale",
+                  "Comment": "Deploys the CloudFormation Stack if it does not exist",
+                  "ResultPath": null
+                }
+              ],
+              "ResultPath": null,
+              "Comment": "Verifies if Headscale CloudFormation Stack is deployed"
+            },
+            "CreateStackHeadscale": {
+              "Type": "Task",
+              "Next": "WaitFor1stStackDeployment",
+              "Parameters": {
+                "StackName": "headscale-asd",
+                "TemplateBody.$": "States.Base64Decode($.CloudFormationHeadscaleTemplateBase64)",
+                "Parameters": [
+                  {
+                    "ParameterKey": "HeadscaleContainerImage",
+                    "ParameterValue.$": "$.CloudFormationHeadscaleTemplateParamContainerImage"
+                  },
+                  {
+                    "ParameterKey": "HeadscaleServiceName",
+                    "ParameterValue": "headscale-asd"
+                  }
+                ],
+                "DisableRollback": false,
+                "TimeoutInMinutes": 30,
+                "Capabilities": [
+                  "CAPABILITY_IAM",
+                  "CAPABILITY_NAMED_IAM"
+                ],
+                "Tags": [
+                  {
+                    "Key": "CreatedBy",
+                    "Value": "Asd-StateMachine"
+                  }
+                ],
+                "EnableTerminationProtection": true
+              },
+              "Resource": "arn:aws:states:::aws-sdk:cloudformation:createStack",
+              "Comment": "Creates CloudFormation Stack for Headscale",
+              "ResultPath": null
+            },
+            "WaitFor1stStackDeployment": {
+              "Type": "Wait",
+              "Next": "GetCloudFormationEc2Asg",
+              "Seconds": 300,
+              "Comment": "Waits 5 min for Headscale Stack to finish deploying"
+            },
+            "GetCloudFormationEc2Asg": {
+              "Type": "Task",
+              "Parameters": {
+                "StackName": "asg-asd"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "Next": "CreateStackEc2Asg",
+                  "ResultPath": null,
+                  "Comment": "Deploys the CloudFormation Stack if it does not exist"
+                }
+              ],
+              "Next": "AutoScalingUp",
+              "ResultPath": null
+            },
+            "AutoScalingUp": {
+              "Type": "Task",
+              "Parameters": {
+                "AutoScalingGroupName": "asd-nodes",
+                "DesiredCapacity": 1
+              },
+              "Resource": "arn:aws:states:::aws-sdk:autoscaling:updateAutoScalingGroup",
+              "Comment": "Sets the asd-nodes AutoScaling Group Desired Capacity to 1",
+              "ResultPath": null,
+              "End": true
+            },
+            "CreateStackEc2Asg": {
+              "Type": "Task",
+              "Parameters": {
+                "StackName": "asg-asd",
+                "TemplateBody.$": "States.Base64Decode($.CloudFormationAsgTemplateBase64)",
+                "Parameters": [
+                  {
+                    "ParameterKey": "AutoScalingGroupMaxSize",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamGroupMaxSize"
+                  },
+                  {
+                    "ParameterKey": "EbsVolumeSize",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamEbsSize"
+                  },
+                  {
+                    "ParameterKey": "Ec2AmiId",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamEc2Ami"
+                  },
+                  {
+                    "ParameterKey": "InstanceType",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamInstanceType"
+                  },
+                  {
+                    "ParameterKey": "SubnetId",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamSubnetId"
+                  },
+                  {
+                    "ParameterKey": "VpcId",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamVpcId"
+                  }
+                ],
+                "DisableRollback": false,
+                "TimeoutInMinutes": 30,
+                "Capabilities": [
+                  "CAPABILITY_IAM",
+                  "CAPABILITY_NAMED_IAM"
+                ],
+                "Tags": [
+                  {
+                    "Key": "CreatedBy",
+                    "Value": "Asd-StateMachine"
+                  }
+                ],
+                "EnableTerminationProtection": true
+              },
+              "Resource": "arn:aws:states:::aws-sdk:cloudformation:createStack",
+              "Next": "WaitFor2ndStackDeployment",
+              "Comment": "Creates CloudFormation Stack for ASD EC2 AutoScaling Group",
+              "ResultPath": null
+            },
+            "WaitFor2ndStackDeployment": {
+              "Type": "Wait",
+              "Seconds": 180,
+              "Comment": "Waits 3 min for AutoScaling Stack to finish deploying",
+              "Next": "AutoScalingUp"
+            },
+            "AutoScalingDown": {
+              "Type": "Task",
+              "End": true,
+              "Parameters": {
+                "AutoScalingGroupName": "asd-nodes",
+                "DesiredCapacity": 0
+              },
+              "Resource": "arn:aws:states:::aws-sdk:autoscaling:updateAutoScalingGroup",
+              "Comment": "Sets the asd-nodes AutoScaling Group Desired Capacity to 1",
+              "ResultPath": null
+            },
+            "DescribeAutoScalingGroups": {
+              "Type": "Task",
+              "Parameters": {
+                "AutoScalingGroupNames": [
+                  "asd-nodes"
+                ]
+              },
+              "ResultPath": "$.asd_asg",
+              "Resource": "arn:aws:states:::aws-sdk:autoscaling:describeAutoScalingGroups",
+              "Next": "DescribeInstanceTypes"
+            },
+            "DescribeInstanceTypes": {
+              "Type": "Task",
+              "Parameters": {
+                "InstanceTypes.$": "$.asd_asg.AutoScalingGroups[0].Instances[*].InstanceType"
+              },
+              "ResultPath": "$.instance_types",
+              "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstanceTypes",
+              "Next": "FinishCheckStatus",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "Next": "FinishCheckStatus",
+                  "Comment": "Error handling when AutoScalingGroup does not have any running nodes"
+                }
+              ]
+            },
+            "FinishCheckStatus": {
+              "Type": "Succeed"
+            }
+          }
+        }
+      RoleArn: !GetAtt [ASDIAMRole, Arn]
+      StateMachineType: STANDARD
+      StateMachineName: 'asd-main'
+
+# -----------------------------------------------------------------------------
+# Outputs
+# -----------------------------------------------------------------------------
+Outputs:
+  ASDIAMRoleARN:
+    Description: "IAM Role ARN for StepFunctions"
+    Value: !GetAtt [ASDIAMRole, Arn]
+  ASDStateMachineARN:
+    Description: "ARN for the created StepFunctions state machine"
+    Value: !Ref ASDStateMachine

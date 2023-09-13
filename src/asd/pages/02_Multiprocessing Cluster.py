@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 from utils.os_utils import delete_dir, write_aws_credentials_to_file
 from utils.ray_utils import RayCluster
+from aws_utils import AWSInfrastructure
 
 # Set streamlit layout
 st.set_page_config(
@@ -195,18 +196,24 @@ if st.session_state["execution"] == "Remote Execution/Cluster":
         ray_cluster_remote = RayCluster(mode="remote")
 
         # Streamlit 'Magic' for ray status output
-        ray_status_msg = f"""
-        ```text
-        {ray_cluster_remote.remote_ray_status_stdout}
-        """
+        if ray_cluster_remote.remote_ray_status_stdout:
+            ray_status_msg = ray_cluster_remote.remote_ray_status_stdout
+            # ray_status_msg = f"""
+            # ```text
+            # {ray_cluster_remote.remote_ray_status_stdout}
+            # """
 
         if "Check Status" in remote_cluster_options_select:
             progress_bar(msg="Checking Cluster Status...")
-            if ray_cluster_remote.cluster_status:
-                st.write("+++ Cluster is available in remote mode +++")
-                st.write(ray_status_msg)
+            if ray_cluster_remote.aws_statemachine:
+                st.success("+++ Cluster is available in remote mode +++")
+                st.warning(ray_status_msg)
             else:
-                st.write("+++ Cluster is not yet started +++")
+                with st.spinner('Deploying AWS Infrastructure (StepFunctions StateMachine)...'):
+                    ray_cluster_remote.aws_env.set_up_infrastructure()
+                    time.sleep(25)
+                st.success('+++ AWS Infrastructure Deployed +++')                
+                st.success("+++ NO Cluster yet running, choose 'Create Cluster' +++")
         elif "Create Cluster" in remote_cluster_options_select:
             progress_bar(msg="Creating Remote Cluster...", sleep_time=0.08)
             if ray_cluster_remote.cluster_status:
@@ -220,7 +227,7 @@ if st.session_state["execution"] == "Remote Execution/Cluster":
         elif "Modify Cluster" in remote_cluster_options_select:
             progress_bar(msg="Checking Cluster Status...")
             if ray_cluster_remote.cluster_status:
-                st.write("+++ Cluster is available in remote mode +++")
+                st.success("+++ Cluster is available in remote mode +++")
                 st.write(ray_status_msg)
             else:
                 st.write("+++ Cluster is not yet started +++")
