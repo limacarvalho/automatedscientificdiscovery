@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union
 
 # Constants
 MAX_RETRIES = 3  # Maximum number of retries for subprocess calls
@@ -16,12 +16,12 @@ def delete_dir(folder_path: str, retries: int = MAX_RETRIES) -> Tuple[bool, str]
     """
     Forces deletion of a directory using the 'rm -rf' command.
 
-    Parameters:
-    - folder_path (str): The path of the directory to be deleted.
-    - retries (int): The number of times the deletion operation should be retried in case of failure.
+    Args:
+        folder_path (str): Path of the directory to be deleted.
+        retries (int, optional): Number of times the deletion operation should be retried in case of failure. Defaults to MAX_RETRIES.
 
     Returns:
-    - Tuple[bool, str]: A tuple containing a boolean indicating the success status and a string message with the result.
+        Tuple[bool, str]: A tuple containing a boolean indicating the success status and a string message with the result.
 
     Example:
     - delete_dir("/root/testdirectory")
@@ -60,32 +60,32 @@ def delete_dir(folder_path: str, retries: int = MAX_RETRIES) -> Tuple[bool, str]
 
 
 def write_aws_credentials_to_file(
-    aws_folder: str,
-    aws_credentials_file: str,
-    aws_config_file: str,
-    account_id_file: str,
+    aws_folder: Union[str, Path],
+    aws_credentials_file: Union[str, Path],
+    aws_config_file: Union[str, Path],
+    account_id_file: Union[str, Path],
     account_id: str,
     aws_region: str,
     aws_access_key_id: str,
     aws_secret_access_key: str,
-    aws_session_token: str = "",
+    aws_session_token: Optional[str] = "",
 ) -> None:
     """
     Writes AWS credentials and configurations to respective files.
 
-    Parameters:
-    - aws_folder (str): Filesystem Path to folder (normally at /root/.aws)
-    - aws_credentials_file (str): Filesystem Path to AWS Credentials file
-    - aws_config_file (str): Filesystem Path to AWS Config file
-    - account_id_file (str): Filesystem Path to a custom file containing the AWS Account Id
-    - account_id (str): AWS Account Id
-    - aws_region (str): AWS region identifier (eg. us-east-1)
-    - aws_access_key_id (str): AWS access key ID.
-    - aws_secret_access_key (str): AWS secret access key.
-    - aws_session_token (str, optional): AWS session token. Defaults to an empty string.
+    Args:
+        aws_folder (Union[str, Path]): Directory path (typically at /root/.aws).
+        aws_credentials_file (Union[str, Path]): Path to AWS Credentials file.
+        aws_config_file (Union[str, Path]): Path to AWS Config file.
+        account_id_file (Union[str, Path]): Path to a custom file containing the AWS Account Id.
+        account_id (str): AWS Account Id.
+        aws_region (str): AWS region identifier (e.g., us-east-1).
+        aws_access_key_id (str): AWS access key ID.
+        aws_secret_access_key (str): AWS secret access key.
+        aws_session_token (Optional[str], optional): AWS session token. Defaults to an empty string.
 
-    Returns:
-    - None
+    Raises:
+        Exception: If any error occurs during the file write operation.
     """
     try:
         # Create the AWS directory if it doesn't exist
@@ -133,15 +133,19 @@ def write_aws_credentials_to_file(
         logging.error(f"!!! Error writing AWS credentials/configurations: {error} !!!")
 
 
-def read_aws_credentials_from_file(aws_folder: str) -> Dict[str, Optional[str]]:
+def read_aws_credentials_from_file(aws_folder: Union[str, Path]) -> Dict[str, Optional[str]]:
     """
-    Reads the AWS credentials file and creates a Python Dictionary containing the AWS Access Key, Secret Access Key, and Session Token (if any).
+    Reads the AWS credentials file and returns a dictionary containing the AWS Access Key, Secret Access Key, and Session Token (if any).
 
-    Parameters:
-    - aws_folder (str): Filesystem Path to folder (typically at /root/.aws)
+    Args:
+        aws_folder (Union[str, Path]): Directory path (typically at /root/.aws).
 
     Returns:
-    - dict: Dictionary containing AWS Access Key, Secret Access Key, and Session Token.
+        Dict[str, Optional[str]]: Dictionary containing AWS Access Key, Secret Access Key, and Session Token.
+
+    Raises:
+        FileNotFoundError: If the AWS credentials file does not exist.
+        Exception: If any error occurs during the file read operation.
     """
 
     credentials_file = os.path.join(aws_folder, "credentials")

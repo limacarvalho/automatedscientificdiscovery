@@ -26,16 +26,19 @@ class RayCluster:
     Ray CLI commands are invoked as part of the execution in order to leverage the existing Ray CLI functionality and to isolate Ray from the Python context
     execution.
     The class implements different methods to check the current status of the Ray Cluster, to start a new cluster, to stop an existing one, or to purge
-    any related item like Ray system processes and temporary files.
+    any related item like Ray system processes, temporary files or remote AWS Cloud resources.
 
-    The Class expects the Ray Python module available in the global-scope, as well as the Ray CLI commands needed to interact with the different Ray
+    The Class expects the Ray Python module and AWS SDK for Python (boto3) available in the global-scope, as well as the Ray CLI commands needed to interact with the different Ray
     components.
 
     Runs on:
-    Python 3.8.10
+    Python 3.8.10+
 
     Example:
-    ray_cluster = RayCluster('local')
+    ray_cluster = RayCluster(mode='local')
+    # or
+    ray_cluster = RayCluster(mode='remote')
+
     ray_cluster.start()
     # or
     ray_cluster.stop()
@@ -48,12 +51,13 @@ class RayCluster:
     |                |                     |                                                                                                             |
     | start()        |  n/a                | Starts a Ray Cluster if not available already (Starts local and remote clusters on AWS)                     |
     | stop()         |  n/a                | Stops a Ray Cluster if available (Stops local cluster and/or remote cluster on AWS by terminating EC2s)     |
-    | purge()        |  n/a                | Stops a Ray Cluster (Local and/or Remote), kills any local OS process related to Ray and deletes existing    |
+    | purge()        |  n/a                | Stops a Ray Cluster (Local and/or Remote), kills any local OS process related to Ray and deletes existing   |
     |                |                     | temporary Ray files                                                                                         |
     +----------------+---------------------+-------------------------------------------------------------------------------------------------------------+
     """
 
-    def __init__(self, mode):
+    def __init__(self, mode: str) -> None:
+        """Initialize the RayCluster class."""
         self.mode = mode
         if self.mode == "local":
             self.cluster_status: bool = self.check_status()
@@ -64,13 +68,11 @@ class RayCluster:
             self.cluster_status: bool = self.check_status()
             self.remote_ray_status_stdout: str
         else:
-            logging.error(
-                f"!!! ERROR: RayCluster parameter mode: '{self.mode}' is not valid !!!"
-            )
+            logging.error(f"!!! Invalid RayCluster mode: '{self.mode}' !!!")
 
     def check_status(self) -> bool:
         """
-        Check the status of the Ray cluster running locally or on AWS EC2s.
+        Checks the status of the Ray cluster running locally or on AWS EC2s.
 
         :return: True if the Ray cluster is running, False otherwise.
         """
@@ -80,7 +82,6 @@ class RayCluster:
                     ["ray", "status"], stdout=subprocess.PIPE, text=True
                 )
                 ray_status = get_local_ray_status.returncode
-                # Prints Ray Cluster Status Local or Remote to Streamlit page
                 self.local_ray_status_stdout = get_local_ray_status.stdout
             except subprocess.CalledProcessError:
                 logging.error("!!! Unable to execute ray status command !!!")
@@ -98,6 +99,7 @@ class RayCluster:
                     "!!! Unable to determine the status of the Ray cluster !!!"
                 )
                 return False
+
         elif self.mode == "remote":
             if self.aws_env.aws_env_status:
                 self.aws_statemachine = True
@@ -106,7 +108,7 @@ class RayCluster:
                 iso_datetime_utc = (
                     datetime.now(pytz.timezone("UTC"))
                     .replace(microsecond=0)
-                    .strftime("%d-%m-%Y-%H%M%S")
+                    .isoformat()
                 )
                 ASD_STATE_MACHINE_EXEC_NAME = f"CheckStatus-{iso_datetime_utc}"
 
@@ -129,7 +131,7 @@ class RayCluster:
                         logging.error(
                             f"!!! ERROR: StateMachine took more than {timeout_sleep} seconds to execute !!! Aborting !!!"
                         )
-                        exit(1)
+                        return False
 
                 # Extract relevant data from the state machine's output
                 describe_asd_asg = json.loads(
@@ -205,7 +207,7 @@ class RayCluster:
 
     def start(self) -> bool:
         """
-        Start the Ray cluster locally or on AWS EC2s.
+        Starts the Ray cluster locally or remotely on AWS Cloud (EC2 Instances).
 
         :return: True if the Ray cluster is successfully started, False otherwise.
         """
@@ -224,7 +226,6 @@ class RayCluster:
                     return False
 
                 if ray_start_result == 0:
-                    logging.debug("+++ Ray cluster is now up +++")
                     self.cluster_status = True
                     return True
                 else:
@@ -276,7 +277,7 @@ class RayCluster:
 
     def stop(self) -> bool:
         """
-        Stop the Ray cluster on the local system.
+        Stops the Ray cluster running locally or remotely (by shutting down EC2 AutoScaling nodes)
 
         :return: True if the Ray cluster is successfully stopped, False otherwise.
         """
@@ -303,20 +304,17 @@ class RayCluster:
 
     def purge(self) -> bool:
         """
-        Stop the Ray cluster on the local system and purge all related resources and processes.
+        Stops the Ray cluster running in 'local' mode or remotely on AWS. Purges all related resources and processes.
+        For the remote mode, this function deletes any AWS infrastructure that relates to ASD and ray (EC2 AutoScaling 
+        Group, IAM Roles, Lightsail Container, Security Groups, etc)
 
         :return: False, indicating that the Ray cluster is not running.
         """
         self.stop()
         # Delete the directory if it exists
         if os.path.exists(DIR_PATH) and os.path.isdir(DIR_PATH):
-            try:
-                shutil.rmtree(DIR_PATH)
-                logging.info(f"+++ The directory {DIR_PATH} has been deleted +++")
-            except Exception as error:
-                logging.error(
-                    f"!!! Error deleting the directory {DIR_PATH}: {error} !!!"
-                )
+            shutil.rmtree(DIR_PATH, ignore_errors=True)
+            logging.info(f"+++ Deleted directory: {DIR_PATH} +++")
 
         # Search for all ray-related system processes
         for process in psutil.process_iter(attrs=["pid", "name", "cmdline"]):

@@ -1,7 +1,7 @@
 import logging
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 import psutil
 
@@ -65,9 +65,7 @@ def start_tailscale_connect_process() -> bool:
             process_info = process.info
             process_name = process_info["name"]
             cmdline = process_info["cmdline"]
-            if "tailscaled" in process_name or any(
-                "tailscaled" in cmd for cmd in cmdline
-            ):
+            if "tailscaled" in process_name or any("tailscaled" in cmd for cmd in cmdline):
                 logging.info(
                     f"+++ Tailscale is already running: PID {process_info['pid']}, Name {process_name} +++"
                 )
@@ -82,18 +80,22 @@ def start_tailscale_connect_process() -> bool:
             logging.warning(
                 f"!!! Unable to find any tailscale-related processes: {error} !!!"
             )
+
     if not any(is_tailscale_running):
         asd_container_folder = Path(ASD_CONTAINER_FOLDER)
-        _tailscale_connect_shell_script = Path(ASD_CONTAINER_FOLDER).rglob(
+        _tailscale_connect_shell_script = asd_container_folder.rglob(
             "tailscale_connect_service.sh"
         )
         tailscale_connect_shell_script = [
             shell_script_file for shell_script_file in _tailscale_connect_shell_script
         ]
+        if not tailscale_connect_shell_script:
+            logging.error("Shell script not found!")
+            return False
 
         # Change the permission of the shell script to make it executable
         chmod_shell_script = subprocess.run(
-            ["chmod", "+x", tailscale_connect_shell_script[0]],
+            ["chmod", "+x", str(tailscale_connect_shell_script[0])],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -101,11 +103,12 @@ def start_tailscale_connect_process() -> bool:
 
         # Start the shell script to initiate the Tailscale connection
         start_shell_script = subprocess.run(
-            ["bash", "-c", tailscale_connect_shell_script[0]],
+            ["bash", "-c", str(tailscale_connect_shell_script[0])],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
+
         if chmod_shell_script.returncode == 0 and start_shell_script.returncode == 0:
             # Check the status of Tailscale after starting the process
             tailscale_status = subprocess.run(
@@ -120,9 +123,10 @@ def start_tailscale_connect_process() -> bool:
             return True
         else:
             logging.error(
-                f"!!! ERROR: Unable to start Tailscale process !!!\n{chmod_shell_script.stdout}\n{tailscale_status.stdout}"
+                f"!!! ERROR: Unable to start Tailscale process !!!\n{chmod_shell_script.stdout}\n{start_shell_script.stderr}"
             )
             return False
+    return False
 
 
 if __name__ == "__main__":
