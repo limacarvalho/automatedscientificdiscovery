@@ -25,7 +25,7 @@ Parameters:
     Type: List<AWS::EC2::VPC::Id>
     Description: VPC ID where the EC2 instance will be deployed
 
-  SubnetId:
+  SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
     Description: Subnet Id where the EC2 is going to be deployed to'
 
@@ -128,7 +128,7 @@ Resources:
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref Ec2PublicIpAddress
           DeviceIndex: "0"
-          SubnetId: !Join [ '', !Ref SubnetId ]
+          SubnetIds: !Join [ '', !Ref SubnetIds ]
           GroupSet:
             - !Ref SecurityGroup          
       BlockDeviceMappings:

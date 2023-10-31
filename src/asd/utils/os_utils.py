@@ -1,4 +1,5 @@
 import json
+import base64
 import logging
 import os
 import subprocess
@@ -176,3 +177,39 @@ def read_aws_credentials_from_file(aws_folder: Union[str, Path]) -> Dict[str, Op
         raise Exception(f"!!! Error reading the AWS credentials file: {error} !!!")
     else:
         return aws_credentials
+
+
+def encode_file_to_base64(filepath: Union[Path, str], retries: int = 3) -> Optional[str]:
+    """
+    Convert file contents to a base64 encoded string.
+
+    Args:
+    - filepath (Union[Path, str]): The path of the file to be encoded.
+    - retries (int, optional): Number of retries in case of a failure. Defaults to 3.
+
+    Returns:
+    - Optional[str]: The base64 encoded string of the file's content. Returns None if unsuccessful.
+    """
+
+    for attempt in range(retries):
+        try:
+            # Ensure the file path is a Path object
+            if not isinstance(filepath, Path):
+                filepath = Path(filepath)
+            
+            # Open the file in binary mode and read its contents
+            with filepath.open('rb') as file:
+                file_content = file.read()
+
+            # Convert the file content to a base64 encoded string
+            encoded_string = base64.b64encode(file_content).decode('utf-8')
+            return encoded_string
+
+        except Exception as error:
+            # Log the exception for debugging purposes
+            # Depending on your context, you might replace the print statement with proper logging
+            logging.error(f"!!! Error while encoding the file: {error}. Attempt {attempt + 1} of {retries} !!!")
+
+    # If the function reaches this point, all retries have been exhausted.
+    logging.error(f"!!! Failed to encode the file after {retries} attempts !!!")
+    return None

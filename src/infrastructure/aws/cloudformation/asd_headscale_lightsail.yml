@@ -24,7 +24,7 @@ Parameters:
 
   HeadscaleContainerImage:
     Description: Name of the custom created headscale container image for the ASD project
-    Default: johncarvalho/asd-dev:headscale1.2
+    Default: johncarvalho/asd-dev:headscale1.3
     Type: String
 
 # -----------------------------------------------------------------------------

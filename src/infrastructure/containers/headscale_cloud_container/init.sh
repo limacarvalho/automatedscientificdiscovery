@@ -68,8 +68,8 @@ screen -dmS headscale bash -c "/usr/bin/headscale serve | tee -a /tmp/headscale_
 # Create a user named "asd" in headscale
 headscale users create asd
 
-# Create a reusable pre-authorization key for user "asd", valid for 1 year (8760 h)
-export headscale_preauthkey=$(headscale preauthkeys create --reusable --expiration 8760h --user asd)
+# Create a reusable pre-authorization key for user "asd", valid for 10 years
+export headscale_preauthkey=$(headscale preauthkeys create --reusable --expiration 87658h --user asd | grep -oE '[0-9a-f]{48}')
 
 # Sleep for 1 minute
 sleep 60

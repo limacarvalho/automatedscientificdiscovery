@@ -30,14 +30,59 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonVPCReadOnlyAccess
         - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
       Policies:
-        - PolicyName: Lightsail
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Sid: VisualEditor0
-                Effect: Allow
-                Action: lightsail:*
-                Resource: '*'
+      - PolicyName: Lightsail
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Sid: lightsail
+              Effect: Allow
+              Action: lightsail:*
+              Resource: '*'
+      - PolicyName: CloudFormationLightsail
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Sid: iamrolecreate
+              Effect: Allow
+              Action:
+              - iam:GetRole
+              - iam:UpdateAssumeRolePolicy
+              - iam:ListRoleTags
+              - iam:UntagRole
+              - iam:TagRole
+              - iam:PutRolePermissionsBoundary
+              - iam:UpdateRoleDescription
+              - iam:CreateRole
+              - iam:ListInstanceProfiles
+              - iam:ListInstanceProfilesForRole
+              - iam:ListInstanceProfileTags
+              - iam:GetInstanceProfile
+              - iam:AddRoleToInstanceProfile
+              - iam:CreateInstanceProfile
+              - iam:DeleteInstanceProfile
+              - iam:RemoveRoleFromInstanceProfile
+              - iam:TagInstanceProfile
+              - iam:UntagInstanceProfile
+              - iam:DeleteRole
+              - iam:AttachRolePolicy
+              - iam:PutRolePolicy
+              - iam:DeleteRolePermissionsBoundary
+              - iam:PassRole
+              - iam:CreateServiceLinkedRole
+              - iam:DetachRolePolicy
+              - iam:ListAttachedRolePolicies
+              - iam:DeleteRolePolicy
+              - iam:UpdateRole
+              - iam:DeleteServiceLinkedRole
+              - iam:ListRolePolicies
+              - iam:GetRolePolicy
+              Resource:
+              - !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/asg-asd-InstanceProfile-*
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/asg-asd-LightsailFullAccessRole-*
+            - Sid: iamrolelist
+              Effect: Allow
+              Action: iam:ListRoles
+              Resource: "*"
   ASDStateMachine:
     Type: 'AWS::StepFunctions::StateMachine'
     Properties:
@@ -57,6 +102,12 @@ Resources:
                 },
                 {
                   "Variable": "$.Action",
+                  "StringEquals": "StartNodes",
+                  "Next": "AutoScalingUp",
+                  "Comment": "Scales Out / Starts ASD Nodes"
+                },
+                {
+                  "Variable": "$.Action",
                   "StringEquals": "ShutdownNodes",
                   "Next": "AutoScalingDown",
                   "Comment": "Scales In / Shuts down ASD Nodes"
@@ -70,6 +121,17 @@ Resources:
               ],
               "Default": "GetBucketAcl",
               "Comment": "Choice based on input parameters"
+            },
+            "AutoScalingUp": {
+              "Type": "Task",
+              "Parameters": {
+                "AutoScalingGroupName": "asd-nodes",
+                "DesiredCapacity": 1
+              },
+              "Resource": "arn:aws:states:::aws-sdk:autoscaling:updateAutoScalingGroup",
+              "Comment": "Sets the asd-nodes AutoScaling Group Desired Capacity to 1",
+              "ResultPath": null,
+              "End": true
             },
             "CreateMultipartUpload": {
               "Type": "Task",
@@ -148,7 +210,7 @@ Resources:
                 "StackName": "headscale-asd"
               },
               "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
-              "Next": "GetCloudFormationEc2Asg",
+              "Next": "UpdateStackHeadscale",
               "Catch": [
                 {
                   "ErrorEquals": [
@@ -161,6 +223,44 @@ Resources:
               ],
               "ResultPath": null,
               "Comment": "Verifies if Headscale CloudFormation Stack is deployed"
+            },
+            "UpdateStackHeadscale": {
+              "Type": "Task",
+              "Next": "GetCloudFormationEc2Asg",
+              "Parameters": {
+                "StackName": "headscale-asd",
+                "TemplateBody.$": "States.Base64Decode($.CloudFormationHeadscaleTemplateBase64)",
+                "Parameters": [
+                  {
+                    "ParameterKey": "HeadscaleContainerImage",
+                    "ParameterValue.$": "$.CloudFormationHeadscaleTemplateParamContainerImage"
+                  },
+                  {
+                    "ParameterKey": "HeadscaleServiceName",
+                    "ParameterValue": "headscale-asd"
+                  }
+                ],
+                "DisableRollback": false,
+                "Capabilities": [
+                  "CAPABILITY_IAM",
+                  "CAPABILITY_NAMED_IAM"
+                ]
+              },
+              "Resource": "arn:aws:states:::aws-sdk:cloudformation:updateStack",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "Next": "NoUpdatesAreToBePerformedHeadscale",
+                  "ResultPath": null,
+                  "Comment": "Continue execution if no updates are detected"
+                }
+              ]
+            },
+            "NoUpdatesAreToBePerformedHeadscale": {
+              "Type": "Pass",
+              "Next": "GetCloudFormationEc2Asg"
             },
             "CreateStackHeadscale": {
               "Type": "Task",
@@ -187,7 +287,7 @@ Resources:
                 "Tags": [
                   {
                     "Key": "CreatedBy",
-                    "Value": "Asd-StateMachine"
+                    "Value": "ASD"
                   }
                 ],
                 "EnableTerminationProtection": true
@@ -218,18 +318,61 @@ Resources:
                   "Comment": "Deploys the CloudFormation Stack if it does not exist"
                 }
               ],
-              "Next": "AutoScalingUp",
-              "ResultPath": null
+              "ResultPath": null,
+              "Next": "UpdateStack"
             },
-            "AutoScalingUp": {
+            "UpdateStack": {
               "Type": "Task",
               "Parameters": {
-                "AutoScalingGroupName": "asd-nodes",
-                "DesiredCapacity": 1
+                "StackName": "asg-asd",
+                "TemplateBody.$": "States.Base64Decode($.CloudFormationAsgTemplateBase64)",
+                "Parameters": [
+                  {
+                    "ParameterKey": "AutoScalingGroupMaxSize",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamGroupMaxSize"
+                  },
+                  {
+                    "ParameterKey": "EbsVolumeSize",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamEbsSize"
+                  },
+                  {
+                    "ParameterKey": "Ec2AmiId",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamEc2Ami"
+                  },
+                  {
+                    "ParameterKey": "InstanceType",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamInstanceType"
+                  },
+                  {
+                    "ParameterKey": "SubnetIds",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamSubnetIds"
+                  },
+                  {
+                    "ParameterKey": "VpcId",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamVpcId"
+                  }
+                ],
+                "DisableRollback": false,
+                "Capabilities": [
+                  "CAPABILITY_IAM",
+                  "CAPABILITY_NAMED_IAM"
+                ]
               },
-              "Resource": "arn:aws:states:::aws-sdk:autoscaling:updateAutoScalingGroup",
-              "Comment": "Sets the asd-nodes AutoScaling Group Desired Capacity to 1",
-              "ResultPath": null,
+              "Resource": "arn:aws:states:::aws-sdk:cloudformation:updateStack",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "Comment": "Continue execution if no updates are detected",
+                  "ResultPath": null,
+                  "Next": "NoUpdatesAreToBePerformedAsg"
+                }
+              ],
+              "End": true
+            },
+            "NoUpdatesAreToBePerformedAsg": {
+              "Type": "Pass",
               "End": true
             },
             "CreateStackEc2Asg": {
@@ -255,8 +398,8 @@ Resources:
                     "ParameterValue.$": "$.CloudFormationAsgTemplateParamInstanceType"
                   },
                   {
-                    "ParameterKey": "SubnetId",
-                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamSubnetId"
+                    "ParameterKey": "SubnetIds",
+                    "ParameterValue.$": "$.CloudFormationAsgTemplateParamSubnetIds"
                   },
                   {
                     "ParameterKey": "VpcId",
@@ -272,7 +415,7 @@ Resources:
                 "Tags": [
                   {
                     "Key": "CreatedBy",
-                    "Value": "Asd-StateMachine"
+                    "Value": "ASD"
                   }
                 ],
                 "EnableTerminationProtection": true
@@ -280,24 +423,35 @@ Resources:
               "Resource": "arn:aws:states:::aws-sdk:cloudformation:createStack",
               "Next": "WaitFor2ndStackDeployment",
               "Comment": "Creates CloudFormation Stack for ASD EC2 AutoScaling Group",
-              "ResultPath": null
+              "ResultPath": "$.CreateAsgOutput"
             },
             "WaitFor2ndStackDeployment": {
               "Type": "Wait",
               "Seconds": 180,
               "Comment": "Waits 3 min for AutoScaling Stack to finish deploying",
-              "Next": "AutoScalingUp"
+              "Next": "AutoScalingUpAfterCreate"
+            },
+            "AutoScalingUpAfterCreate": {
+              "Type": "Task",
+              "Parameters": {
+                "AutoScalingGroupName": "asd-nodes",
+                "DesiredCapacity": 1
+              },
+              "Resource": "arn:aws:states:::aws-sdk:autoscaling:updateAutoScalingGroup",
+              "Comment": "Sets the asd-nodes AutoScaling Group Desired Capacity to 1",
+              "ResultPath": null,
+              "End": true
             },
             "AutoScalingDown": {
               "Type": "Task",
-              "End": true,
               "Parameters": {
                 "AutoScalingGroupName": "asd-nodes",
                 "DesiredCapacity": 0
               },
               "Resource": "arn:aws:states:::aws-sdk:autoscaling:updateAutoScalingGroup",
               "Comment": "Sets the asd-nodes AutoScaling Group Desired Capacity to 1",
-              "ResultPath": null
+              "ResultPath": null,
+              "End": true
             },
             "DescribeAutoScalingGroups": {
               "Type": "Task",
@@ -306,14 +460,31 @@ Resources:
                   "asd-nodes"
                 ]
               },
-              "ResultPath": "$.asd_asg",
+              "ResultPath": "$.asd-nodes",
               "Resource": "arn:aws:states:::aws-sdk:autoscaling:describeAutoScalingGroups",
-              "Next": "DescribeInstanceTypes"
+              "Next": "AsdAutoScalingGroupExists?"
+            },
+            "AsdAutoScalingGroupExists?": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Not": {
+                    "Variable": "$.asd-nodes.AutoScalingGroups[0]",
+                    "IsPresent": true
+                  },
+                  "Next": "FinishCheckStatusNoAsg"
+                }
+              ],
+              "Default": "DescribeInstanceTypes",
+              "Comment": "If/Else state that handles further logic when the ASD Autoscaling Group Exists or not"
+            },
+            "FinishCheckStatusNoAsg": {
+              "Type": "Succeed"
             },
             "DescribeInstanceTypes": {
               "Type": "Task",
               "Parameters": {
-                "InstanceTypes.$": "$.asd_asg.AutoScalingGroups[0].Instances[*].InstanceType"
+                "InstanceTypes.$": "$.asd-nodes.AutoScalingGroups[0].Instances[*].InstanceType"
               },
               "ResultPath": "$.instance_types",
               "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstanceTypes",

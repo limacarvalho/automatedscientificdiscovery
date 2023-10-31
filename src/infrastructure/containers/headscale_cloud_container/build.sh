@@ -5,7 +5,7 @@
 apt update -y -qq > /dev/null
 
 # Install necessary tools quietly and without interaction
-apt install nano zip curl wget tar screen less nginx jq -y -qq > /dev/null
+apt install nano zip curl wget tar screen less nginx jq dnsutils -y -qq > /dev/null
 
 # Move to home directory
 cd "$HOME"

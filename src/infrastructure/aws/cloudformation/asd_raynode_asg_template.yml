@@ -31,7 +31,7 @@ Parameters:
     Type: List<AWS::EC2::VPC::Id>
     Description: VPC ID where the EC2 instance(s) will be deployed. !!! Subnet resources need to have access to the Internet !!!
 
-  SubnetId:
+  SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
     Description: Subnet Id where the EC2 instance(s) is/are going to be deployed to'
 
@@ -67,7 +67,7 @@ Metadata:
           default: VPC Settings
         Parameters:      
           - VpcId
-          - SubnetId
+          - SubnetIds
     ParameterLabels:
       InstanceType:
         default: EC2 instance(s) type
@@ -79,7 +79,7 @@ Metadata:
         default: Maximum number of EC2 instances in ASG
       VpcId:
         default: Id of an existing VPC
-      SubnetId:
+      SubnetIds:
         default: Id of an existing Subnet (Private or Public)   
 
 # -----------------------------------------------------------------------------
@@ -174,7 +174,7 @@ Resources:
     Type: 'AWS::AutoScaling::AutoScalingGroup'
     Properties:
       AutoScalingGroupName: asd-nodes
-      VPCZoneIdentifier: !Ref SubnetId
+      VPCZoneIdentifier: !Ref SubnetIds
       LaunchTemplate:
         LaunchTemplateId: !Ref AsdNodesLaunchTemplate
         Version: !GetAtt AsdNodesLaunchTemplate.LatestVersionNumber      
@@ -186,15 +186,67 @@ Resources:
           Value: ASD-Nodes-AutoScaling
           PropagateAtLaunch: true
 
-  AutoScalingGroupPolicy:
+  AsdAutoScalingGroupInPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:
       AutoScalingGroupName: !Ref AutoScalingGroup
-      PolicyType: TargetTrackingScaling
-      TargetTrackingConfiguration:
-        PredefinedMetricSpecification:
-          PredefinedMetricType: ASGAverageCPUUtilization
-        TargetValue: 80
+      PolicyName: AsdAutoScalingGroupIn
+      PolicyType: StepScaling
+      AdjustmentType: ChangeInCapacity
+      MetricAggregationType: Average
+      StepAdjustments:
+        - MetricIntervalUpperBound: 0.0
+          ScalingAdjustment: -1
+
+  AsdAutoScalingGroupInAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: AsdAutoScalingGroupIn
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 15
+      DatapointsToAlarm: 15
+      Threshold: 40.0
+      ComparisonOperator: LessThanOrEqualToThreshold
+      TreatMissingData: missing
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroup
+      AlarmActions:
+        - Ref: AsdAutoScalingGroupInPolicy
+
+  AsdAutoScalingGroupOutPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyName: AsdAutoScalingGroupOut
+      PolicyType: StepScaling
+      AdjustmentType: ChangeInCapacity
+      MetricAggregationType: Average
+      StepAdjustments:
+        - MetricIntervalLowerBound: 0.0
+          ScalingAdjustment: 1
+
+  AsdAutoScalingGroupOutAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: AsdAutoScalingGroupOut
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 80.0
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: missing
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroup
+      AlarmActions:
+        - Ref: AsdAutoScalingGroupOutPolicy
 
 # -----------------------------------------------------------------------------
 # Outputs
