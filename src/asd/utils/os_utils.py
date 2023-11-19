@@ -1,4 +1,6 @@
+import re
 import json
+import uuid
 import base64
 import logging
 import os
@@ -213,3 +215,67 @@ def encode_file_to_base64(filepath: Union[Path, str], retries: int = 3) -> Optio
     # If the function reaches this point, all retries have been exhausted.
     logging.error(f"!!! Failed to encode the file after {retries} attempts !!!")
     return None
+
+
+def generate_uuid():
+    """
+    Generate a universally unique identifier (UUID).
+
+    Returns:
+    str: A UUID string.
+    """
+    return str(uuid.uuid4())
+
+
+def file_operations(file_path: str, mode: str, content: str = None) -> str:
+    """
+    Perform operations on a file - read, append, or write.
+
+    Args:
+    file_path (str): Path of the file to operate on.
+    mode (str): Operation mode - 'read', 'append', or 'write'.
+    content (str, optional): Content to write or append to the file. Required for 'append' and 'write' modes.
+
+    Returns:
+    str: Content of the file for 'read' mode, otherwise confirmation message.
+    """
+
+    if mode not in ['read', 'append', 'write']:
+        raise ValueError("!!! Mode must be 'read', 'append', or 'write' !!!")
+
+    try:
+        if mode == 'read':
+            with open(file_path, 'r') as file:
+                return file.read()
+
+        if mode in ['append', 'write']:
+            if content is None:
+                raise ValueError("!!! Content must be provided for 'append' or 'write' mode !!!")
+            
+            write_mode = 'a' if mode == 'append' else 'w'
+            with open(file_path, write_mode) as file:
+                file.write(content)
+                return f"+++ Content successfully added/updated to the file +++"
+
+    except IOError as error:
+        return f"!!! An error occurred: {error} !!!"
+
+
+def is_valid_uuid(uuid_to_test: str) -> bool:
+    """
+    Check if a given string is a valid UUID.
+
+    Args:
+    uuid_to_test (str): The string to test.
+
+    Returns:
+    bool: True if the string is a valid UUID, False otherwise.
+    """
+    regex = (
+        r'^[0-9a-fA-F]{8}-'    # 8 hex digits
+        r'[0-9a-fA-F]{4}-'     # 4 hex digits
+        r'4[0-9a-fA-F]{3}-'    # '4' and 3 hex digits for version 4
+        r'[89aAbB][0-9a-fA-F]{3}-'  # One of '8', '9', 'a', 'b', 'A', 'B', and 3 hex digits
+        r'[0-9a-fA-F]{12}$'    # 12 hex digits
+    )
+    return bool(re.match(regex, uuid_to_test))

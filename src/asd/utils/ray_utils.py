@@ -49,6 +49,7 @@ class RayCluster:
     | check_status() |  n/a                | Runs by default when an instance of class is created. Check the status of any existing                      |
     |                |                     | Ray Cluster (local or remote)                                                                               |
     |                |                     |                                                                                                             |
+    | update_status()|  n/a                | Updates the status of the existing Ray Cluster, by triggering the execution of check_status()               |
     | start()        |  n/a                | Starts a Ray Cluster if not available already (Starts local and remote clusters on AWS)                     |
     | stop()         |  n/a                | Stops a Ray Cluster if available (Stops local cluster and/or remote cluster on AWS by terminating EC2s)     |
     | purge()        |  n/a                | Stops a Ray Cluster (Local and/or Remote), kills any local OS process related to Ray and deletes existing   |
@@ -233,7 +234,7 @@ class RayCluster:
                 return False
         elif self.mode == "remote":
             # Start and extract relevant data from the state machine's output
-            describe_asd_asg = self.aws_env.handle_state_machine_exec(statemachine_action='StartCluster')
+            describe_asd_asg = self.aws_env.handle_state_machine_exec(statemachine_action='StartNodes')
 
 
     def stop(self) -> bool:

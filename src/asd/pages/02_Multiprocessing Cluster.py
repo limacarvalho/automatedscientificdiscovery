@@ -383,13 +383,16 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
         if "Check Status" in remote_cluster_options_select:
             progress_bar(msg="Checking Cluster Status...")
             if st.session_state.ray_cluster_remote.aws_statemachine:
-                st.success("+++ Cluster is available in remote mode +++")
+                st.success("+++ AWS environment is properly configured +++")
+                # Checks if Ray Cluster return message 'remote_ray_status_stdout' contains the 'Start Cluster' information, if so automatically starts the remote Ray Cluster EC2 nodes
                 if 'Start Cluster' in st.session_state.ray_cluster_remote.remote_ray_status_stdout:
                     st.info("+++ Starting compute nodes...")
-                    state_machine_scaleup_nodes_payload_dict = {
-                        'Action': 'StartNodes'
-                    }
-                    st.session_state.ray_cluster_remote.aws_env.handle_state_machine_exec(input_payload=state_machine_scaleup_nodes_payload_dict, synchronous_invocation=True)
+                    # Commented-out code that implements the same as 'st.session_state.ray_cluster_remote.start()'. Kept here for troubleshooting.
+                    # state_machine_scaleup_nodes_payload_dict = {
+                    #     'Action': 'StartNodes'
+                    # }
+                    # st.session_state.ray_cluster_remote.aws_env.handle_state_machine_exec(input_payload=state_machine_scaleup_nodes_payload_dict, synchronous_invocation=True)
+                    st.session_state.ray_cluster_remote.start()
                 else:
                     st.warning(ray_status_msg)
                 st.info("+++ ASD Autoscaling Group automatically adjusts the number of running Instances/VMs based on the CPU utilization +++")
@@ -573,7 +576,7 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
         elif "Modify Cluster" in remote_cluster_options_select:
             progress_bar(msg="Checking Cluster Status...")
             if st.session_state.ray_cluster_remote.cluster_status:
-                st.success("+++ Cluster is available in remote mode +++")
+                st.success("+++ AWS environment is properly configured +++")
                 st.write(ray_status_msg)
             else:
                 st.write("+++ Cluster is not yet started +++")

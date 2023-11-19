@@ -1,15 +1,8 @@
 # +--------------------------------------------------------------------------+
 # |                   Automated Scientific Discovery (ASD)                   |
 # +--------------------------------------------------------------------------+
-# CloudFormation YAML Template file
-# To deploy, just access the AWS Console -> CloudFormation -> (Choose the AWS Region) -> Create Stack -> Create template in Designer
-# Paste the following template and trigger the deployment
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'CloudFormation Template to Create IAM Role, Security Group, Launch Template and Auto Scaling Group'
-
-# -----------------------------------------------------------------------------
-# Parameters
-# -----------------------------------------------------------------------------
 Parameters:
   InstanceType:
     Description: 'Type of EC2 instance to be used'
@@ -26,33 +19,24 @@ Parameters:
       - 'c6a.12xlarge'
       - 'c6a.16xlarge'
     ConstraintDescription: 'Must be a valid EC2 instance type.'
-
   VpcId:
     Type: List<AWS::EC2::VPC::Id>
     Description: VPC ID where the EC2 instance(s) will be deployed. !!! Subnet resources need to have access to the Internet !!!
-
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
     Description: Subnet Id where the EC2 instance(s) is/are going to be deployed to'
-
   EbsVolumeSize:
     Description: 'Size for the EC2 EBS volume(s)'
     Type: 'Number'
     Default: 150
-
   AutoScalingGroupMaxSize:
     Description: 'Maximum Size, in units, for the EC2 Ray nodes Auto Scaling Group'
     Type: 'String'
     Default: '3'
-
   Ec2AmiId:
     Description: 'EC2 AMI Id to be used in the Auto Scaling Group'
     Default: 'ami-0a3ea90a796298456'
     Type: 'String' 
-
-# -----------------------------------------------------------------------------
-# Metadata:
-# -----------------------------------------------------------------------------
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -81,10 +65,6 @@ Metadata:
         default: Id of an existing VPC
       SubnetIds:
         default: Id of an existing Subnet (Private or Public)   
-
-# -----------------------------------------------------------------------------
-# Resources
-# -----------------------------------------------------------------------------
 Resources:
   LightsailFullAccessRole:
     Type: 'AWS::IAM::Role'
@@ -128,14 +108,12 @@ Resources:
               - secretsmanager:ListSecretVersionIds
               Resource:
                 - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*"
-
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
       Path: '/'
       Roles:
         - !Ref LightsailFullAccessRole
-
   SecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -145,7 +123,6 @@ Resources:
       SecurityGroupEgress:
         - CidrIp: '0.0.0.0/0'
           IpProtocol: '-1'
-
   AsdNodesLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties: 
@@ -169,7 +146,6 @@ Resources:
           - !Ref SecurityGroup
       LaunchTemplateName: asd-nodes
       VersionDescription: Serves as Ray processing node for the ASD application or runs the entire app itself
-
   AutoScalingGroup:
     Type: 'AWS::AutoScaling::AutoScalingGroup'
     Properties:
@@ -185,7 +161,6 @@ Resources:
         - Key: Name
           Value: ASD-Nodes-AutoScaling
           PropagateAtLaunch: true
-
   AsdAutoScalingGroupInPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:
@@ -197,7 +172,6 @@ Resources:
       StepAdjustments:
         - MetricIntervalUpperBound: 0.0
           ScalingAdjustment: -1
-
   AsdAutoScalingGroupInAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -216,7 +190,6 @@ Resources:
           Value: !Ref AutoScalingGroup
       AlarmActions:
         - Ref: AsdAutoScalingGroupInPolicy
-
   AsdAutoScalingGroupOutPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:
@@ -228,7 +201,6 @@ Resources:
       StepAdjustments:
         - MetricIntervalLowerBound: 0.0
           ScalingAdjustment: 1
-
   AsdAutoScalingGroupOutAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -247,10 +219,6 @@ Resources:
           Value: !Ref AutoScalingGroup
       AlarmActions:
         - Ref: AsdAutoScalingGroupOutPolicy
-
-# -----------------------------------------------------------------------------
-# Outputs
-# -----------------------------------------------------------------------------
 Outputs:
   AutoScalingGroup:
     Description: 'Auto Scaling Group Name'

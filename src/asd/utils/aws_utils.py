@@ -8,7 +8,7 @@ from datetime import datetime
 
 import boto3
 import pytz
-from utils.os_utils import read_aws_credentials_from_file
+from utils.os_utils import read_aws_credentials_from_file, generate_uuid, file_operations, is_valid_uuid
 
 # Set up logging
 logging.basicConfig(level=logging.ERROR)
@@ -93,6 +93,24 @@ class AWSInfrastructure:
         self.home_dir: Path = Path.home()
         self.aws_folder: Path = self.home_dir / ".aws"
         self.aws_accountid_file: Path = self.aws_folder / "account_id"
+
+        # Sets the file location and instance attribute for the ASD Container UUID used by the AWS StepFunctions StateMachine
+        self.asd_container_uuid_file: Path = self.home_dir / ".asd_container_uuid"
+        #TODO pass uuid_not_valid_msg info to multiprocessing cluster page
+        self.uuid_not_valid_msg: str = str()
+        try:
+            with self.asd_container_uuid_file.open("r") as file_obj:
+                self.asd_container_uuid: str = file_obj.readline().strip()
+                if not is_valid_uuid(self.asd_container_uuid):
+                    #TODO Implement here call to re-create AWS components
+                    self.uuid_not_valid_msg = f"!!! Invalid UUID format in '{self.asd_container_uuid_file}' file. AWS components have to be re-deployed !!!"
+                    logging.info(self.uuid_not_valid_msg)
+                    raise ValueError(self.uuid_not_valid_msg)
+        except (FileNotFoundError, ValueError):
+            # Generates an UUID an writes it to '~/.asd_container_uuid'
+            logging.info(f"+++ New ASD Container UUID generated and saved to '{self.asd_container_uuid_file}' +++")
+            self.asd_container_uuid: str = generate_uuid()
+            file_operations(file_path=self.asd_container_uuid_file, mode='write', content=self.asd_container_uuid)      
 
         # Read AWS Credentials File
         self.aws_credentials: Dict[str, Optional[str]] = read_aws_credentials_from_file(self.aws_folder)
@@ -277,6 +295,10 @@ class AWSInfrastructure:
                     {
                         'Key': 'CreatedBy',
                         'Value': 'ASD'
+                    },
+                    {
+                        'Key': 'AsdContainerUuid',
+                        'Value': self.asd_container_uuid
                     }
                 ]             
             )
