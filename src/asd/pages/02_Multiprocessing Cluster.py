@@ -9,7 +9,7 @@ from typing import Union, Optional
 
 import streamlit as st
 from aws_utils import SUPPORTED_INSTANCE_TYPES, AWSGetdata, RemoteClusterSizing
-from utils.os_utils import delete_dir, write_aws_credentials_to_file, encode_file_to_base64
+from utils.os_utils import delete_dir, write_aws_credentials_to_file, encode_file_to_base64, file_operations
 from utils.ray_utils import RayCluster
 
 # Set streamlit layout
@@ -256,6 +256,7 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
     aws_credentials_file = Path(f"{aws_folder}/credentials")
     aws_config_file = Path(f"{aws_folder}/config")
     account_id_file = Path(f"{aws_folder}/account_id")
+    asd_deployment_tracking_file = home_dir / ".asd_container_uuid"
     aws_region: str = "us-east-1"
     account_id: str = False # Set account_id to False since this is going to be retrieved automatically as part of the function
     aws_service_quota_for_general_type_instances: dict = {"ServiceCode": "ec2", "QuotaCode": "L-1216C47A"} # AWS Service Quota code for Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances
@@ -537,7 +538,12 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
                     cloudformation_ec2_asg_template_cf_file: Union[Path, None] = next(Path("/opt/asd").rglob("asd_raynode_asg_template.yml"), None)
                     cloudformation_headscale_template_base64 = encode_file_to_base64(filepath=cloudformation_headscale_template_cf_file)
                     cloudformation_ec2_asg_template_base64 = encode_file_to_base64(filepath=cloudformation_ec2_asg_template_cf_file)
-                    
+
+                    # Read and parse the deployment tracking file                   
+                    asd_deployment_tracking_dict = json.loads(file_operations(file_path=asd_deployment_tracking_file, mode='read'))
+                    asd_aws_deployment_counter = asd_deployment_tracking_dict['asd_deployment_number']
+                    asd_container_uuid = asd_deployment_tracking_dict['asd_container_uuid']
+
                     # Create StateMachine JSON Payload based on values provided and Base64 encoded templates
                     state_machine_create_cluster_payload_dict = {
                     'CloudFormationHeadscaleTemplateBase64': cloudformation_headscale_template_base64,
@@ -549,6 +555,8 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
                     'CloudFormationAsgTemplateParamInstanceType': st.session_state.select_instance_type,
                     'CloudFormationAsgTemplateParamSubnetIds': str(",".join(subnet_ids_list)),
                     'CloudFormationAsgTemplateParamVpcId': str(vpc_id),
+                    'AsdDeploymentCount': str(asd_aws_deployment_counter), #TODO: more testing and continue adding deployment count to EC2 ASG resources
+                    'AsdContainerUuid': str(asd_container_uuid),
                     'Action': 'CreateOrUpdateClusterResources'
                     }
 

@@ -1,16 +1,10 @@
-import json
 import logging
 import os
 import shutil
 import signal
 import subprocess
 
-from time import sleep
-from typing import Optional
-
-import boto3
 import psutil
-
 from utils.aws_utils import AWSInfrastructure
 
 # Constants
@@ -72,7 +66,6 @@ class RayCluster:
         else:
             logging.error(f"!!! Invalid RayCluster mode: '{self.mode}' !!!")
 
-
     def check_status(self) -> bool:
         """
         Checks the status of the Ray cluster running locally or on AWS EC2s.
@@ -81,9 +74,7 @@ class RayCluster:
         """
         if self.mode == "local":
             try:
-                get_local_ray_status = subprocess.run(
-                    ["ray", "status"], stdout=subprocess.PIPE, text=True
-                )
+                get_local_ray_status = subprocess.run(["ray", "status"], stdout=subprocess.PIPE, text=True)
                 ray_status = get_local_ray_status.returncode
                 self.local_ray_status_stdout = get_local_ray_status.stdout
             except subprocess.CalledProcessError:
@@ -98,9 +89,7 @@ class RayCluster:
                 logging.debug("+++ Ray cluster is NOT running +++")
                 return False
             else:
-                logging.warning(
-                    "!!! Unable to determine the status of the Ray cluster !!!"
-                )
+                logging.warning("!!! Unable to determine the status of the Ray cluster !!!")
                 return False
 
         elif self.mode == "remote":
@@ -109,20 +98,21 @@ class RayCluster:
                 self.aws_statemachine = True
 
                 # Extract relevant data from the state machine's output
-                describe_asd_asg = self.aws_env.handle_state_machine_exec(statemachine_action='CheckStatus')
+                describe_asd_asg = self.aws_env.handle_state_machine_exec(statemachine_action="CheckStatus")
 
-                if self.ASD_AWS_RAY_ASG_NAME in describe_asd_asg and describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]['AutoScalingGroups']:
-                    asd_asg_total_instances = describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME][
-                        "AutoScalingGroups"
-                    ][0]["MaxSize"]
+                if (
+                    self.ASD_AWS_RAY_ASG_NAME in describe_asd_asg
+                    and describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"]
+                ):
+                    asd_asg_total_instances = describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0][
+                        "MaxSize"
+                    ]
                     asd_asg_running_instances = len(
-                        describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0][
-                            "Instances"
-                        ]
+                        describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0]["Instances"]
                     )
                     asd_asg_msg_1 = f"+++ ASD Autoscaling Group currently has a total of {asd_asg_total_instances} instances/VMs, {asd_asg_running_instances} currently running | "
                     logging.info(asd_asg_msg_1)
-                    # Commented-out code to calculate the available number of vCPUs in the ASD ASG. This, however, calculates the number of running instances vCPUs and not the 
+                    # Commented-out code to calculate the available number of vCPUs in the ASD ASG. This, however, calculates the number of running instances vCPUs and not the
                     # total ASD vCPU capacity. This example also applies for the 'asd_asg_available_mem_inmb'.
                     # asd_asg_available_vcpus = int(
                     #     describe_asd_asg["instance_types"]["InstanceTypes"][0]["VCpuInfo"][
@@ -136,48 +126,27 @@ class RayCluster:
                     #     )
                     # )
                     asd_asg_max_available_vcpus = int(
-                        describe_asd_asg["instance_types"]["InstanceTypes"][0]["VCpuInfo"][
-                            "DefaultVCpus"
-                        ]
-                    ) * int(
-                        describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0][
-                                "MaxSize"
-                        ]
-                    )
+                        describe_asd_asg["instance_types"]["InstanceTypes"][0]["VCpuInfo"]["DefaultVCpus"]
+                    ) * int(describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0]["MaxSize"])
                     asd_asg_max_available_mem_inmb = float(
-                        describe_asd_asg["instance_types"]["InstanceTypes"][0][
-                            "MemoryInfo"
-                        ]["SizeInMiB"]
-                        / 1024
-                    ) * int(
-                        describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0][
-                            "MaxSize"
-                        ]
-                    )
+                        describe_asd_asg["instance_types"]["InstanceTypes"][0]["MemoryInfo"]["SizeInMiB"] / 1024
+                    ) * int(describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"][0]["MaxSize"])
 
-                    asd_asg_msg_2 = (
-                        f"Max available Cluster vCPUs: {asd_asg_max_available_vcpus} | "
-                    )
+                    asd_asg_msg_2 = f"Max available Cluster vCPUs: {asd_asg_max_available_vcpus} | "
                     asd_asg_msg_3 = f"Max available Cluster Memory in GB: {asd_asg_max_available_mem_inmb} +++"
                     logging.info(asd_asg_msg_2)
                     logging.info(asd_asg_msg_3)
 
-                    self.remote_ray_status_stdout = (
-                        f"{asd_asg_msg_1}\n{asd_asg_msg_2}\n{asd_asg_msg_3}\n"
-                    )
+                    self.remote_ray_status_stdout = f"{asd_asg_msg_1}\n{asd_asg_msg_2}\n{asd_asg_msg_3}\n"
                     return True
                 elif "Error" in describe_asd_asg:
-                    no_available_nodes_msg = (
-                        f"+++ The Cluster exists but there are NO running compute nodes on AWS. Choose 'Start Cluster' +++"
-                    )
+                    no_available_nodes_msg = "+++ The Cluster exists but there are NO running compute nodes on AWS. Choose 'Start Cluster' +++"
                     logging.info(no_available_nodes_msg)
                     self.remote_ray_status_stdout = no_available_nodes_msg
                     return False
 
-                elif not describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]['AutoScalingGroups']:
-                    no_cluster_msg = (
-                        f"+++ No Cluster is available/deployed on AWS. Choose 'Create Cluster' +++"
-                    )
+                elif not describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"]:
+                    no_cluster_msg = "+++ No Cluster is available/deployed on AWS. Choose 'Create Cluster' +++"
                     logging.info(no_cluster_msg)
                     self.remote_ray_status_stdout = no_cluster_msg
                     return False
@@ -192,15 +161,13 @@ class RayCluster:
                 self.remote_ray_status_stdout = no_aws_resources_msg
                 return False
 
-
     def update_status(self):
         """
         Forces an update on the instance attribute 'cluster_status' by running the check_status() function.
-    
+
         :return: None
         """
         self.cluster_status: bool = self.check_status()
-
 
     def start(self) -> bool:
         """
@@ -209,14 +176,10 @@ class RayCluster:
         :return: True if the Ray cluster is successfully started, False otherwise.
         """
         if self.mode == "local":
-            logging.debug(
-                f"++++ Ray Cluster status is set to: {self.cluster_status} +++"
-            )
+            logging.debug(f"++++ Ray Cluster status is set to: {self.cluster_status} +++")
             if not self.cluster_status:
                 try:
-                    start_cluster = subprocess.run(
-                        ["ray", "start", "--head"], stdout=None, text=True
-                    )
+                    start_cluster = subprocess.run(["ray", "start", "--head"], stdout=None, text=True)
                     ray_start_result = start_cluster.returncode
                 except subprocess.CalledProcessError:
                     logging.error("!!! Unable to execute ray start command !!!")
@@ -234,8 +197,7 @@ class RayCluster:
                 return False
         elif self.mode == "remote":
             # Start and extract relevant data from the state machine's output
-            describe_asd_asg = self.aws_env.handle_state_machine_exec(statemachine_action='StartNodes')
-
+            self.aws_env.handle_state_machine_exec(statemachine_action="StartNodes")
 
     def stop(self) -> bool:
         """
@@ -264,11 +226,10 @@ class RayCluster:
             logging.warning("!!! Ray Cluster does not seem to be running !!!")
             return False
 
-
     def purge(self) -> bool:
         """
         Stops the Ray cluster running in 'local' mode or remotely on AWS. Purges all related resources and processes.
-        For the remote mode, this function deletes any AWS infrastructure that relates to ASD and ray (EC2 AutoScaling 
+        For the remote mode, this function deletes any AWS infrastructure that relates to ASD and ray (EC2 AutoScaling
         Group, IAM Roles, Lightsail Container, Security Groups, etc)
 
         :return: False, indicating that the Ray cluster is not running.
@@ -286,17 +247,13 @@ class RayCluster:
                 process_name = process_info["name"]
                 cmdline = process_info["cmdline"]
                 if "ray" in process_name or any("ray" in cmd for cmd in cmdline):
-                    logging.debug(
-                        f"+++ Killing process: PID {process_info['pid']}, Name {process_name} +++"
-                    )
+                    logging.debug(f"+++ Killing process: PID {process_info['pid']}, Name {process_name} +++")
                     os.kill(process_info["pid"], signal.SIGTERM)
             except (
                 psutil.NoSuchProcess,
                 psutil.AccessDenied,
                 psutil.ZombieProcess,
             ) as error:
-                logging.warning(
-                    f"!!! Unable to find any ray-related processes: {error} !!!"
-                )
+                logging.warning(f"!!! Unable to find any ray-related processes: {error} !!!")
         self.cluster_status = False
         return False

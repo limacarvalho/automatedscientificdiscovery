@@ -37,34 +37,14 @@ Parameters:
     Description: 'EC2 AMI Id to be used in the Auto Scaling Group'
     Default: 'ami-0a3ea90a796298456'
     Type: 'String' 
-Metadata:
-  AWS::CloudFormation::Interface:
-    ParameterGroups:
-      - Label:
-          default: EC2 Settings
-        Parameters:
-          - InstanceType
-          - Ec2AmiId
-          - EbsVolumeSize
-          - AutoScalingGroupMaxSize
-      - Label:
-          default: VPC Settings
-        Parameters:      
-          - VpcId
-          - SubnetIds
-    ParameterLabels:
-      InstanceType:
-        default: EC2 instance(s) type
-      Ec2AmiId:
-        default: EC2 Instance AMI
-      EbsVolumeSize:
-        default: EBS size in GBs
-      AutoScalingGroupMaxSize:
-        default: Maximum number of EC2 instances in ASG
-      VpcId:
-        default: Id of an existing VPC
-      SubnetIds:
-        default: Id of an existing Subnet (Private or Public)   
+  AsdDeploymentCount:
+    Description: ASD Deployment number
+    Type: String
+    Default: 'none'
+  AsdContainerUuid:
+    Description: UUID of the ASD Container
+    Type: String
+    Default: 'none'      
 Resources:
   LightsailFullAccessRole:
     Type: 'AWS::IAM::Role'
@@ -144,12 +124,12 @@ Resources:
             - Arn
         SecurityGroupIds:
           - !Ref SecurityGroup
-      LaunchTemplateName: asd-nodes
+      LaunchTemplateName: !Sub 'asd-nodes-${AsdDeploymentCount}'
       VersionDescription: Serves as Ray processing node for the ASD application or runs the entire app itself
   AutoScalingGroup:
     Type: 'AWS::AutoScaling::AutoScalingGroup'
     Properties:
-      AutoScalingGroupName: asd-nodes
+      AutoScalingGroupName: !Sub 'asd-nodes-${AsdDeploymentCount}'
       VPCZoneIdentifier: !Ref SubnetIds
       LaunchTemplate:
         LaunchTemplateId: !Ref AsdNodesLaunchTemplate
@@ -158,14 +138,20 @@ Resources:
       MaxSize: !Ref AutoScalingGroupMaxSize
       DesiredCapacity: '0'
       Tags:
-        - Key: Name
-          Value: ASD-Nodes-AutoScaling
+        - Key: CreatedBy
+          Value: ASD
           PropagateAtLaunch: true
+        - Key: AsdContainerUuid
+          Value: !Ref AsdContainerUuid 
+          PropagateAtLaunch: true
+        - Key: Name
+          Value: !Sub 'ASD-Nodes-AutoScaling-${AsdDeploymentCount}'
+          PropagateAtLaunch: true                       
   AsdAutoScalingGroupInPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:
       AutoScalingGroupName: !Ref AutoScalingGroup
-      PolicyName: AsdAutoScalingGroupIn
+      PolicyName: !Sub 'AsdAutoScalingGroupIn-${AsdDeploymentCount}'
       PolicyType: StepScaling
       AdjustmentType: ChangeInCapacity
       MetricAggregationType: Average
@@ -175,7 +161,7 @@ Resources:
   AsdAutoScalingGroupInAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: AsdAutoScalingGroupIn
+      AlarmName: !Sub 'AsdAutoScalingGroupIn-${AsdDeploymentCount}'
       Namespace: AWS/EC2
       MetricName: CPUUtilization
       Statistic: Average
@@ -194,7 +180,7 @@ Resources:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:
       AutoScalingGroupName: !Ref AutoScalingGroup
-      PolicyName: AsdAutoScalingGroupOut
+      PolicyName: !Sub 'AsdAutoScalingGroupOut-${AsdDeploymentCount}'
       PolicyType: StepScaling
       AdjustmentType: ChangeInCapacity
       MetricAggregationType: Average
@@ -204,7 +190,7 @@ Resources:
   AsdAutoScalingGroupOutAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: AsdAutoScalingGroupOut
+      AlarmName: !Sub 'AsdAutoScalingGroupOut-${AsdDeploymentCount}'
       Namespace: AWS/EC2
       MetricName: CPUUtilization
       Statistic: Average

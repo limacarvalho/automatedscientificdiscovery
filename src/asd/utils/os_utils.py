@@ -1,10 +1,10 @@
-import re
-import json
-import uuid
 import base64
+import json
 import logging
 import os
+import re
 import subprocess
+import uuid
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
 
@@ -45,15 +45,11 @@ def delete_dir(folder_path: str, retries: int = MAX_RETRIES) -> Tuple[bool, str]
                 return True, f"+++ Successfully deleted directory: '{folder_path}' +++"
 
             # If there was an error, log it and retry
-            logging.warning(
-                f"!!! Attempt {attempt + 1}: Error deleting '{folder_path}': {result.stderr}"
-            )
+            logging.warning(f"!!! Attempt {attempt + 1}: Error deleting '{folder_path}': {result.stderr}")
 
         except Exception as error:
             # Handle exceptions related to the subprocess call
-            logging.error(
-                f"!!! Exception while trying to delete '{folder_path}': {error}"
-            )
+            logging.error(f"!!! Exception while trying to delete '{folder_path}': {error}")
 
     # If reached here, deletion was not successful after all retries
     return (
@@ -106,7 +102,7 @@ def write_aws_credentials_to_file(
         with aws_config_file.open("w") as file_obj:
             file_obj.write("[default]\n")
             file_obj.write(f"region = {aws_region}\n")
-            file_obj.write(f"output = json\n")
+            file_obj.write("output = json\n")
 
         if account_id:
             # Write AWS AccountId to the 'account_id' file
@@ -126,9 +122,7 @@ def write_aws_credentials_to_file(
                 with account_id_file.open("w") as file_obj:
                     file_obj.write(account_id)
             else:
-                logging.error(
-                    f"!!! Error: Unable to retrieve AWS Account Id: {account_id_command.stderr} !!!"
-                )
+                logging.error(f"!!! Error: Unable to retrieve AWS Account Id: {account_id_command.stderr} !!!")
 
         logging.info("+++ AWS credentials and configurations written successfully +++")
 
@@ -155,9 +149,7 @@ def read_aws_credentials_from_file(aws_folder: Union[str, Path]) -> Dict[str, Op
 
     # Ensure the credentials file exists
     if not os.path.exists(credentials_file):
-        raise FileNotFoundError(
-            f"!!! The AWS credentials file was not found at {credentials_file} !!!"
-        )
+        raise FileNotFoundError(f"!!! The AWS credentials file was not found at {credentials_file} !!!")
 
     aws_credentials = {}
     try:
@@ -168,9 +160,7 @@ def read_aws_credentials_from_file(aws_folder: Union[str, Path]) -> Dict[str, Op
                 if "aws_access_key_id" in line:
                     aws_credentials["aws_access_key_id"] = line.split("=")[1].strip()
                 elif "aws_secret_access_key" in line:
-                    aws_credentials["aws_secret_access_key"] = line.split("=")[
-                        1
-                    ].strip()
+                    aws_credentials["aws_secret_access_key"] = line.split("=")[1].strip()
                 elif "aws_session_token" in line:
                     aws_credentials["aws_session_token"] = line.split("=")[1].strip()
                 elif "aws_session_token" not in line:
@@ -198,13 +188,13 @@ def encode_file_to_base64(filepath: Union[Path, str], retries: int = 3) -> Optio
             # Ensure the file path is a Path object
             if not isinstance(filepath, Path):
                 filepath = Path(filepath)
-            
+
             # Open the file in binary mode and read its contents
-            with filepath.open('rb') as file:
+            with filepath.open("rb") as file:
                 file_content = file.read()
 
             # Convert the file content to a base64 encoded string
-            encoded_string = base64.b64encode(file_content).decode('utf-8')
+            encoded_string = base64.b64encode(file_content).decode("utf-8")
             return encoded_string
 
         except Exception as error:
@@ -240,25 +230,26 @@ def file_operations(file_path: str, mode: str, content: str = None) -> str:
     str: Content of the file for 'read' mode, otherwise confirmation message.
     """
 
-    if mode not in ['read', 'append', 'write']:
+    if mode not in ["read", "append", "write"]:
         raise ValueError("!!! Mode must be 'read', 'append', or 'write' !!!")
 
     try:
-        if mode == 'read':
-            with open(file_path, 'r') as file:
+        if mode == "read":
+            with open(file_path, "r") as file:
+                logging.info(f"+++ Reading contents of file '{file_path}' +++")
                 return file.read()
 
-        if mode in ['append', 'write']:
+        if mode in ["append", "write"]:
             if content is None:
                 raise ValueError("!!! Content must be provided for 'append' or 'write' mode !!!")
-            
-            write_mode = 'a' if mode == 'append' else 'w'
+
+            write_mode = "a" if mode == "append" else "w"
             with open(file_path, write_mode) as file:
                 file.write(content)
-                return f"+++ Content successfully added/updated to the file +++"
+                logging.info(f"+++ Content successfully added/updated to the file '{file_path}' +++")
 
     except IOError as error:
-        return f"!!! An error occurred: {error} !!!"
+        logging.error(f"!!! An error occurred while performing file operations on '{file_path}': {error} !!!")
 
 
 def is_valid_uuid(uuid_to_test: str) -> bool:
@@ -272,10 +263,10 @@ def is_valid_uuid(uuid_to_test: str) -> bool:
     bool: True if the string is a valid UUID, False otherwise.
     """
     regex = (
-        r'^[0-9a-fA-F]{8}-'    # 8 hex digits
-        r'[0-9a-fA-F]{4}-'     # 4 hex digits
-        r'4[0-9a-fA-F]{3}-'    # '4' and 3 hex digits for version 4
-        r'[89aAbB][0-9a-fA-F]{3}-'  # One of '8', '9', 'a', 'b', 'A', 'B', and 3 hex digits
-        r'[0-9a-fA-F]{12}$'    # 12 hex digits
+        r"^[0-9a-fA-F]{8}-"  # 8 hex digits
+        r"[0-9a-fA-F]{4}-"  # 4 hex digits
+        r"4[0-9a-fA-F]{3}-"  # '4' and 3 hex digits for version 4
+        r"[89aAbB][0-9a-fA-F]{3}-"  # One of '8', '9', 'a', 'b', 'A', 'B', and 3 hex digits
+        r"[0-9a-fA-F]{12}$"  # 12 hex digits
     )
     return bool(re.match(regex, uuid_to_test))

@@ -1,9 +1,11 @@
+import json
 import logging
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, Optional
 
 import psutil
+from utils.os_utils import file_operations
 
 # Constants
 TAILSCALE_IPS_STARTWITH = "100.64.0."
@@ -11,6 +13,10 @@ ASD_CONTAINER_FOLDER = "/opt/asd"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+
+# AWS Deployment Tracking file
+home_dir: Path = Path.home()
+asd_deployment_tracking_file: Path = home_dir / ".asd_container_uuid"
 
 
 def get_network_interfaces() -> Dict[str, str]:
@@ -66,9 +72,7 @@ def start_tailscale_connect_process() -> bool:
             process_name = process_info["name"]
             cmdline = process_info["cmdline"]
             if "tailscaled" in process_name or any("tailscaled" in cmd for cmd in cmdline):
-                logging.info(
-                    f"+++ Tailscale is already running: PID {process_info['pid']}, Name {process_name} +++"
-                )
+                logging.info(f"+++ Tailscale is already running: PID {process_info['pid']}, Name {process_name} +++")
                 is_tailscale_running.append(True)
             else:
                 is_tailscale_running.append(False)
@@ -77,18 +81,12 @@ def start_tailscale_connect_process() -> bool:
             psutil.AccessDenied,
             psutil.ZombieProcess,
         ) as error:
-            logging.warning(
-                f"!!! Unable to find any tailscale-related processes: {error} !!!"
-            )
+            logging.warning(f"!!! Unable to find any tailscale-related processes: {error} !!!")
 
     if not any(is_tailscale_running):
         asd_container_folder = Path(ASD_CONTAINER_FOLDER)
-        _tailscale_connect_shell_script = asd_container_folder.rglob(
-            "tailscale_connect_service.sh"
-        )
-        tailscale_connect_shell_script = [
-            shell_script_file for shell_script_file in _tailscale_connect_shell_script
-        ]
+        _tailscale_connect_shell_script = asd_container_folder.rglob("tailscale_connect_service.sh")
+        tailscale_connect_shell_script = [shell_script_file for shell_script_file in _tailscale_connect_shell_script]
         if not tailscale_connect_shell_script:
             logging.error("Shell script not found!")
             return False
@@ -101,9 +99,13 @@ def start_tailscale_connect_process() -> bool:
             text=True,
         )
 
+        # Read and parse the deployment tracking file
+        asd_deployment_tracking_dict = json.loads(file_operations(file_path=asd_deployment_tracking_file, mode="read"))
+        asd_aws_deployment_counter = asd_deployment_tracking_dict["asd_deployment_number"]
+
         # Start the shell script to initiate the Tailscale connection
         start_shell_script = subprocess.run(
-            ["bash", "-c", str(tailscale_connect_shell_script[0])],
+            ["bash", "-c", str(tailscale_connect_shell_script[0]), f"headscale-asd-{asd_aws_deployment_counter}"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -117,9 +119,7 @@ def start_tailscale_connect_process() -> bool:
                 stderr=subprocess.PIPE,
                 text=True,
             )
-            logging.info(
-                f"+++ Tailscale process was started successfully +++\n{tailscale_status.stdout}"
-            )
+            logging.info(f"+++ Tailscale process was started successfully +++\n{tailscale_status.stdout}")
             return True
         else:
             logging.error(

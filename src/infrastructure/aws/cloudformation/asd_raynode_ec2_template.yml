@@ -149,3 +149,5 @@ Resources:
       Tags:
         - Key: Name
           Value: ASD-Ami-Creation-Instance
+        - Key: CreatedBy
+          Value: ASD

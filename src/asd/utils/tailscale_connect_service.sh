@@ -1,6 +1,13 @@
 #!/bin/bash
 
-aws_lightsail_headscale_svc_name=headscale-asd
+# The script is normally invoked as part of the tailscale_connect.py execution, however it can be executed individually
+# /opt/asd/python-asd/src/asd/utils/tailscale_connect_service.sh <AWS_LIGHTSAIL_HEADSCALE_SERVICE_NAME>
+# eg. # /opt/asd/python-asd/src/asd/utils/tailscale_connect_service.sh headscale-asd
+
+# Takes a single positional cli argument and saves it to the 'aws_lightsail_headscale_svc_name' variable. eg headscale-asd-1
+aws_lightsail_headscale_svc_name=$1
+
+# Constants
 aws_lightsail_headscale_container_name=headscale
 tailscale_hostname=main-asd
 aws_region=us-east-1

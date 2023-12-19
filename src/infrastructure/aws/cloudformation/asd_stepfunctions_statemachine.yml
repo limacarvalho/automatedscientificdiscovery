@@ -8,7 +8,22 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
   Creates an IAM Role and StepFunctions StateMachine in the specified AWS account/region
-
+# -----------------------------------------------------------------------------
+# Parameters
+# -----------------------------------------------------------------------------
+Parameters:
+  StateMachineName:
+    Description: Name of the AWS StepFunctions StateMachineName
+    Type: String
+    Default: 'asd-main'
+  AsdDeploymentCount:
+    Description: ASD Deployment number
+    Type: String
+    Default: 'none'
+  AsdContainerUuid:
+    Description: UUID of the ASD Container
+    Type: String
+    Default: 'none'
 # -----------------------------------------------------------------------------
 # Resources
 # -----------------------------------------------------------------------------
@@ -16,7 +31,7 @@ Resources:
   ASDIAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: !Join [ '', [ 'asd-state-machine-', !Ref AWS::Region ] ]
+      RoleName: !Join [ '', [ 'asd-state-machine-', !Ref AsdDeploymentCount, '-', !Ref AWS::Region ] ]
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -77,8 +92,8 @@ Resources:
               - iam:ListRolePolicies
               - iam:GetRolePolicy
               Resource:
-              - !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/asg-asd-InstanceProfile-*
-              - !Sub arn:aws:iam::${AWS::AccountId}:role/asg-asd-LightsailFullAccessRole-*
+              - !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/asg-asd-*
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/asg-asd-*
             - Sid: iamrolelist
               Effect: Allow
               Action: iam:ListRoles
@@ -86,7 +101,7 @@ Resources:
   ASDStateMachine:
     Type: 'AWS::StepFunctions::StateMachine'
     Properties:
-      DefinitionString: |
+      DefinitionString: !Sub |
         {
           "Comment": "ASD - Infrastructure State Machine",
           "StartAt": "Choice",
@@ -103,7 +118,7 @@ Resources:
                 {
                   "Variable": "$.Action",
                   "StringEquals": "StartNodes",
-                  "Next": "AutoScalingUp",
+                  "Next": "CheckNumRunningInstances",
                   "Comment": "Scales Out / Starts ASD Nodes"
                 },
                 {
@@ -122,10 +137,33 @@ Resources:
               "Default": "GetBucketAcl",
               "Comment": "Choice based on input parameters"
             },
-            "AutoScalingUp": {
+            "CheckNumRunningInstances": {
+              "Type": "Task",
+              "Next": "RunningInstancesYesNo",
+              "Parameters": {
+                "AutoScalingGroupNames.$": "States.Array(States.Format('asd-nodes-{}', $.AsdDeploymentCount))"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:autoscaling:describeAutoScalingGroups",
+              "TimeoutSeconds": 30
+            },
+            "RunningInstancesYesNo": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.AutoScalingGroups[0].DesiredCapacity",
+                  "NumericGreaterThan": 0,
+                  "Next": "InstancesAlreadyRunning"
+                }
+              ],
+              "Default": "ScaleUpInstances"
+            },
+            "InstancesAlreadyRunning": {
+              "Type": "Succeed"
+            },
+            "ScaleUpInstances": {
               "Type": "Task",
               "Parameters": {
-                "AutoScalingGroupName": "asd-nodes",
+                "AutoScalingGroupName.$": "$.AutoScalingGroups[0].AutoScalingGroupName",
                 "DesiredCapacity": 1
               },
               "Resource": "arn:aws:states:::aws-sdk:autoscaling:updateAutoScalingGroup",
@@ -207,7 +245,7 @@ Resources:
             "GetCloudFormationHeadscale": {
               "Type": "Task",
               "Parameters": {
-                "StackName": "headscale-asd"
+                "StackName.$": "States.Format('headscale-asd-{}', $.AsdDeploymentCount)"
               },
               "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
               "Next": "UpdateStackHeadscale",
@@ -228,7 +266,7 @@ Resources:
               "Type": "Task",
               "Next": "GetCloudFormationEc2Asg",
               "Parameters": {
-                "StackName": "headscale-asd",
+                "StackName.$": "States.Format('headscale-asd-{}', $.AsdDeploymentCount)",
                 "TemplateBody.$": "States.Base64Decode($.CloudFormationHeadscaleTemplateBase64)",
                 "Parameters": [
                   {
@@ -237,7 +275,7 @@ Resources:
                   },
                   {
                     "ParameterKey": "HeadscaleServiceName",
-                    "ParameterValue": "headscale-asd"
+                    "ParameterValue.$": "States.Format('headscale-asd-{}', $.AsdDeploymentCount)"
                   }
                 ],
                 "DisableRollback": false,
@@ -266,7 +304,7 @@ Resources:
               "Type": "Task",
               "Next": "WaitFor1stStackDeployment",
               "Parameters": {
-                "StackName": "headscale-asd",
+                "StackName.$": "States.Format('headscale-asd-{}', $.AsdDeploymentCount)",
                 "TemplateBody.$": "States.Base64Decode($.CloudFormationHeadscaleTemplateBase64)",
                 "Parameters": [
                   {
@@ -276,6 +314,14 @@ Resources:
                   {
                     "ParameterKey": "HeadscaleServiceName",
                     "ParameterValue": "headscale-asd"
+                  },
+                  {
+                    "ParameterKey": "AsdDeploymentCount",
+                    "ParameterValue.$": "$.AsdDeploymentCount"
+                  },
+                  {
+                    "ParameterKey": "AsdContainerUuid",
+                    "ParameterValue.$": "$.AsdContainerUuid"
                   }
                 ],
                 "DisableRollback": false,
@@ -288,9 +334,13 @@ Resources:
                   {
                     "Key": "CreatedBy",
                     "Value": "ASD"
+                  },
+                  {
+                    "Key": "AsdContainerUuid",
+                    "Value": "${AsdContainerUuid}"
                   }
                 ],
-                "EnableTerminationProtection": true
+                "EnableTerminationProtection": false
               },
               "Resource": "arn:aws:states:::aws-sdk:cloudformation:createStack",
               "Comment": "Creates CloudFormation Stack for Headscale",
@@ -305,7 +355,7 @@ Resources:
             "GetCloudFormationEc2Asg": {
               "Type": "Task",
               "Parameters": {
-                "StackName": "asg-asd"
+                "StackName.$": "States.Format('asg-asd-{}', $.AsdDeploymentCount)"
               },
               "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
               "Catch": [
@@ -324,7 +374,7 @@ Resources:
             "UpdateStack": {
               "Type": "Task",
               "Parameters": {
-                "StackName": "asg-asd",
+                "StackName.$": "States.Format('asg-asd-{}', $.AsdDeploymentCount)",
                 "TemplateBody.$": "States.Base64Decode($.CloudFormationAsgTemplateBase64)",
                 "Parameters": [
                   {
@@ -378,7 +428,7 @@ Resources:
             "CreateStackEc2Asg": {
               "Type": "Task",
               "Parameters": {
-                "StackName": "asg-asd",
+                "StackName.$": "States.Format('asg-asd-{}', $.AsdDeploymentCount)",
                 "TemplateBody.$": "States.Base64Decode($.CloudFormationAsgTemplateBase64)",
                 "Parameters": [
                   {
@@ -404,6 +454,14 @@ Resources:
                   {
                     "ParameterKey": "VpcId",
                     "ParameterValue.$": "$.CloudFormationAsgTemplateParamVpcId"
+                  },
+                  {
+                    "ParameterKey": "AsdDeploymentCount",
+                    "ParameterValue.$": "$.AsdDeploymentCount"
+                  },
+                  {
+                    "ParameterKey": "AsdContainerUuid",
+                    "ParameterValue.$": "$.AsdContainerUuid"
                   }
                 ],
                 "DisableRollback": false,
@@ -416,9 +474,13 @@ Resources:
                   {
                     "Key": "CreatedBy",
                     "Value": "ASD"
+                  },
+                  {
+                    "Key": "AsdContainerUuid",
+                    "Value": "${AsdContainerUuid}"
                   }
                 ],
-                "EnableTerminationProtection": true
+                "EnableTerminationProtection": false
               },
               "Resource": "arn:aws:states:::aws-sdk:cloudformation:createStack",
               "Next": "WaitFor2ndStackDeployment",
@@ -434,7 +496,7 @@ Resources:
             "AutoScalingUpAfterCreate": {
               "Type": "Task",
               "Parameters": {
-                "AutoScalingGroupName": "asd-nodes",
+                "AutoScalingGroupName.$": "States.Format('asd-nodes-{}', $.AsdDeploymentCount)",
                 "DesiredCapacity": 1
               },
               "Resource": "arn:aws:states:::aws-sdk:autoscaling:updateAutoScalingGroup",
@@ -445,7 +507,7 @@ Resources:
             "AutoScalingDown": {
               "Type": "Task",
               "Parameters": {
-                "AutoScalingGroupName": "asd-nodes",
+                "AutoScalingGroupName.$": "States.Format('asd-nodes-{}', $.AsdDeploymentCount)",
                 "DesiredCapacity": 0
               },
               "Resource": "arn:aws:states:::aws-sdk:autoscaling:updateAutoScalingGroup",
@@ -456,9 +518,7 @@ Resources:
             "DescribeAutoScalingGroups": {
               "Type": "Task",
               "Parameters": {
-                "AutoScalingGroupNames": [
-                  "asd-nodes"
-                ]
+                "AutoScalingGroupNames.$": "States.Array(States.Format('asd-nodes-{}', $.AsdDeploymentCount))"
               },
               "ResultPath": "$.asd-nodes",
               "Resource": "arn:aws:states:::aws-sdk:autoscaling:describeAutoScalingGroups",
@@ -506,7 +566,7 @@ Resources:
         }
       RoleArn: !GetAtt [ASDIAMRole, Arn]
       StateMachineType: STANDARD
-      StateMachineName: 'asd-main'
+      StateMachineName: !Ref StateMachineName
 
 # -----------------------------------------------------------------------------
 # Outputs
