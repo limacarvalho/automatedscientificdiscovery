@@ -35,7 +35,7 @@ Parameters:
     Default: '3'
   Ec2AmiId:
     Description: 'EC2 AMI Id to be used in the Auto Scaling Group'
-    Default: 'ami-0a3ea90a796298456'
+    Default: 'ami-0ea73968a8f55f395'
     Type: 'String' 
   AsdDeploymentCount:
     Description: ASD Deployment number

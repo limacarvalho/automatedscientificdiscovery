@@ -275,7 +275,15 @@ Resources:
                   },
                   {
                     "ParameterKey": "HeadscaleServiceName",
-                    "ParameterValue.$": "States.Format('headscale-asd-{}', $.AsdDeploymentCount)"
+                    "ParameterValue": "headscale-asd"
+                  },
+                  {
+                    "ParameterKey": "AsdDeploymentCount",
+                    "ParameterValue.$": "$.AsdDeploymentCount"
+                  },
+                  {
+                    "ParameterKey": "AsdContainerUuid",
+                    "ParameterValue.$": "$.AsdContainerUuid"
                   }
                 ],
                 "DisableRollback": false,

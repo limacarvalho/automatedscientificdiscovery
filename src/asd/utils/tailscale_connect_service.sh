@@ -1,15 +1,9 @@
 #!/bin/bash
 
-# The script is normally invoked as part of the tailscale_connect.py execution, however it can be executed individually
-# /opt/asd/python-asd/src/asd/utils/tailscale_connect_service.sh <AWS_LIGHTSAIL_HEADSCALE_SERVICE_NAME>
-# eg. # /opt/asd/python-asd/src/asd/utils/tailscale_connect_service.sh headscale-asd
-
-# Takes a single positional cli argument and saves it to the 'aws_lightsail_headscale_svc_name' variable. eg headscale-asd-1
-aws_lightsail_headscale_svc_name=$1
-
-# Constants
+aws_lightsail_headscale_svc_name=headscale-asd
 aws_lightsail_headscale_container_name=headscale
-tailscale_hostname=main-asd
+asd_container_uuid_file=/root/.asd_container_uuid
+tailscale_hostname=ray-node
 aws_region=us-east-1
 
 # Prevent Multiple Instances. Implements locking mechanism to prevent multiple instances from running
@@ -17,6 +11,23 @@ lockfile="/tmp/mylockfile"
 if [ -e ${lockfile} ] && kill -0 `cat ${lockfile}`; then
     echo "+++ already running +++"
     exit
+fi
+
+# Retrieve AsdDeploymentCount
+AsdDeploymentCount=$(curl -s http://169.254.169.254/latest/meta-data/iam/info | jq -r '.InstanceProfileArn' 2> /dev/null | sed 's/.*asg-asd-\([0-9]\+\)-InstanceProfile.*/\1/')
+
+# Validate AsdDeploymentCount variable and build string for aws_lightsail_headscale_svc_name variable
+if [[ $AsdDeploymentCount =~ ^[1-9][0-9]{0,2}$ ]]; then
+    # If AsdDeploymentCount variable's value is an integer from 1 to 999, build aws_lightsail_headscale_svc_name
+    aws_lightsail_headscale_svc_name="headscale-asd-${AsdDeploymentCount}"
+else
+    # If AsdDeploymentCount is not valid/present or if it cannot be retrieved from the ASD container .asd_container_uuid file, use the positional argument
+    if [ -z "$1" ]; then
+        AsdDeploymentCount=$(jq -r '.asd_deployment_number' $asd_container_uuid_file)
+        aws_lightsail_headscale_svc_name="headscale-asd-${AsdDeploymentCount}"
+    else
+        aws_lightsail_headscale_svc_name=$1
+    fi
 fi
 
 trap "rm -f ${lockfile}; exit" INT TERM EXIT

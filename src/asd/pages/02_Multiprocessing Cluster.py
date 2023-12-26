@@ -262,7 +262,7 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
     aws_service_quota_for_general_type_instances: dict = {"ServiceCode": "ec2", "QuotaCode": "L-1216C47A"} # AWS Service Quota code for Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances
     asd_headscale_container_image: str = 'johncarvalho/asd-dev:headscale1.3'
     ec2_ebs_size: int = 150
-    ec2_asg_ami_id: str = 'ami-0a3ea90a796298456'
+    ec2_asg_ami_id: str = 'ami-0ea73968a8f55f395'
 
     # Handles specific Streamlit Session State Variables for Remote Cluster Options
     in_session_state = [
