@@ -132,10 +132,73 @@ Resources:
                   "StringEquals": "CheckStatus",
                   "Comment": "Check the status of the ASD Ray AutoScalingGroup and return operational information",
                   "Next": "DescribeAutoScalingGroups"
+                },
+                {
+                  "Variable": "$.Action",
+                  "StringEquals": "DeleteClusterResources",
+                  "Comment": "Destroy | List the relevant ASD CloudFormation Stacks and trigger the deletion/undeployment",
+                  "Next": "UndeployAsdCloudFormation"
                 }
               ],
               "Default": "GetBucketAcl",
               "Comment": "Choice based on input parameters"
+            },
+            "UndeployAsdCloudFormation": {
+              "Type": "Parallel",
+              "Branches": [
+                {
+                  "StartAt": "DeleteStackLightSail",
+                  "States": {
+                    "DeleteStackLightSail": {
+                      "Type": "Task",
+                      "Parameters": {
+                        "StackName.$": "States.Format('headscale-asd-{}', $.AsdDeploymentCount)"
+                      },
+                      "Resource": "arn:aws:states:::aws-sdk:cloudformation:deleteStack",
+                      "Next": "DescribeStackLightSail",
+                      "ResultPath": null
+                    },
+                    "DescribeStackLightSail": {
+                      "Type": "Task",
+                      "End": true,
+                      "Parameters": {
+                        "StackName.$": "States.Format('headscale-asd-{}', $.AsdDeploymentCount)"
+                      },
+                      "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+                      "ResultSelector": {
+                        "LightsailCfStackId.$": "$.Stacks[0].StackId"
+                      }
+                    }
+                  }
+                },
+                {
+                  "StartAt": "DeleteStackEc2AutoScalingGroup",
+                  "States": {
+                    "DeleteStackEc2AutoScalingGroup": {
+                      "Type": "Task",
+                      "Parameters": {
+                        "StackName.$": "States.Format('asg-asd-{}', $.AsdDeploymentCount)"
+                      },
+                      "Resource": "arn:aws:states:::aws-sdk:cloudformation:deleteStack",
+                      "Next": "DescribeStackEc2AutoScalingGroup",
+                      "ResultPath": null
+                    },
+                    "DescribeStackEc2AutoScalingGroup": {
+                      "Type": "Task",
+                      "End": true,
+                      "Parameters": {
+                        "StackName.$": "States.Format('asg-asd-{}', $.AsdDeploymentCount)"
+                      },
+                      "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+                      "ResultSelector": {
+                        "Ec2AsgCfStackId.$": "$.Stacks[0].StackId"
+                      }
+                    }
+                  }
+                }
+              ],
+              "End": true,
+              "ResultPath": "$.UndeployAsdCloudFormation"
             },
             "CheckNumRunningInstances": {
               "Type": "Task",
@@ -408,6 +471,14 @@ Resources:
                   {
                     "ParameterKey": "VpcId",
                     "ParameterValue.$": "$.CloudFormationAsgTemplateParamVpcId"
+                  },
+                  {
+                    "ParameterKey": "AsdDeploymentCount",
+                    "ParameterValue.$": "$.AsdDeploymentCount"
+                  },
+                  {
+                    "ParameterKey": "AsdContainerUuid",
+                    "ParameterValue.$": "$.AsdContainerUuid"
                   }
                 ],
                 "DisableRollback": false,

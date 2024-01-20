@@ -1,28 +1,33 @@
-from helper_data.utils_data import Preprocess_data
+import logging
+
 import numpy as np
-from utils_logger import  logger
+from helper_data.utils_data import Preprocess_data
+from utils_logger import LoggerSetup
+
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
+
 
 class Py_helper:
 
-    '''helper to run python dimensionality reduction functions.'''
+    """helper to run python dimensionality reduction functions."""
 
     def __init__(self, fun_id: str, data_high: np.array, dim_low: int, function):
-        '''
+        """
         :param fun_id: str,
             function identifier
         :param data_high: np.array,
             high dimensional data
         :param dim_low: int,
             low dimension
-        '''
+        """
         self.fun_id = fun_id
         self.data_high = data_high
         self.dim_low = dim_low
         self.function = function
 
-
     def exe_python_functions(self, params_py_dict: dict) -> (np.array, dict):
-        '''
+        """
         runs the fit_transform function.
         in case there are hyperparameters provided, the default hyperparameters of the function
         are overwriten. In case the function is nmf (non-negative-matrix factorization) we scale the
@@ -35,14 +40,14 @@ class Py_helper:
                 reduced data at target dimension,
             dict:
                 dictionary with hyperparameters
-        '''
+        """
         # set the hyperparameters for dimred function in case there are
         if len(params_py_dict) != 0:
             self.function = self.function.set_params(**params_py_dict)
         self.function = self.function.set_params(n_components=self.dim_low)
 
         # nmf works with only positive values, rescale the data (only positive numbers)
-        logger.info(msg='start dimreduction: ' +self.fun_id)
+        logging.info(f"start dimreduction: {self.fun_id}")
         if self.fun_id == "py_nmf":
             data_pos = Preprocess_data().positive_scale(self.data_high)
             data_low = self.function.fit_transform(data_pos)

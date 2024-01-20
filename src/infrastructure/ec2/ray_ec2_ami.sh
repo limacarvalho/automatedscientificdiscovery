@@ -8,6 +8,9 @@
 
 sudo hostname ray-node
 sudo hostnamectl set-hostname ray-node
+sudo echo "127.0.0.1 ray-node" > /tmp/hosts_add_entry.tmp
+sudo cat /tmp/hosts_add_entry.tmp /etc/hosts > /tmp/hosts_file.tmp
+sudo mv /tmp/hosts_file.tmp /etc/hosts
 
 # -----------------------------------------------------------------------------
 # OS packages installation
@@ -37,9 +40,6 @@ EOF
 # Update package lists for upgrades for packages that need upgrading, as well as new packages that have just come to the repositories
 sudo apt update -y
 
-# Remove default Python installation
-sudo apt remove python3-apt -y
-
 # Install necessary packages for building other software (build-essential, gcc, make), handling archives (zip, unzip), git for version control, curl for data transfer, and some necessary libraries
 sudo apt install -y build-essential wget tar screen less jq git curl zip unzip gcc make openssl libssl-dev libffi-dev zlib1g-dev nano pciutils r-base r-base-dev libgmp-dev libmpfr-dev
 
@@ -58,6 +58,15 @@ sudo apt update -y
 sudo apt install nodejs -y
 
 # -----------------------------------------------------------------------------
+# Tailscale client installation
+# -----------------------------------------------------------------------------
+
+curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list | tee /etc/apt/sources.list.d/tailscale.list  
+sudo apt update
+sudo apt install tailscale -y
+
+# -----------------------------------------------------------------------------
 # Python 3.8.18 installation
 # -----------------------------------------------------------------------------
 
@@ -69,9 +78,9 @@ cd ~/Python-3.8.18 && make
 cd ~/Python-3.8.18 && sudo make install
 cd ~/ && rm -rf ~/Python-3.8.18*
 
-# Create symbolic links to Python 3.8 in the /usr/bin directory
-sudo ln -s -f /usr/local/bin/python3.8 /usr/bin/python3
-sudo ln -s -f /usr/local/bin/python3.8 /usr/bin/python
+# Create symbolic links to Python 3.8 in the /usr/bin directory (Disabled due to incompatibility with python3-apt and cloud-config services)
+# sudo ln -s -f /usr/local/bin/python3.8 /usr/bin/python3
+# sudo ln -s -f /usr/local/bin/python3.8 /usr/bin/python
 
 # Alias python and python3 to python3.8
 echo "alias python='/usr/local/bin/python3.8'" >> ~/.bashrc
@@ -98,21 +107,12 @@ sudo echo "aws_region=$(curl -s http://169.254.169.254/latest/dynamic/instance-i
 wget -P ~/ https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
 cd ~/ && tar xvfz aws-cfn-bootstrap-py3-latest.tar.gz && rm aws-cfn-bootstrap-py3-latest.tar.gz
 aws_cfn_bootstrap_dir=$(find ~/ -name "*aws-cfn-bootstrap*")
-cd $aws_cfn_bootstrap_dir && pip install -e .
+cd $aws_cfn_bootstrap_dir && /usr/local/bin/python3.8 -m pip install -e .
 ln -s $aws_cfn_bootstrap_dir/init/ubuntu/cfn-hup /etc/init.d/cfn-hup
 
 # Activate SSM Agent
 sudo snap install amazon-ssm-agent --classic
 sudo snap start amazon-ssm-agent
-
-# -----------------------------------------------------------------------------
-# Tailscale client installation
-# -----------------------------------------------------------------------------
-
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list | tee /etc/apt/sources.list.d/tailscale.list  
-sudo apt update
-sudo apt install tailscale -y
 
 # -----------------------------------------------------------------------------
 # Ray and Ray Dashboard

@@ -1,26 +1,32 @@
+import logging
+
 import numpy as np
 import pandas as pd
-from .I_target_dimension import factor_stepsize
-from .II_functions_multiprocess import ray_get_dimreduction
 from helper_data.global_vars import *
 from helper_data.utils_data import timit_
-from utils_logger import logger
+from utils_logger import LoggerSetup
+
+from .I_target_dimension import factor_stepsize
+from .II_functions_multiprocess import ray_get_dimreduction
+
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 
 class dimreduce_full_data:
-    '''
+    """
     In the previous 2 steps we identified the target dimension (stepI) and best dimesnionality
     reduction functions (stepII) with a reduced dataset in order to save time.
     Here in stepIII the best functions are used to reduce the full dataset.
-    '''
-    def __init__(self, cutoff_loss: float ):
-        '''
+    """
+
+    def __init__(self, cutoff_loss: float):
+        """
         :param cutoff_loss: float,
             loss function cutoff (dim reduction quality)
-        '''
+        """
         self.loss_fun = globalvar_loss_function
         self.cutoff_loss = cutoff_loss
-
 
     # def track_progress(self, dict_result_fun: dict):
     #     '''
@@ -31,11 +37,10 @@ class dimreduce_full_data:
     #     fun = dict_result_fun['fun_id'] # function id
     #     dim = dict_result_fun['dim_low'] # dimension used in dim reduction
     #     loss = dict_result_fun[globalvar_loss_function]
-    #     logger.info(msg=(str(fun).strip()+' dim: '+str(dim)+' '+globalvar_loss_function+': '+str(loss)))
+    #     logging.info(msg=(str(fun).strip()+' dim: '+str(dim)+' '+globalvar_loss_function+': '+str(loss)))
 
-
-    def worker_reduce(self, lods_best_functions: list, high_data: np.array, dim_low: int ) -> list:
-        '''
+    def worker_reduce(self, lods_best_functions: list, high_data: np.array, dim_low: int) -> list:
+        """
         Dimensionality reductions with all functions in list of dictionaries of best functions
         (lods_best_functions).
         Updates the results_step3 list with the results and filters the results with
@@ -48,7 +53,7 @@ class dimreduce_full_data:
             target dimension low dimensional data
         :return: list,
             list of dictionaries of best dim reductions
-        '''
+        """
         lods_best_funs_new = []
         # reduce the full dataset with the traget dimension and the best functions
         lods_results = ray_get_dimreduction(lods_best_functions, high_data, dim_low)
@@ -63,12 +68,11 @@ class dimreduce_full_data:
         self.track_lods_best_funs_new.append(lods_best_funs_new)
         return lods_best_funs_new
 
-
-
-    @timit_('step3_full_data ')
-    def intrinsic_dimension_full_data(self, lods_best_functions: list, data_high: np.array, dim_low: int) \
-            -> (list, pd.DataFrame):
-        '''
+    @timit_("step3_full_data ")
+    def intrinsic_dimension_full_data(
+        self, lods_best_functions: list, data_high: np.array, dim_low: int
+    ) -> (list, pd.DataFrame):
+        """
         computes the intrinsic dimension of the dataset.
         in previous steps we found the target dimension and the best functions with a reduced
         size dataset. Here we start with testing these functions on the full dataset at the target dimension.
@@ -84,7 +88,7 @@ class dimreduce_full_data:
             dimension of low dimensional data
         :return: list,
             list of lists of results (dictionaries), each list for results of functions tested at a specific dimension.
-        '''
+        """
         # how many dimensios stepsize, as higher the dimension as higher the stepsize
         factor = factor_stepsize(dim_low)
         self.results_step3 = []
@@ -108,12 +112,11 @@ class dimreduce_full_data:
             # there are functions with loss == cutoff (it cant be much lower), stop here
             else:
                 results_step_3 = {
-                    'results': self.results_step3,
-                    'best_results': lods_best_funs_new,
-                    'intrinsic_dimension': dim_low
+                    "results": self.results_step3,
+                    "best_results": lods_best_funs_new,
+                    "intrinsic_dimension": dim_low,
                 }
                 return results_step_3
-
 
         # B) no satisfying results, lets increase the number of dimensions.
         else:
@@ -122,23 +125,22 @@ class dimreduce_full_data:
 
         # 30 is just a random number
         for i in range(30):
-
             # new dim_low
             dim_low = dim_low + factor
-            logger.info(msg=('step3 dim_low', dim_low)) # TODO: remove
+            logging.info(f"step3 dim_low {dim_low}")  # TODO: remove
 
             # break if dim_low is < 1
             if dim_low <= 1:
                 dim_low = 1
                 best_results_final = lods_best_funs_new
-                logger.info(msg=('step3 A', dim_low, factor)) # TODO: remove
+                logging.info(f"step3 A {dim_low} {factor}")  # TODO: remove
                 break
 
             # break if dim_low is > n columns
             elif dim_low >= data_high.shape[1]:
                 dim_low = data_high.shape[1]
                 best_results_final = lods_best_funs_new
-                logger.info(msg=('step3 B', dim_low, factor)) # TODO: remove
+                logging.info(f"step3 B {dim_low} {factor}")  # TODO: remove
                 break
             else:
                 pass
@@ -150,7 +152,7 @@ class dimreduce_full_data:
             if lods_best_funs_new and factor < 0:
                 tmp = [s for s in lods_best_funs_new if s[globalvar_loss_function] > self.cutoff_loss]
                 lods_best_funs_new = tmp
-                logger.info(msg=('step3 C', dim_low, factor)) # TODO: remove
+                logging.info(f"step3 C {dim_low} {factor}")  # TODO: remove
                 continue
 
             # there are no results with smaller dimension, but there are results with the
@@ -158,30 +160,31 @@ class dimreduce_full_data:
             elif not lods_best_funs_new and factor < 0:
                 dim_low = dim_low - factor
                 best_results_final = self.track_lods_best_funs_new[-2]
-                logger.info(msg=('step3 D', dim_low, factor)) # TODO: remove
+                logging.info(f"step3 D {dim_low} {factor}")  # TODO: remove
                 break
 
             # there are results with the higher dimension (and not before), break here
-            elif lods_best_funs_new and factor > 0 :
+            elif lods_best_funs_new and factor > 0:
                 dim_low = dim_low
                 best_results_final = self.track_lods_best_funs_new[-1]
-                logger.info(msg=('step3 E', dim_low, factor))  # TODO: remove
+                logging.info(f"step3 E {dim_low} {factor}")  # TODO: remove
                 break
 
             # there are no satisfying results with dim_low (and havnt been before).
             # go one stepsize of dimensions up with and try again with the functions we started with.
             elif not lods_best_funs_new and factor > 0:
                 lods_best_funs_new = lods_best_functions
-                logger.info(msg=('step3 F', dim_low, factor)) # TODO: remove
+                logging.info(f"step3 F {dim_low} {factor}")  # TODO: remove
                 continue
             else:
-                logger.info(msg=('step3 G  something completelly unexpected happened!', dim_low, factor)) # TODO: remove
+                logging.info(f"step3 G  something completelly unexpected happened {dim_low} {factor}")
+                # TODO: remove
 
         # each list contains the results for one dimension.
         # as we increase or decrese the dimensions we add a new list to the list.
         results_step_3 = {
-            'results': self.results_step3, #  list of lists of dictionaries
-            'best_results': best_results_final,
-            'intrinsic_dimension': dim_low
+            "results": self.results_step3,  #  list of lists of dictionaries
+            "best_results": best_results_final,
+            "intrinsic_dimension": dim_low,
         }
         return results_step_3

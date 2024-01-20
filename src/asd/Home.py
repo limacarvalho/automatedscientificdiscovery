@@ -1,11 +1,8 @@
-# Import libraries
-import io
-
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import plotly.express as px
 import streamlit as st
+from utils_logger import LoggerSetup
+
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 # Set streamlit layout
 st.set_page_config(

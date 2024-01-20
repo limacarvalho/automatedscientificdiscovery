@@ -1,6 +1,9 @@
 # Import libraries
 import streamlit as st
-import streamlit.components.v1 as components
+from utils_logger import LoggerSetup
+
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 # Set streamlit layout
 st.set_page_config(
@@ -16,5 +19,7 @@ st.set_page_config(
 )
 
 # Define the external URL
-if st.button('Start Jupyter', type="primary"):
-    st.markdown('<meta http-equiv="refresh" target="_blank" content="0;url=http://localhost:8888/" />', unsafe_allow_html=True)
+if st.button("Start Jupyter", type="primary"):
+    st.markdown(
+        '<meta http-equiv="refresh" target="_blank" content="0;url=http://localhost:8888/" />', unsafe_allow_html=True
+    )

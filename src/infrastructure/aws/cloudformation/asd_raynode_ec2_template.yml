@@ -8,7 +8,7 @@ Parameters:
   InstanceType:
     Description: 'EC2 instance type'
     Type: 'String'
-    Default: 't3.xlarge'
+    Default: 'm5a.xlarge'
     AllowedValues: 
       - 't3.xlarge'
       - 'm5a.xlarge'
@@ -36,7 +36,7 @@ Parameters:
 
   UserDataScriptUrl:
     Description: 'EC2 UserData Script Web accessible URL'
-    Default: 'https://gist.githubusercontent.com/limacarvalho/14263a6fcbf18bbe18302fb9370c3566/raw/9cba2e50ba5addbba01fdefe3bd04eadef5a90ab/ec2_ami_script.sh'
+    Default: 'https://gist.githubusercontent.com/limacarvalho/14263a6fcbf18bbe18302fb9370c3566/raw/df87a1a4ab7db04e90034df0111b3ec5bf42940d/ec2_ami_script.sh'
     Type: 'String' 
 
   EbsVolumeSize:
@@ -141,11 +141,11 @@ Resources:
       IamInstanceProfile: !Ref InstanceProfile
       UserData:
         Fn::Base64: !Sub |
-          #!/bin/bash                
+          #!/bin/bash                   
           # Execute main installation script
-          curl ${UserDataScriptUrl} -o $HOME/ec2_ami_script.sh
-          chmod +x $HOME/ec2_ami_script.sh
-          bash -c $HOME/ec2_ami_script.sh | tee -a /tmp/ec2_ami_script.log
+          curl ${UserDataScriptUrl} -o ~/ec2_ami_script.sh
+          chmod +x ~/ec2_ami_script.sh
+          screen -dmS setup_script bash -c "~/ec2_ami_script.sh | tee -a /var/log/ec2_ami_script.log"
       Tags:
         - Key: Name
           Value: ASD-Ami-Creation-Instance

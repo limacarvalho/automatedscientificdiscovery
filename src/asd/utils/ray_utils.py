@@ -6,12 +6,13 @@ import subprocess
 
 import psutil
 from utils.aws_utils import AWSInfrastructure
+from utils_logger import LoggerSetup
+
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 # Constants
 DIR_PATH = "/tmp/ray"
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 
 
 class RayCluster:
@@ -146,7 +147,7 @@ class RayCluster:
                     return False
 
                 elif not describe_asd_asg[self.ASD_AWS_RAY_ASG_NAME]["AutoScalingGroups"]:
-                    no_cluster_msg = "+++ No Cluster is available/deployed on AWS. Choose 'Create Cluster' +++"
+                    no_cluster_msg = "+++ No Cluster is available/deployed on AWS. Choose 'Create/Modify Cluster' +++"
                     logging.info(no_cluster_msg)
                     self.remote_ray_status_stdout = no_cluster_msg
                     return False

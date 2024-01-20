@@ -1,31 +1,37 @@
-import pandas as pd
+import logging
 import time
+
+import pandas as pd
 import ray
+from utils_logger import LoggerSetup
 
-from .utils import get_column_combinations, parallel_pred_step_MLP, \
-    parallel_pred_step_kNN, scoring_dict, tuple_selection, refinement_step, parallel_refinement_step
+from .utils import (get_column_combinations, parallel_pred_step_kNN,
+                    parallel_pred_step_MLP, parallel_refinement_step,
+                    refinement_step, scoring_dict, tuple_selection)
 
-from utils_logger import logger
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 
-def run_predictability(data,
-                       input_cols=1,
-                       output_cols=1,
-                       col_set=None,
-                       primkey_cols=None,
-                       targets=None,
-                       method="kNN",
-                       scoring="r2",
-                       scaling="test",
-                       hidden_layers=None,
-                       alphas=None,
-                       max_iter=10000,
-                       greedy=False,
-                       refined_n_best=1,
-                       n_jobs=-1,
-                       verbose=1,
-                       random_state_split=1
-                       ):
+def run_predictability(
+    data,
+    input_cols=1,
+    output_cols=1,
+    col_set=None,
+    primkey_cols=None,
+    targets=None,
+    method="kNN",
+    scoring="r2",
+    scaling="test",
+    hidden_layers=None,
+    alphas=None,
+    max_iter=10000,
+    greedy=False,
+    refined_n_best=1,
+    n_jobs=-1,
+    verbose=1,
+    random_state_split=1,
+):
     """
     The main predictability routine. The routine runs over all column combinations and uses the method `method` to
     determine the predictability of the ``output_cols``-many target columns given the ``input_cols``-many input values.
@@ -166,26 +172,39 @@ def run_predictability(data,
         # go through all tuples
         for curr_tuple in data_tuples:
             if method == "MLP":
-                curr_metrics, curr_datas, counter_tuples = parallel_pred_step_MLP.remote(data_id, curr_tuple,
-                                                                                         input_cols, hidden_layers,
-                                                                                         alphas,
-                                                                                         scaling,
-                                                                                         max_iter, scoring, verbose,
-                                                                                         n_jobs,
-                                                                                         counter_tuples,
-                                                                                         len(data_tuples),
-                                                                                         random_state_split)
+                curr_metrics, curr_datas, counter_tuples = parallel_pred_step_MLP.remote(
+                    data_id,
+                    curr_tuple,
+                    input_cols,
+                    hidden_layers,
+                    alphas,
+                    scaling,
+                    max_iter,
+                    scoring,
+                    verbose,
+                    n_jobs,
+                    counter_tuples,
+                    len(data_tuples),
+                    random_state_split,
+                )
             elif method == "kNN":
-                curr_metrics, curr_datas, counter_tuples = parallel_pred_step_kNN.remote(data_id, curr_tuple,
-                                                                                         input_cols,
-                                                                                         scaling, scoring, verbose,
-                                                                                         n_jobs,
-                                                                                         counter_tuples,
-                                                                                         len(data_tuples),
-                                                                                         random_state_split)
+                curr_metrics, curr_datas, counter_tuples = parallel_pred_step_kNN.remote(
+                    data_id,
+                    curr_tuple,
+                    input_cols,
+                    scaling,
+                    scoring,
+                    verbose,
+                    n_jobs,
+                    counter_tuples,
+                    len(data_tuples),
+                    random_state_split,
+                )
             else:
-                logger.error("The specified method '", method, "' is not an allowed option. Allowed options are 'kNN' "
-                                                               "and 'MLP'; or keep unspecified.", exc_info=True)
+                logging.error(
+                    f"The specified method '{method}' is not an allowed option. Allowed options are 'kNN' "
+                    "and 'MLP'; or keep unspecified.",
+                )
 
             metrics_list.append(curr_metrics)
             datas_list.append(curr_datas)
@@ -201,38 +220,53 @@ def run_predictability(data,
         initial_datas_list = []
         # get the initial tuples, consisting of one input and output_cols-many targets
         # also get the list of possible target choices to allow for iteratively scanning through all those
-        initial_tuples, target_choices = get_column_combinations(data_cols, 1, output_cols, targets,
-                                                                 return_targets=True)
+        initial_tuples, target_choices = get_column_combinations(
+            data_cols, 1, output_cols, targets, return_targets=True
+        )
 
         # get the overall number of combinations that will be analysed (for the counter)
-        num_greedy_combinations = int(len(targets) * ((input_cols) * (len(data_cols) - len(targets)) -
-                                                      .5 * input_cols * (input_cols - 1)))
+        num_greedy_combinations = int(
+            len(targets) * ((input_cols) * (len(data_cols) - len(targets)) - 0.5 * input_cols * (input_cols - 1))
+        )
         # # # #
         # do the initial predictability step, with 1 input column
         #
         for curr_couple in initial_tuples:
             if method == "kNN":
-                curr_metrics, curr_datas, counter_tuples = parallel_pred_step_kNN.remote(data_id, curr_couple, 1,
-                                                                                         scaling, scoring, verbose,
-                                                                                         n_jobs,
-                                                                                         counter_tuples,
-                                                                                         num_greedy_combinations,
-                                                                                         random_state_split,
-                                                                                         greedy=True)
+                curr_metrics, curr_datas, counter_tuples = parallel_pred_step_kNN.remote(
+                    data_id,
+                    curr_couple,
+                    1,
+                    scaling,
+                    scoring,
+                    verbose,
+                    n_jobs,
+                    counter_tuples,
+                    num_greedy_combinations,
+                    random_state_split,
+                    greedy=True,
+                )
             elif method == "MLP":
-                curr_metrics, curr_datas, counter_tuples = parallel_pred_step_MLP.remote(data_id, curr_couple, 1,
-                                                                                         hidden_layers,
-                                                                                         alphas,
-                                                                                         scaling,
-                                                                                         max_iter, scoring, verbose,
-                                                                                         n_jobs,
-                                                                                         counter_tuples,
-                                                                                         num_greedy_combinations,
-                                                                                         random_state_split,
-                                                                                         greedy=True)
+                curr_metrics, curr_datas, counter_tuples = parallel_pred_step_MLP.remote(
+                    data_id,
+                    curr_couple,
+                    1,
+                    hidden_layers,
+                    alphas,
+                    scaling,
+                    max_iter,
+                    scoring,
+                    verbose,
+                    n_jobs,
+                    counter_tuples,
+                    num_greedy_combinations,
+                    random_state_split,
+                    greedy=True,
+                )
             else:
-                logger.error("The specified method '", method, "' is not an allowed option. Allowed options are 'kNN' "
-                                                               "and 'MLP'; or keep unspecified.", exc_info=True)
+                logging.error(
+                    f"The specified method '{method}' is not an allowed option. Allowed options are 'kNN'  and 'MLP'; or keep unspecified."
+                )
 
             # add target to dataframe to later find best input per target
             # curr_metrics["target"] = curr_couple[-output_cols:]
@@ -240,29 +274,41 @@ def run_predictability(data,
             initial_datas_list.append(curr_datas)
         initial_metrics_list = ray.get(initial_metrics_list)
         initial_datas_list = ray.get(initial_datas_list)
-        initial_metrics = pd.DataFrame.from_dict(dict((key, d[key]) for d in initial_metrics_list for key in d)). \
-            transpose()
-        initial_datas = pd.DataFrame.from_dict(dict((key, d[key]) for d in initial_datas_list for key in d)). \
-            transpose()
+        initial_metrics = pd.DataFrame.from_dict(
+            dict((key, d[key]) for d in initial_metrics_list for key in d)
+        ).transpose()
+        initial_datas = pd.DataFrame.from_dict(dict((key, d[key]) for d in initial_datas_list for key in d)).transpose()
         # get the best 1-input "combination" per target choice and save those and their metrics
         best_initial_choices = []
         for curr_target in target_choices:
             if "kNN r2" in initial_metrics.columns:
-                curr_best_initial_choice = initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
-                    by="kNN r2", ascending=False).iloc[0].name
+                curr_best_initial_choice = (
+                    initial_metrics.loc[initial_metrics["target"] == curr_target]
+                    .sort_values(by="kNN r2", ascending=False)
+                    .iloc[0]
+                    .name
+                )
                 best_initial_choices.append(curr_best_initial_choice)
-                curr_best_initial_choice_metrics = \
+                curr_best_initial_choice_metrics = (
                     initial_metrics.loc[curr_best_initial_choice].drop(columns="target").to_dict()
-                curr_best_initial_choice_datas = \
+                )
+                curr_best_initial_choice_datas = (
                     initial_datas.loc[curr_best_initial_choice].drop(columns="target").to_dict()
+                )
             elif "MLP r2" in initial_metrics.columns:
-                curr_best_initial_choice = initial_metrics.loc[initial_metrics["target"] == curr_target].sort_values(
-                    by="MLP r2", ascending=False).iloc[0].name
+                curr_best_initial_choice = (
+                    initial_metrics.loc[initial_metrics["target"] == curr_target]
+                    .sort_values(by="MLP r2", ascending=False)
+                    .iloc[0]
+                    .name
+                )
                 best_initial_choices.append(curr_best_initial_choice)
-                curr_best_initial_choice_metrics = \
+                curr_best_initial_choice_metrics = (
                     initial_metrics.loc[curr_best_initial_choice].drop(columns="target").to_dict()
-                curr_best_initial_choice_datas = \
+                )
+                curr_best_initial_choice_datas = (
                     initial_datas.loc[curr_best_initial_choice].drop(columns="target").to_dict()
+                )
 
             # append empty entries to be in line with higher dim. inputs later
             choice_as_saved = (input_cols - 1) * (" ",) + curr_best_initial_choice
@@ -282,40 +328,50 @@ def run_predictability(data,
             curr_metrics_list = []
             curr_datas_list = []
             for curr_best_former_choice in best_choices[nth_iter - 1]:
+                poss_added_input_cols = [
+                    col for col in data_cols if ((col not in targets) and (col not in curr_best_former_choice))
+                ]
 
-                poss_added_input_cols = [col for col in data_cols if
-                                         ((col not in targets) and (col not in curr_best_former_choice))]
-
-                curr_data_tuples = [(added_input_col,) + curr_best_former_choice for added_input_col
-                                    in poss_added_input_cols]
+                curr_data_tuples = [
+                    (added_input_col,) + curr_best_former_choice for added_input_col in poss_added_input_cols
+                ]
 
                 for curr_tuple in curr_data_tuples:
                     if method == "kNN":
-                        curr_metrics, curr_datas, counter_tuples = parallel_pred_step_kNN.remote(data_id, curr_tuple,
-                                                                                                 nth_iter,
-                                                                                                 scaling, scoring,
-                                                                                                 verbose,
-                                                                                                 n_jobs,
-                                                                                                 counter_tuples,
-                                                                                                 num_greedy_combinations,
-                                                                                                 random_state_split,
-                                                                                                 greedy=True)
+                        curr_metrics, curr_datas, counter_tuples = parallel_pred_step_kNN.remote(
+                            data_id,
+                            curr_tuple,
+                            nth_iter,
+                            scaling,
+                            scoring,
+                            verbose,
+                            n_jobs,
+                            counter_tuples,
+                            num_greedy_combinations,
+                            random_state_split,
+                            greedy=True,
+                        )
                     elif method == "MLP":
-                        curr_metrics, curr_datas, counter_tuples = parallel_pred_step_MLP.remote(data_id, curr_tuple,
-                                                                                                 nth_iter,
-                                                                                                 hidden_layers,
-                                                                                                 alphas,
-                                                                                                 scaling, max_iter,
-                                                                                                 scoring, verbose,
-                                                                                                 n_jobs,
-                                                                                                 counter_tuples,
-                                                                                                 num_greedy_combinations,
-                                                                                                 random_state_split,
-                                                                                                 greedy=True)
+                        curr_metrics, curr_datas, counter_tuples = parallel_pred_step_MLP.remote(
+                            data_id,
+                            curr_tuple,
+                            nth_iter,
+                            hidden_layers,
+                            alphas,
+                            scaling,
+                            max_iter,
+                            scoring,
+                            verbose,
+                            n_jobs,
+                            counter_tuples,
+                            num_greedy_combinations,
+                            random_state_split,
+                            greedy=True,
+                        )
                     else:
-                        logger.error("The specified method '", method,
-                                     "' is not an allowed option. Allowed options are 'kNN' "
-                                     "and 'MLP'; or keep unspecified.", exc_info=True)
+                        logging.error(
+                            f"The specified method '{method}' is not an allowed option. Allowed options are 'kNN'  and 'MLP'; or keep unspecified."
+                        )
 
                     # add target to dataframe to later find best input per target
                     curr_metrics_list.append(curr_metrics)
@@ -324,22 +380,30 @@ def run_predictability(data,
             curr_metrics_list = ray.get(curr_metrics_list)
             curr_datas_list = ray.get(curr_datas_list)
 
-            curr_metrics = pd.DataFrame.from_dict(dict((key, d[key]) for d in curr_metrics_list for key in d)). \
-                transpose()
-            curr_datas = pd.DataFrame.from_dict(dict((key, d[key]) for d in curr_datas_list for key in d)). \
-                transpose()
+            curr_metrics = pd.DataFrame.from_dict(
+                dict((key, d[key]) for d in curr_metrics_list for key in d)
+            ).transpose()
+            curr_datas = pd.DataFrame.from_dict(dict((key, d[key]) for d in curr_datas_list for key in d)).transpose()
 
             best_curr_choices = []
             for curr_target in target_choices:
                 if "kNN r2" in curr_metrics.columns:
-                    curr_best_choice = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
-                        by="kNN r2", ascending=False).iloc[0].name
+                    curr_best_choice = (
+                        curr_metrics.loc[curr_metrics["target"] == curr_target]
+                        .sort_values(by="kNN r2", ascending=False)
+                        .iloc[0]
+                        .name
+                    )
                     best_curr_choices.append(curr_best_choice)
                     curr_best_choice_metrics = curr_metrics.loc[curr_best_choice].drop(columns="target").to_dict()
                     curr_best_choice_datas = curr_datas.loc[curr_best_choice].drop(columns="target").to_dict()
                 elif "MLP r2" in curr_metrics.columns:
-                    curr_best_choice = curr_metrics.loc[curr_metrics["target"] == curr_target].sort_values(
-                        by="MLP r2", ascending=False).iloc[0].name
+                    curr_best_choice = (
+                        curr_metrics.loc[curr_metrics["target"] == curr_target]
+                        .sort_values(by="MLP r2", ascending=False)
+                        .iloc[0]
+                        .name
+                    )
                     best_curr_choices.append(curr_best_choice)
                     curr_best_choice_metrics = curr_metrics.loc[curr_best_choice].drop(columns="target").to_dict()
                     curr_best_choice_datas = curr_datas.loc[curr_best_choice].drop(columns="target").to_dict()
@@ -358,34 +422,29 @@ def run_predictability(data,
 
     # run refinement routine afterwards, if desired
     if refined_n_best == 0:
-        logger.info("The whole run took " + str(round(time.time() - start, 2)) + "s.")
+        logging.info(f"The whole run took {str(round(time.time() - start, 2))}s.")
 
         return metric_dict, data_dict
     else:
         # first get the best results of the main routine
         curr_best_tuples = tuple_selection(metric_dict, refined_n_best)
         # then run the refine routine
-        refined_metric_dict, refined_data_dict = refine_predictability(best_tuples=curr_best_tuples,
-                                                                       data_dict=data_dict,
-                                                                       n_jobs=n_jobs)
+        refined_metric_dict, refined_data_dict = refine_predictability(
+            best_tuples=curr_best_tuples, data_dict=data_dict, n_jobs=n_jobs
+        )
         # attach the results to the respective tuples' result dictionaries
         for curr_best_tuple in curr_best_tuples:
             metric_dict[curr_best_tuple]["refined_metrics"] = refined_metric_dict[curr_best_tuple]
             data_dict[curr_best_tuple]["refined_datas"] = refined_data_dict[curr_best_tuple]
 
-        logger.info("The whole run took " + str(round(time.time() - start, 2)) + "s.")
+        logging.info(f"The whole run took {str(round(time.time() - start, 2))}s.")
 
         return metric_dict, data_dict
 
 
-def refine_predictability(best_tuples,
-                          data_dict,
-                          time_left_for_this_task=120,
-                          use_ray=True,
-                          generations=100,
-                          population_size=100,
-                          n_jobs=-1
-                          ):
+def refine_predictability(
+    best_tuples, data_dict, time_left_for_this_task=120, use_ray=True, generations=100, population_size=100, n_jobs=-1
+):
     """
     The refined predictability routine. It can be run after the initial ``run_predictability`` routine and after having
     chosen a list of ``best_tuples`` (output of the ``utils`` function ``tuple_selection``) that should be further
@@ -451,20 +510,23 @@ def refine_predictability(best_tuples,
     # go through all the previously defined best tuples that should be considered and run (parallel) refinement steps
     for curr_tuple in best_tuples:
         if use_ray:
-            curr_metrics, curr_datas = parallel_refinement_step.remote(data_dict=data_dict_id,
-                                                                       curr_tuple=curr_tuple,
-                                                                       time_left_for_this_task=time_left_for_this_task,
-                                                                       generations=generations,
-                                                                       population_size=population_size,
-                                                                       n_jobs=n_jobs
-                                                                       )
+            curr_metrics, curr_datas = parallel_refinement_step.remote(
+                data_dict=data_dict_id,
+                curr_tuple=curr_tuple,
+                time_left_for_this_task=time_left_for_this_task,
+                generations=generations,
+                population_size=population_size,
+                n_jobs=n_jobs,
+            )
         else:
-            curr_metrics, curr_datas = refinement_step(data_dict=data_dict,
-                                                       curr_tuple=curr_tuple,
-                                                       time_left_for_this_task=time_left_for_this_task,
-                                                       generations=generations,
-                                                       population_size=population_size,
-                                                       n_jobs=n_jobs)
+            curr_metrics, curr_datas = refinement_step(
+                data_dict=data_dict,
+                curr_tuple=curr_tuple,
+                time_left_for_this_task=time_left_for_this_task,
+                generations=generations,
+                population_size=population_size,
+                n_jobs=n_jobs,
+            )
         metrics_list.append(curr_metrics)
         datas_list.append(curr_datas)
 
@@ -481,7 +543,6 @@ def refine_predictability(best_tuples,
 
 
 if __name__ == "__main__":
-
     # some command line way for running the predictability routine
     # NOTE this does not yet contain every available step
 
@@ -539,7 +600,8 @@ if __name__ == "__main__":
         target_set = []
 
     specify_method = input(
-        "Do you want to specify the running method? If not, parallel kNN with RMSE scoring will be used. [y/n]")
+        "Do you want to specify the running method? If not, parallel kNN with RMSE scoring will be used. [y/n]"
+    )
     if specify_method == "y":
         method_ = input("Which method should be applied? [kNN/MLP]")
         while method_ not in ["kNN", "MLP"]:
@@ -558,19 +620,29 @@ if __name__ == "__main__":
     print(col_set_)
     print(target_set)
 
-    metrics, datas = run_predictability(data_df, input_cols=input_cols_, output_cols=output_cols_, col_set=col_set_,
-                                        primkey_cols=primkey_cols_, targets=target_set, method=method_,
-                                        scoring=scoring_, n_jobs=n_jobs_, verbose=1, random_state_split=1)
+    metrics, datas = run_predictability(
+        data_df,
+        input_cols=input_cols_,
+        output_cols=output_cols_,
+        col_set=col_set_,
+        primkey_cols=primkey_cols_,
+        targets=target_set,
+        method=method_,
+        scoring=scoring_,
+        n_jobs=n_jobs_,
+        verbose=1,
+        random_state_split=1,
+    )
     for key_ in metrics.keys():
         print(f'{key_}: r2-score = {metrics[key_]["kNN r2"]}')
 
     best_tuples_ = tuple_selection(metrics, n_best=10)
 
     ref_metrics, ref_datas = refine_predictability(
-        best_tuples_, datas, n_jobs=-1, time_left_for_this_task=60,
-        use_ray=True
+        best_tuples_, datas, n_jobs=-1, time_left_for_this_task=60, use_ray=True
     )
     for key_ in ref_metrics.keys():
         print(
             f'{key_}: r2-score refined = {ref_metrics[key_]["kNN r2"]} \t '
-            f'r2_score initially = {metrics[key_]["kNN r2"]}')
+            f'r2_score initially = {metrics[key_]["kNN r2"]}'
+        )

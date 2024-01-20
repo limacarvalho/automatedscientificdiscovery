@@ -8,11 +8,13 @@ import uuid
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
 
+from utils_logger import LoggerSetup
+
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
+
 # Constants
 MAX_RETRIES = 3  # Maximum number of retries for subprocess calls
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 
 
 def delete_dir(folder_path: str, retries: int = MAX_RETRIES) -> Tuple[bool, str]:

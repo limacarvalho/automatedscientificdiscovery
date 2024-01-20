@@ -1,19 +1,19 @@
 # Standard library imports
-import io
 import csv
+import io
 import random
+from pathlib import Path
 from typing import NoReturn
 
 # Third party imports
 import pandas as pd
 import streamlit as st
-from pathlib import Path
 from pandas_profiling import ProfileReport
 from streamlit_pandas_profiling import st_profile_report
+from utils_logger import LoggerSetup
 
-import csv
-import random
-from typing import NoReturn
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 
 def generate_csv(size_mb: int) -> NoReturn:
@@ -42,7 +42,9 @@ def generate_csv(size_mb: int) -> NoReturn:
         # For each row, generate a list of 10 random floating point numbers each having 17 digits
         random_int_for_duplicates = random.randint(2, 5)
         for i in range(rows):
-            if i % random_int_for_duplicates == 0:  # A random integer between 2 and 5 is used to calculate which row is duplicated for some realism
+            if (
+                i % random_int_for_duplicates == 0
+            ):  # A random integer between 2 and 5 is used to calculate which row is duplicated for some realism
                 data = last_row
             else:
                 data = [str(random.uniform(-999999999999999.0, 999999999999999.0)) for _ in range(10)]
@@ -50,6 +52,8 @@ def generate_csv(size_mb: int) -> NoReturn:
 
             # Write the generated data to the CSV file
             writer.writerow(data)
+        logging.debug(f"### Randomly generated numerical data written in {file_name} ###")
+
 
 # Set streamlit layout
 st.set_page_config(
@@ -90,12 +94,14 @@ if file_upload is not None:
     st.markdown("")
     st.markdown("")
 elif "df_input" not in st.session_state:
-    st.write("The automatically loaded dataset contains randomly generated numerical data for demo purposes. Please upload your .csv file, using the right-menu section 'Upload CSV dataset'.")
+    st.write(
+        "The automatically loaded dataset contains randomly generated numerical data for demo purposes. Please upload your .csv file, using the right-menu section 'Upload CSV dataset'."
+    )
     st.write("")
     st.write("")
     # Generates a random numerical dataset (~ approximately 10 MB in size)
     generate_csv(10)
-    df_input = pd.read_csv(f"10mb_data.csv")
+    df_input = pd.read_csv("10mb_data.csv")
     st.session_state["df_input"] = df_input
     st.write("As a brief overview, the default dataset (randomly generated) is displayed:")
     st.dataframe(df_input)
@@ -115,7 +121,9 @@ elif "df_input" in st.session_state:
 st.subheader("Basic Analysis:")
 
 # Implement tabs with different calculations
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Data information", "Basic statistics", "NA values", "Duplicated values", "Report"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["Data information", "Basic statistics", "NA values", "Duplicated values", "Report"]
+)
 
 with tab1:
     buffer = io.StringIO()

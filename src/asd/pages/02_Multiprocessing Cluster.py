@@ -1,16 +1,21 @@
-import io
+import json
 import re
 import subprocess
 import time
-import base64
-import json
 from pathlib import Path
-from typing import Union, Optional
+from typing import Union
+import logging
 
 import streamlit as st
 from aws_utils import SUPPORTED_INSTANCE_TYPES, AWSGetdata, RemoteClusterSizing
-from utils.os_utils import delete_dir, write_aws_credentials_to_file, encode_file_to_base64, file_operations
+from utils.os_utils import (delete_dir, encode_file_to_base64, file_operations,
+                            write_aws_credentials_to_file)
 from utils.ray_utils import RayCluster
+from utils.tailscale_connect import bootstrap_tailscale
+from utils_logger import LoggerSetup
+
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 # Set streamlit layout
 st.set_page_config(
@@ -18,11 +23,6 @@ st.set_page_config(
     page_icon="https://www.ipp.mpg.de/assets/touch-icon-32x32-a66937bcebc4e8894ebff1f41a366c7c7220fd97a38869ee0f2db65a9f59b6c1.png",
     layout="wide",
     initial_sidebar_state="expanded"
-    # menu_items={
-    #     'Get Help': 'https://www.extremelycoolapp.com/help',
-    #     'Report a bug': "https://www.extremelycoolapp.com/bug",
-    #     'About': "# This is a header. This is an *extremely* cool app!"
-    # }
 )
 
 # Set streamlit session state
@@ -93,6 +93,7 @@ if st.session_state["execution"] == "Local Execution/Cluster":
 
     ray_cluster = RayCluster(mode="local")
     # Streamlit 'Magic' for ray status output
+    logging.debug(f"### RayCluster() local_ray_status_stdout: {ray_cluster.local_ray_status_stdout} ###")
     ray_status_msg = f"""
     ```text
     {ray_cluster.local_ray_status_stdout}
@@ -101,6 +102,7 @@ if st.session_state["execution"] == "Local Execution/Cluster":
     if "Check Status" in local_cluster_options_select:
         progress_bar(msg="Checking Cluster Status...")
         if ray_cluster.cluster_status:
+            logging.debug(f"### Checking Cluster Status | RayCluster() local cluster_status: {ray_cluster.cluster_status} ###")
             st.write("+++ Cluster is available in local mode +++")
             st.write(ray_status_msg)
         else:
@@ -108,6 +110,7 @@ if st.session_state["execution"] == "Local Execution/Cluster":
     elif "Create Cluster" in local_cluster_options_select:
         progress_bar(msg="Creating Local Cluster...", sleep_time=0.08)
         if ray_cluster.cluster_status:
+            logging.debug(f"### Creating Local Cluster | RayCluster() local cluster_status: {ray_cluster.cluster_status} ###")
             st.write("+++ Cluster was already available in local mode +++")
             st.write(ray_status_msg)
         else:
@@ -119,9 +122,11 @@ if st.session_state["execution"] == "Local Execution/Cluster":
                 {ray_cluster.local_ray_status_stdout}
                 """
             )
+            logging.debug(f"### RayCluster() local cluster_status: {ray_cluster.cluster_status} ###")
     elif "Modify Cluster" in local_cluster_options_select:
         progress_bar(msg="Checking Cluster Status...")
         if ray_cluster.cluster_status:
+            logging.debug(f"### Modifying Local Cluster | RayCluster() local cluster_status: {ray_cluster.cluster_status} ###")
             st.write("+++ Cluster is available in local mode +++")
             st.write(ray_status_msg)
         else:
@@ -151,60 +156,6 @@ if st.session_state["execution"] == "Local Execution/Cluster":
                 st.write(ray_status_msg)
                 st.write("+++ Local cluster has been forced stopped/purged +++")
 
-        # from utils.tailscale_connect import get_network_interfaces, tailscale_ips_startwith
-        # interfaces = get_network_interfaces()
-        # for key, value in interfaces.items():
-        #     if tailscale_ips_startwith in value:
-        #         tailscale_int = interfaces[key]
-        #         st.write(f'+++ Tailscale Interface found with ipv4: {tailscale_int} +++')
-
-        # text_input = st.text_input(
-        #     "Enter AWS Credentials here:",
-        #     label_visibility="visible",
-        #     key="str",
-        #     type="default"
-        #     )
-        # if text_input:
-        #     aws = AwsCredentials(text_input)
-
-        # ###### Part 1, Relevance function of ml-algorithm ######
-        # st.markdown("***")
-        # st.subheader("Relevance")
-        # st.markdown("""
-        # Discover the relevance of your dataset.
-        # """)
-        # if "button_relevance_start_discovery" not in st.session_state:
-        #     st.session_state["button_relevance_start_discovery"] = False
-
-        # def relevance_discovery_click():
-        #     st.session_state["button_relevance_start_discovery"] = True
-
-        # if st.button("Start discovery", on_click=relevance_discovery_click) or st.session_state["button_relevance_start_discovery"]:
-        #     ###### Implement tbe code of Relevance ######
-        #     @st.cache(allow_output_mutation=True)
-        #     def relevance_discovery():
-        #         return_relevance = relevance(relevance_df, relevance_column, relevance_target, relevance_options)
-        #         return return_relevance
-
-        #     return_relevance = relevance_discovery()
-        #     st.markdown("""
-        #     Discovery finished.
-        #     """)
-
-        #     #Visualize the output (the return values) of the relevance function
-        #     st.markdown("""
-        #     Output of the relevance part:
-        #     """)
-        #     st.write(return_relevance)
-        # else:
-        #     st.markdown("""
-        #     You have not chosen this task.
-        #     """)
-
-############################################################
-
-# st.write(st.session_state)
-
 elif st.session_state["execution"] == "Remote Execution/Cluster":
     st.title("Configure Remote Execution/Cluster")
     """
@@ -215,21 +166,41 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
     [Ray](https://docs.ray.io/en/latest/index.html) is an open-source framework that simplifies building distributed applications. 
     **ASD** relies on Ray to run workloads locally or remotely on AWS Servers. You have the option to run a remote Ray cluster on the AWS (Amazon Web Services) Cloud, known as a "Remote Ray Cluster". 
     This remote setup is ideal for production runs, compute-intensive workloads, and medium to large-scale executions, depending on the chosen remote resources like EC2 instances sizes, etc.
+    """
 
-    **Associated running costs on AWS**
-    TODO
+    with st.expander(":warning: Associated running costs on AWS.", expanded=False):
+        cluster_cost_help_msg = """
+    **Total Costs**
+        - Example Monthly cost estimation (us-east-1): $36.39
 
+    **Services Breakdown**
+    1. Lightsail Container
+        - Monthly: $6.87
+        - Description: For running a Headscale container, connecting local workloads to AWS VMs.
+        - Instance Type: Nano
+
+    2. Step Functions - Standard Workflows
+        - Monthly: $0.24
+        - Description: Orchestration of AWS resources creation and operations.
+
+    3. Amazon EC2
+        - Monthly: $29.28
+        - Description: VMs in Auto Scaling Group, 2x instances (m5a.2xlarge) used for 40 hours/month.
+        """
+        st.write(cluster_cost_help_msg)
+
+    """
     #### **Available Operations**:
 
     1. **Check Status**:  
     Review the current status of the remote cluster to determine if it's operational or not.
 
-    2. **Create Cluster**:  
+    2. **Create/Modify Cluster**:  
     Initialize and spin up a remote Ray cluster. If the cluster is already running, this action might have no effect.
     To create a remote Cluster, some aspects like EC2 instance sizes need to be provided:
         * **S-size**: Gracefully terminate the remote Ray cluster.  
 
-    3. **Modify Cluster**:  
+    3. **Delete Cluster**:  
     Manage the state of an existing remote Ray cluster. Under this option, you'll find further choices:
 
         * **Stop**: Gracefully terminate the remote Ray cluster.  
@@ -262,7 +233,11 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
     aws_service_quota_for_general_type_instances: dict = {"ServiceCode": "ec2", "QuotaCode": "L-1216C47A"} # AWS Service Quota code for Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances
     asd_headscale_container_image: str = 'johncarvalho/asd-dev:headscale1.3'
     ec2_ebs_size: int = 150
-    ec2_asg_ami_id: str = 'ami-0ea73968a8f55f395'
+    ec2_asg_ami_id: str = 'ami-09504161962d97cef'
+
+    logging.debug(
+        f"\n### aws_folder: {aws_folder}\n###aws_credentials_file: {aws_credentials_file}\n### aws_config_file: {aws_config_file}\n### account_id_file: {account_id_file}\n### asd_deployment_tracking_file: {asd_deployment_tracking_file}\n### aws_region: {aws_region}\n### account_id: {account_id}\n### aws_service_quota_for_general_type_instances: {aws_service_quota_for_general_type_instances}\n### asd_headscale_container_image: {asd_headscale_container_image}\n### ec2_ebs_size: {ec2_ebs_size}\n### ec2_asg_ami_id: {ec2_asg_ami_id} ###\n"
+    )
 
     # Handles specific Streamlit Session State Variables for Remote Cluster Options
     in_session_state = [
@@ -289,6 +264,7 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
             file_obj_content = file_obj.readlines()
             file_obj_content = " ".join(file_obj_content)
             st.text_area(label="Current available credentials:", value=file_obj_content)
+            logging.debug(f"### Current available credentials:\n{file_obj_content} ###")
         st.button(
             "Delete AWS Credentials",
             type="primary",
@@ -360,8 +336,8 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
         """
         remote_cluster_options_choices = [
             "Check Status",
-            "Create Cluster",
-            "Modify Cluster",
+            "Create/Modify Cluster",
+            "Delete Cluster",
         ]
         remote_cluster_options_select = st.selectbox(
             "Available actions:",
@@ -370,7 +346,7 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
         )
 
         # Check if RayCluster(mode="remote") is already initialized and part of the Streamlit session state
-        if st.session_state.ray_cluster_remote == False:
+        if st.session_state.ray_cluster_remote is False:
             st.session_state.ray_cluster_remote = RayCluster(mode="remote")
 
         # Streamlit 'Magic' for ray status output
@@ -394,6 +370,7 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
                     # }
                     # st.session_state.ray_cluster_remote.aws_env.handle_state_machine_exec(input_payload=state_machine_scaleup_nodes_payload_dict, synchronous_invocation=True)
                     st.session_state.ray_cluster_remote.start()
+                    bootstrap_tailscale()
                 else:
                     st.warning(ray_status_msg)
                 st.info("+++ ASD Autoscaling Group automatically adjusts the number of running Instances/VMs based on the CPU utilization +++")
@@ -405,8 +382,8 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
                     # Start StateMachine execution that will create S3 Bucket, EC2 ASG and resources needed
                     st.session_state.ray_cluster_remote.check_status()
                 st.success("+++ AWS initial components deployed successfully +++")
-                st.success("+++ NO Cluster yet running, choose 'Create Cluster' +++")
-        elif "Create Cluster" in remote_cluster_options_select:
+                st.success("+++ NO Cluster yet running, choose 'Create/Modify Cluster' +++")
+        elif "Create/Modify Cluster" in remote_cluster_options_select:
             # Get the VPCs available in the target AWS account/region
             st.session_state.available_vpcs = AWSGetdata.get_vpc_data()
             select_vpc_to_use_options = []
@@ -555,7 +532,7 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
                     'CloudFormationAsgTemplateParamInstanceType': st.session_state.select_instance_type,
                     'CloudFormationAsgTemplateParamSubnetIds': str(",".join(subnet_ids_list)),
                     'CloudFormationAsgTemplateParamVpcId': str(vpc_id),
-                    'AsdDeploymentCount': str(asd_aws_deployment_counter), #TODO: more testing and continue adding deployment count to EC2 ASG resources
+                    'AsdDeploymentCount': str(asd_aws_deployment_counter),
                     'AsdContainerUuid': str(asd_container_uuid),
                     'Action': 'CreateOrUpdateClusterResources'
                     }
@@ -571,47 +548,61 @@ elif st.session_state["execution"] == "Remote Execution/Cluster":
                         try:
                             asd_asg_data['AutoScalingGroups'][-1]['AutoScalingGroupName']
                         except:
-                            progress_bar(msg="Creating Remote Cluster (takes around 5 minutes)...", sleep_time=4.82)
+                            progress_bar(msg="Creating/Updating Remote Cluster (takes around 5 minutes)...", sleep_time=4.82)
                             st.success("+++ Remote Cluster was created successfully +++")                            
                         else:
                             st.info("+++ Remote Cluster was already created before. Please choose to 'Modify Cluster' instead +++")
                         finally:
+                            # Update remote cluster object status
                             st.session_state.ray_cluster_remote.update_status()
+                            # Start the tailscale connection process
+                            #bootstrap_tailscale()
                     else:
                         st.error('!!! Make sure to select the necessary VPC(s) and/or Subnet(s) !!!', icon="🚨")
-
-
-        elif "Modify Cluster" in remote_cluster_options_select:
+        elif "Delete Cluster" in remote_cluster_options_select:
             progress_bar(msg="Checking Cluster Status...")
-            if st.session_state.ray_cluster_remote.cluster_status:
+
+            # Define if/else conditions
+            is_aws_statemachine_available = st.session_state.ray_cluster_remote.aws_statemachine
+            is_cluster_deployed = 'No Cluster is available/deployed on AWS' not in st.session_state.ray_cluster_remote.remote_ray_status_stdout
+
+            if is_aws_statemachine_available and is_cluster_deployed:
                 st.success("+++ AWS environment is properly configured +++")
-                st.write(ray_status_msg)
+                time.sleep(4)
+                st.session_state.ray_cluster_remote.update_status()
+                st.divider()
+                delete_question = st.checkbox('Would you like to delete the Remote Execution/Cluster AWS Resources?')
+                if delete_question:
+                    st.warning("!!! This operation is irreversible and deletes all ASD data and relevant resources in the AWS environment !!!")
+                    if st.button('Confirm deletion!'):
+                        st.write('+++ Deletion initiated +++')
+
+                # st.caption("Choose to 'Stop', 'Restart' or 'Purge' the remote Cluster:")
+                # col1, col2, col3 = st.columns(3)
+                # with col1:
+                #     if st.button("Stop", use_container_width=True):
+                #         if st.session_state.ray_cluster_remote.cluster_status:
+                #             st.session_state.ray_cluster_remote.stop()
+                #             st.write("+++ Remote cluster has been stopped +++")
+                #         else:
+                #             st.write("+++ Remote cluster was already stopped or deleted +++")
+                # with col2:
+                #     if st.button("Restart", use_container_width=True):
+                #         st.session_state.ray_cluster_remote.stop()
+                #         time.sleep(5)
+                #         st.session_state.ray_cluster_remote.start()
+                #         time.sleep(3)
+                #         st.session_state.ray_cluster_remote.check_status()
+                #         st.write(st.session_state.ray_cluster_remote.remote_ray_status_stdout)
+                #         st.write("+++ Remote cluster has been restarted +++")
+                # with col3:
+                #     if st.button("Purge/Delete", use_container_width=True):
+                #         # Purge local ray objects/resources and completely remove the associated AWS resources like EC2 Instances/AutoScaling Groupss
+                #         st.session_state.ray_cluster_remote.purge()
+                #         st.write(st.session_state.ray_cluster_remote.remote_ray_status_stdout)
+                #         st.write("+++ Remote cluster has been forced stopped/purged +++")
             else:
-                st.write("+++ Cluster is not yet started +++")
-            st.divider()
-            st.caption("Choose to 'Stop', 'Restart' or 'Purge' the remote Cluster:")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                if st.button("Stop", use_container_width=True):
-                    if st.session_state.ray_cluster_remote.cluster_status:
-                        st.session_state.ray_cluster_remote.stop()
-                        st.write("+++ Remote cluster has been stopped +++")
-                    else:
-                        st.write("+++ Remote cluster was already stopped +++")
-            with col2:
-                if st.button("Restart", use_container_width=True):
-                    st.session_state.ray_cluster_remote.stop()
-                    time.sleep(5)
-                    st.session_state.ray_cluster_remote.start()
-                    time.sleep(3)
-                    st.session_state.ray_cluster_remote.check_status()
-                    st.write(ray_status_msg)
-                    st.write("+++ Remote cluster has been restarted +++")
-            with col3:
-                if st.button("Purge", use_container_width=True):
-                    st.session_state.ray_cluster_remote.purge()
-                    st.write(ray_status_msg)
-                    st.write("+++ Remote cluster has been forced stopped/purged +++")
+                st.write("+++ Cluster resources are not yet created, choose 'Create/Modify Cluster' +++")               
 
         # Old section from Gerrit
         # def handle_machine(new_machine):

@@ -1,13 +1,18 @@
+import logging
+from typing import Union
+
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cdist
 from sklearn.base import BaseEstimator
-from typing import Union
-from utils_logger import logger
+from utils_logger import LoggerSetup
+
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 
 class Sammon(BaseEstimator):
-    '''Python Sammon mapping
+    """Python Sammon mapping
     Simple python implementation of Sammon's non-linear mapping algorithm.
     We thank author Tom Pollard for the implementation of this algorithm according to (1).
     source: https://github.com/tompollard/sammon (with small modifications
@@ -17,18 +22,17 @@ class Sammon(BaseEstimator):
 
     we adapted it to the sklearn and our nomenclature and added some sklearn functionality for seamless
     integration into our pipeline.
-    '''
+    """
 
     def __init__(
         self,
         n_components: Union[int, None],
-        inputdist: str = 'raw',
+        inputdist: str = "raw",
         maxhalves: int = 20,
         max_iter: int = 500,
         tolfun: float = 1e-9,
-        init: str = 'default'
+        init: str = "default",
     ):
-
         self.n_components = n_components
         self.inputdist = inputdist
         self.maxhalves = maxhalves
@@ -37,9 +41,7 @@ class Sammon(BaseEstimator):
         self.init = init
         self.display = 2
 
-
     def fit_transform(self, data_high: Union[pd.DataFrame, np.array]):
-
         """
         - - - INFORMATION - - -
         Perform Sammon mapping on dataset x
@@ -81,24 +83,23 @@ class Sammon(BaseEstimator):
         #         self.init = 'pca'
         #
         # if self.inputdist == 'distance' and self.init == 'pca':
-        #     logger.error(msg="Cannot use init == 'pca' when inputdist == 'distance'", exc_info=True)
-
+        #     logging.error("Cannot use init == 'pca' when inputdist == 'distance'")
 
         D = cdist(data_high, data_high)
         if np.count_nonzero(np.diagonal(D)) > 0:
-            logger.error(msg="The diagonal of the dissimilarity matrix must be zero", exc_info=True)
+            logging.error("The diagonal of the dissimilarity matrix must be zero")
 
         # Remaining initialisation
         N = data_high.shape[0]
         D = D + np.eye(N)
 
-        if np.count_nonzero( D <= 0) > 0:
-            logger.error(msg="Off-diagonal dissimilarities must be strictly positive", exc_info=True)
+        if np.count_nonzero(D <= 0) > 0:
+            logging.error("Off-diagonal dissimilarities must be strictly positive")
 
         Dinv = 1 / D
-        if self.init == 'pca':
-            [UU ,DD ,_] = np.linalg.svd(data_high)
-            y = UU[: ,:self.n_components ] *DD[:self.n_components]
+        if self.init == "pca":
+            [UU, DD, _] = np.linalg.svd(data_high)
+            y = UU[:, : self.n_components] * DD[: self.n_components]
 
         # We only use inputdist = 'raw' and init = pca, therefore we dont use this part
         # elif self.init == 'cmdscale':
@@ -107,16 +108,15 @@ class Sammon(BaseEstimator):
         #     y = y[: ,:self.n_components]
 
         else:
-            y = np.random.normal(0.0 ,1.0 ,[N ,self.n_components])
-        one = np.ones([N ,self.n_components])
-        d = cdist(y ,y) + np.eye(N)
-        dinv = 1. / d
-        delta = D- d
-        E = ((delta ** 2) * Dinv).sum()
+            y = np.random.normal(0.0, 1.0, [N, self.n_components])
+        one = np.ones([N, self.n_components])
+        d = cdist(y, y) + np.eye(N)
+        dinv = 1.0 / d
+        delta = D - d
+        E = ((delta**2) * Dinv).sum()
 
         # Get on with it
         for i in range(self.max_iter):
-
             # Compute gradient, Hessian and search direction (note it is actually
             # 1/4 of the gradient and Hessian, but the step size is just the ratio
             # of the gradient and the diagonal of the Hessian so it doesn't
@@ -124,20 +124,20 @@ class Sammon(BaseEstimator):
             delta = dinv - Dinv
             deltaone = np.dot(delta, one)
             g = np.dot(delta, y) - (y * deltaone)
-            dinv3 = dinv ** 3
-            y2 = y ** 2
+            dinv3 = dinv**3
+            y2 = y**2
             H = np.dot(dinv3, y2) - deltaone - np.dot(2, y) * np.dot(dinv3, y) + y2 * np.dot(dinv3, one)
-            s = -g.flatten(order='F') / np.abs(H.flatten(order='F'))
+            s = -g.flatten(order="F") / np.abs(H.flatten(order="F"))
             y_old = y
 
             # Use step-halving procedure to ensure progress is made
             for j in range(self.maxhalves):
-                s_reshape = np.reshape(s, (-1, self.n_components), order='F')
+                s_reshape = np.reshape(s, (-1, self.n_components), order="F")
                 y = y_old + s_reshape
                 d = cdist(y, y) + np.eye(N)
                 dinv = 1 / d
                 delta = D - d
-                E_new = ((delta ** 2) * Dinv).sum()
+                E_new = ((delta**2) * Dinv).sum()
                 if E_new < E:
                     break
                 else:
@@ -145,7 +145,7 @@ class Sammon(BaseEstimator):
 
                 # Bomb out if too many halving steps are required
                 if j == self.maxhalves - 1:
-                    logger.info('py_sammon, Warning: maxhalves exceeded. Sammon mapping may not converge...')
+                    logging.info("py_sammon, Warning: maxhalves exceeded. Sammon mapping may not converge...")
 
             # Evaluate termination criterion
             if abs((E - E_new) / E) < self.tolfun:

@@ -1,5 +1,9 @@
 # Import libraries
 import streamlit as st
+from utils_logger import LoggerSetup
+
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 # Set streamlit layout
 st.set_page_config(

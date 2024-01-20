@@ -1,21 +1,24 @@
+import logging
+
+import numpy as np
 from dim_reduction.dimred_main import Dimreduction
 from helper_data.global_vars import *
-from helper_data.utils_data import empty_dict, timit_, check_low_dimension
-from utils_logger import logger
-from typing import Union
-import numpy as np
+from helper_data.utils_data import empty_dict, timit_
+from utils_logger import LoggerSetup
 
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 
 def factor_stepsize(ncols):
-    '''
+    """
     calculates the stepsize eg. number of dimensions changed in each step to increase the
     speed with high dimensional data. As higher the number of dimensions (columns) as higher the factor.
     :param: ncols: int,
         number of columns of the dataset
     :return: int,
         factor (number of dimensions changed in each step)
-    '''
+    """
     if ncols > 150:
         factor = int(round(np.sqrt(np.sqrt(ncols)), 0) - 1)
     else:
@@ -23,9 +26,8 @@ def factor_stepsize(ncols):
     return factor
 
 
-
 class Target_dimension:
-    '''
+    """
     Find the target dimension for the next step (hyperparameter optimization).
     Target dimension is the samllest possible dimension with sufficient quality.
     PCA (py_pca) function is used because its accurate and very fast.
@@ -37,16 +39,17 @@ class Target_dimension:
     2 main steps:
     In order to increase the speed and quality we first calculate the target dimension with
     the reduced dataset and adjust it using the full dataset.
-    '''
+    """
 
-    def __init__(self,
-                 data_high: np.array,
-                 data_high_small: np.array,
-                 data_id: str = 'data',
-                 cutoff_loss: float = 0.99,
-                 loss_fun: str = globalvar_loss_function
-                 ):
-        '''
+    def __init__(
+        self,
+        data_high: np.array,
+        data_high_small: np.array,
+        data_id: str = "data",
+        cutoff_loss: float = 0.99,
+        loss_fun: str = globalvar_loss_function,
+    ):
+        """
         :param data_high: np.array,
             high dimensional data
         :param data_id: str, default = random generated string
@@ -55,7 +58,7 @@ class Target_dimension:
             cutoff for quality (loss)
         :param loss_fun: str, default = relative error 0...1 (best)
             loss function
-        '''
+        """
         # init
         self.data_id = data_id
         self.data_high = data_high
@@ -64,9 +67,8 @@ class Target_dimension:
         self.loss_fun = loss_fun
         self.cutoff_loss = cutoff_loss
 
-
     def dim_reduce_worker(self, dim_low: int, data: np.array) -> float:
-        '''
+        """
         call dim reduce function and reduce the dimension with 'py_pca'.
         this function returns the results in dictionary format containing Q matrix, rel_err,
         time etc. The results are saved in a list (list of dicts).
@@ -76,30 +78,27 @@ class Target_dimension:
             target dimension
         :return: float,
             loss of dimensionality reduction
-        '''
+        """
         # returns: dict with
-        dimred = Dimreduction(fun_id='py_pca', data_high=data, dim_low=dim_low)
+        dimred = Dimreduction(fun_id="py_pca", data_high=data, dim_low=dim_low)
         results = dimred.exe_dimreduce(params={}, step=globalstring_step1)
         self.list_of_dicts.append(results)
         return results[self.loss_fun]
 
-
     def bisect_dimension(self, dim: int) -> int:
-        '''
+        """
         calculates new dimension as 50 percent of actual dimension.
         :param dim: int,
             actual dimension
         :return: int,
             new_dimension
-        '''
+        """
         # the round step is necesarry, python dont know basic mathmatics.
         dim_new = abs(int(round(dim * 0.5, 0)))
         return dim_new
 
-
-
     def target_dimension_small_dataset(self) -> (list, int):
-        '''
+        """
         Find target dimension using the reduced dataset (speed).
         Search for target dimension of the dataframe following these steps:
         1) pca with dimension x on dataframe
@@ -113,7 +112,7 @@ class Target_dimension:
                 list of dicts of results of dim reductions
              int:
                 target dimension
-        '''
+        """
         self.list_of_dicts = []
         ndims = [self.ncols]
         dim_low = ndims[-1]
@@ -132,7 +131,6 @@ class Target_dimension:
         # run a while loop until stop condition (stop=1) is reached
         stop = None
         while not stop:
-
             # calculate range of dimensions for bisection
             dim_range = abs(ndims[-2] - ndims[-1])
 
@@ -141,7 +139,7 @@ class Target_dimension:
 
             ## OPTION 0: dimension is number of features, test n_featurs-1 with full dataset in next step
             if dim_low >= self.ncols and not loss:
-                dim_low = self.ncols - factor # 1
+                dim_low = self.ncols - factor  # 1
                 break
 
             ## OPTION 1: dimension is one and loss is higher than cutoff, stop here, target_dim = 1
@@ -158,12 +156,11 @@ class Target_dimension:
 
             ## OPTION 4: loss is lower than cutoff
             elif loss < self.cutoff_loss:
-
                 # loss is lower than cutoff
                 # check if we have already data from dim_low + factor
                 # if yes and its >= than cutoff: stop here, target_dim = dim_low + factor
                 for i in self.list_of_dicts:
-                    if i['dim_low'] == dim_low + factor and i[self.loss_fun] >= self.cutoff_loss:
+                    if i["dim_low"] == dim_low + factor and i[self.loss_fun] >= self.cutoff_loss:
                         dim_low = dim_low + factor
                         self.list_of_dicts.append(i)
                         break
@@ -186,7 +183,7 @@ class Target_dimension:
 
             ## OPTION 5: loss > cutoff_loss
             # make sure there is no smaller dimension than this one
-            else :
+            else:
                 # 1: loss > cutoff_loss, it cant get lower than 1, stop here, 1 is the target_dimension
                 # 2: 2 is too high, so dim must be 1 or 2, 2 is higher than cutoff, set dim_low to 1 and check!
                 if dim_low <= 2:
@@ -202,10 +199,8 @@ class Target_dimension:
 
         return self.list_of_dicts, dim_low
 
-
-
     def target_dimension_full_dataset(self, dim_low):
-        '''
+        """
         Finetune target dimension obtained in step 1 with the small dataset, but here we use the full dataset.
         Search for target dimension of the dataframe following these steps:
         1) pca with dimension x on dataframe
@@ -221,11 +216,10 @@ class Target_dimension:
                 list of dictionaries (lods) with results
              int:
                 target dimension
-        '''
+        """
         ndims = []
         self.list_of_dicts = []
         factor = factor_stepsize(dim_low)
-
 
         # when dimension greater than 1: new dimension by bisection
         if dim_low > 1:
@@ -239,13 +233,12 @@ class Target_dimension:
         # run a while loop until stop condition (stop=1) is reached
         stop = None
         while not stop:
-
             # reduce dimension to dim_low and measure the quality
             loss = self.dim_reduce_worker(dim_low, self.data_high)
 
             ## 1: dimension is the number of features
             if dim_low >= self.ncols and not loss:
-                dim_low = self.ncols - factor # 1
+                dim_low = self.ncols - factor  # 1
                 break
 
             ## 1: dimension is one and loss is higher than cutoff, stop here, target_dim = 1
@@ -253,14 +246,13 @@ class Target_dimension:
                 break
 
             ## 2: the quality is higher than cutoff but dim_low-1 is already testet, (and therefore lower).
-            elif loss > self.cutoff_loss and dim_low-factor in ndims: # 1
+            elif loss > self.cutoff_loss and dim_low - factor in ndims:  # 1
                 break
 
             ## 3: the quality is higher than cutoff and dim_low-1 is not testet, therefore target_dim must be higher.
-            elif loss > self.cutoff_loss and dim_low-factor not in ndims:
+            elif loss > self.cutoff_loss and dim_low - factor not in ndims:
                 dim_low = dim_low - factor
                 continue
-
 
             ## OPTION 3: loss is exactly the cutoff, it cant be better. stop here, target_dim = dim_low
             elif loss == self.cutoff_loss:
@@ -268,11 +260,10 @@ class Target_dimension:
 
             ## OPTION 4: loss is lower than cutoff
             elif loss < self.cutoff_loss:
-
                 # loss is lower than cutoff, check if we have already data from dim_low + factor
                 # if yes and its >= than cutoff: stop here, target_dim = dim_low + factor
                 for i in self.list_of_dicts:
-                    if i['dim_low'] == dim_low + factor and i[self.loss_fun] >= self.cutoff_loss:
+                    if i["dim_low"] == dim_low + factor and i[self.loss_fun] >= self.cutoff_loss:
                         dim_low = dim_low + factor
                         self.list_of_dicts.append(i)
                         break
@@ -290,11 +281,9 @@ class Target_dimension:
 
         return self.list_of_dicts, dim_low
 
-
-
-    @timit_('step1_target_dimension ')
+    @timit_("step1_target_dimension ")
     def main_target_dimension(self) -> (dict, float):
-        '''
+        """
         main function to calculate the target dimension.
         In case there is no satisfying result an empty dict is returned.
         :return: list, int
@@ -302,18 +291,17 @@ class Target_dimension:
                 list of dicts (lods) with results
              int:
                 target dimension
-        '''
+        """
         try:
             # calculate target dimension with the reduced dataset
             lods_results_, target_dim_ = self.target_dimension_small_dataset()
             # fine tuning of target dimension with the full size dataset
             lods_results, target_dim = self.target_dimension_full_dataset(target_dim_)
-            results_step_1 = {'results': lods_results_ + lods_results, 'target_dim': target_dim}
+            results_step_1 = {"results": lods_results_ + lods_results, "target_dim": target_dim}
             loss = self.cutoff_loss
         except:
-            results_step_1 = {'results': [empty_dict(fun_id='py_pca', dim_low=None)], 'target_dim': None}
+            results_step_1 = {"results": [empty_dict(fun_id="py_pca", dim_low=None)], "target_dim": None}
             loss = self.cutoff_loss
-            logger.error(msg=('target dimension: '+self.data_id+'something went wrong calculating the target dimension.'),
-                         exc_info=True)
+            logging.error(f"target dimension: {self.data_id} something went wrong calculating the target dimension.")
 
         return results_step_1, loss

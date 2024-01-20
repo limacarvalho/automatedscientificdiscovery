@@ -1,16 +1,21 @@
+import json
+import logging
+
+import numpy as np
+import ray
 from dim_reduction.dimred_main import Dimreduction, call_dimred_functions
-from hyperparameters.hyperparameter_optimization import Hyperparameter_optimization
 from helper_data.global_vars import *
 from helper_data.utils_data import timit_
-from utils_logger import logger
-import numpy as np
-import json
-import ray
+from hyperparameters.hyperparameter_optimization import \
+    Hyperparameter_optimization
+from utils_logger import LoggerSetup
 
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 
 def initialize_ray(step, timeout):
-    '''
+    """
     logger message
     :param step: str,
         string indicating the step of the process
@@ -18,23 +23,24 @@ def initialize_ray(step, timeout):
         programmed timeout [seconds] in case the calculations arent finished.
     :return: str,
         string with message
-    '''
+    """
     ray.shutdown()
     ray.init()
-    msg = step + ' MULTIPROCESSING ON: ' + str(globalvar_n_cpus) + ' CPUs ' \
-    + str(globalvar_n_gpus) + ' GPUs,  timeout [seconds]: ' + str(timeout)
-    logger.info(msg=msg)
+    msg = (
+        step
+        + " MULTIPROCESSING ON: "
+        + str(globalvar_n_cpus)
+        + " CPUs "
+        + str(globalvar_n_gpus)
+        + " GPUs,  timeout [seconds]: "
+        + str(timeout)
+    )
+    logging.info(msg)
 
 
 @ray.remote
-def ray_worker_optimization(
-        fun_id: str,
-        fun,
-        high_data: np.array,
-        dim_low: int,
-        cutoff_loss: float
-    ) -> list:
-    '''
+def ray_worker_optimization(fun_id: str, fun, high_data: np.array, dim_low: int, cutoff_loss: float) -> list:
+    """
     Hyperparameter optimization (ray remote function running in parallel on on multiple cores).
     Each core works on hyperparameter optimization of one dimensionality reduction function:
     example: core1: py_pca, core2: py_crca ...
@@ -58,7 +64,7 @@ def ray_worker_optimization(
             dict_best_dim_reduction: dictionary with best dim reduction result
         item 2:
             lods_all_results: list of dictionaries with results of dimensionality reductions.
-    '''
+    """
     hp = Hyperparameter_optimization(cutoff_loss)
     function, params, hyperparams = fun
     # hyperparameter optimization with bayesian method
@@ -67,10 +73,9 @@ def ray_worker_optimization(
     return list_results
 
 
-
-@timit_('step2_hyperparameter_optimization ')
+@timit_("step2_hyperparameter_optimization ")
 def ray_get_optimization(functions: list, data_high: np.array, dim_low: int, cutoff_loss: float) -> dict:
-    '''
+    """
     function to get a list of remote objects from ray_worker_optimization function.
     We include a timeout because the computation of some functions might take too long.
     Two lists wit ray objects will be returned by ray.get():
@@ -95,22 +100,25 @@ def ray_get_optimization(functions: list, data_high: np.array, dim_low: int, cut
         dictionary with 2 lists:
             - 'best_results': list with dicts of best results of each function.
             - 'all_results': list of lists of all results.
-    '''
+    """
     # set ray multiprocessing, get resources: ray.available_resources()['GPU'] 'CPU'
     # TODO: substitute with statement from the asd-instance (Joao)
-    initialize_ray(step='STEP2', timeout=globalvar_ray_timeout_step2)
+    initialize_ray(step="STEP2", timeout=globalvar_ray_timeout_step2)
 
     # returns dictionary with fun_id: fun; fun returns: function, params, hyperparams
     dict_fun = call_dimred_functions(functions, data_high)
 
     list_of_list_of_results, not_ready = ray.wait(
-        [ ray_worker_optimization.remote(fun_id, fun, data_high, dim_low, cutoff_loss)
-            for fun_id, fun in dict_fun.items() ],
-        timeout=globalvar_ray_timeout_step2,  num_returns=len(dict_fun)
+        [
+            ray_worker_optimization.remote(fun_id, fun, data_high, dim_low, cutoff_loss)
+            for fun_id, fun in dict_fun.items()
+        ],
+        timeout=globalvar_ray_timeout_step2,
+        num_returns=len(dict_fun),
     )
 
     # create list of dictionaries (lods) with best and all results, and make dictionary
-    lods_best_results, lods_all_results = [],[]
+    lods_best_results, lods_all_results = [], []
     try:
         for results_fun in ray.get(list_of_list_of_results):
             # dicts with results of best dim reduction during hp optimization, one for each function
@@ -119,26 +127,22 @@ def ray_get_optimization(functions: list, data_high: np.array, dim_low: int, cut
             lods_all_results.append(results_fun[1])
     except:
         # empty lists will be returned
-        logger.error(msg='timeout without results at step2 (hyperparameter optimization)', exc_info=True)
+        logging.error("timeout without results at step2 (hyperparameter optimization)")
 
     # dictionary with results
-    results_step_2 = {
-        'best_results': lods_best_results,
-        'all_results': lods_all_results
-    }
+    results_step_2 = {"best_results": lods_best_results, "all_results": lods_all_results}
     # logger not working with ray.get(not_ready), if we call that here timeout will not work!
     ray.shutdown()
     return results_step_2
 
 
-
-
 #######################################################################################
 # parallel dimensionality reduction without hyperparameter optimization
 
+
 @ray.remote
 def worker_dim_reduce(dict_fun: dict, data_high: np.array, dim_low: int) -> dict:
-    '''
+    """
     worker function for dimensionality reduction (ray remote function running in parallel on on multiple cores).
     Usage: dim reduction of full size dataset.
     Each core works on reduction of dataset with one dimensionality reduction function:
@@ -153,19 +157,18 @@ def worker_dim_reduce(dict_fun: dict, data_high: np.array, dim_low: int) -> dict
         target dimension for low dimensional data
     :return: dict:
         dictionary with results of dim reduction
-    '''
-    fun_id = dict_fun['fun_id']
+    """
+    fun_id = dict_fun["fun_id"]
     # converts the string of dictionary of hyperparmaeters to a python dictionary
-    hyperparameters = json.loads(dict_fun['hyperparameters'])
+    hyperparameters = json.loads(dict_fun["hyperparameters"])
     # dimensionality reduction
     class_dimred = Dimreduction(fun_id=fun_id, data_high=data_high, dim_low=dim_low)
     dict_results = class_dimred.exe_dimreduce(params=hyperparameters, step=globalstring_step3)
     return dict_results
 
 
-
 def ray_get_dimreduction(dicts_funs: list, data: np.array, dim_low: int) -> list:
-    '''
+    """
     function to get a list of remote objects from ray_worker_reduce function.
     We include a timeout because the computation of some functions might take too long.
     Two lists wit ray objects will be returned by ray.get():
@@ -184,15 +187,16 @@ def ray_get_dimreduction(dicts_funs: list, data: np.array, dim_low: int) -> list
         dimension of low dimensional data
     :return: list,
         list with dictionaries (lods) of results
-    '''
+    """
     # initialize ray, wit hnumber of cpus, gpus
     # TODO: substitute with statement from the asd-instance (Joao)
-    initialize_ray(step='STEP3 ', timeout=globalvar_ray_timeout_step3)
+    initialize_ray(step="STEP3 ", timeout=globalvar_ray_timeout_step3)
 
     # lods: list of dictionaries
     lods_results, not_ready = ray.wait(
         [worker_dim_reduce.remote(dict_fun, data, dim_low) for dict_fun in dicts_funs],
-        timeout=globalvar_ray_timeout_step3, num_returns=len(dicts_funs)
+        timeout=globalvar_ray_timeout_step3,
+        num_returns=len(dicts_funs),
     )
     try:
         lods_results = ray.get(lods_results)
@@ -200,6 +204,6 @@ def ray_get_dimreduction(dicts_funs: list, data: np.array, dim_low: int) -> list
     except:
         # in this case the best result of the 'target_dimesnion step)' will be used.
         lods_results = False
-        logger.error(msg='timeout without results at multiprocessing', exc_info=True)
+        logging.error("timeout without results at multiprocessing")
     ray.shutdown()
     return lods_results

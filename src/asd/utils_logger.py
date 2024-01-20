@@ -1,45 +1,48 @@
-from pathlib import Path
 import logging
-from logging import config
+import logging.handlers
+import sys
 
-logfile = 'logfile.log'
-
-
-def empty_existing_logfile(filename: str = logfile):
-    file = open(filename, "r+")
-    file.truncate(0)
-    file.close()
+# Constants
+LOGGING_LEVEL = logging.INFO
+LOGGING_FILE = "/var/log/asd.log"
 
 
-log_config = {
-    'version': 1,
-    'root': {
-        'handlers': ['stdout', 'file'],
-        'level': 'INFO'
-    },
-    'handlers': {
-        'stdout': {
-            'formatter': 'main',
-            'class': 'logging.StreamHandler',
-            'level': 'INFO'
-        },
-        'file': {
-            'formatter': 'main',
-            'class': 'logging.FileHandler',
-            'level': 'INFO',
-            'filename': logfile,
-            'mode': 'a+'
-        },
-    },
-    'formatters': {
-        'main': {
-            # 'format': '%(asctime)s : %(levelname)s : %(module)s : %(funcName)s : %(lineno)d : Message : %(message)s',
-            # 'datefmt': '%Y-%m-%dT%H:%M:%S%Z'
-            'format': '%(asctime)s : %(levelname)s : %(module)s : %(funcName)s : %(lineno)d : %(message)s',
-            'datefmt': '%Y%m:%H:%M:%S'
-        }
-    },
-}
+# Singleton pattern for logging
+class LoggerSetup:
+    _instance = None
 
-config.dictConfig(log_config)
-logger = logging.getLogger(__name__)
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(LoggerSetup, cls).__new__(cls)
+            cls._setup_logger()
+        return cls._instance
+
+    @staticmethod
+    def _setup_logger():
+        """
+        Logger function that define the module level logging settings
+
+        Returns:
+            None
+        """
+        logger = logging.getLogger()
+        logger.setLevel(LOGGING_LEVEL)
+
+        detailed_formatter = logging.Formatter("%(asctime)s - %(module)s:%(lineno)d - %(levelname)s - %(message)s")
+
+        # Create a handler for writing to a file, with a maximum size of 20MB
+        # If the filesize reaches 20MB the file is overwritten with new entries
+        file_handler = logging.handlers.RotatingFileHandler(LOGGING_FILE, maxBytes=20 * 1024 * 1024, backupCount=1)
+        file_handler.setFormatter(detailed_formatter)
+
+        # Create a handler for writing to stdout
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setFormatter(detailed_formatter)
+
+        # Add both handlers to the logger object
+        logger.addHandler(file_handler)
+        logger.addHandler(stdout_handler)
+
+
+# Initialize logger
+LoggerSetup()

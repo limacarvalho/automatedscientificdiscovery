@@ -3,20 +3,21 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from os import chmod
 from pathlib import Path
 from time import sleep
-from os import chmod
-from typing import Dict, List, Optional, Pattern, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import boto3
 import botocore
 import pytz
 from botocore.config import Config
-from utils.os_utils import (file_operations, generate_uuid, is_valid_uuid,
+from utils.os_utils import (generate_uuid, is_valid_uuid,
                             read_aws_credentials_from_file)
+from utils_logger import LoggerSetup
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Initialize logging object (Singleton class) if not already
+LoggerSetup()
 
 # Sets the boto3 Standard retry mode
 config = Config(retries={"max_attempts": 10, "mode": "standard"})
@@ -180,7 +181,7 @@ class AWSInfrastructure:
 
             # Check and update the AWS SSM parameter for the number of deployments
             try:
-                # Attempt to get the current value of the SSM parameter         
+                # Attempt to get the current value of the SSM parameter
                 ssm_get_parameter = self.ssm.get_parameter(
                     Name=self.ASD_NUM_DEPLOYMENTS_SSM_PARAM, WithDecryption=False
                 )
@@ -188,7 +189,7 @@ class AWSInfrastructure:
                 # If the parameter is not found, create it with the initial value
                 self.put_ssm_parameter(
                     param_name=self.ASD_NUM_DEPLOYMENTS_SSM_PARAM,
-                    param_value=self.ASD_NUM_DEPLOYMENTS_SSM_PARAM_INIT_VALUE
+                    param_value=self.ASD_NUM_DEPLOYMENTS_SSM_PARAM_INIT_VALUE,
                 )
                 self.asd_aws_deployment_counter: int = self.ASD_NUM_DEPLOYMENTS_SSM_PARAM_INIT_VALUE
                 logging.info(
@@ -204,8 +205,7 @@ class AWSInfrastructure:
                     self.ASD_NUM_DEPLOYMENTS_PARAM_PATTERN, str(self.asd_aws_deployment_counter)
                 ):
                     self.put_ssm_parameter(
-                        param_name=self.ASD_NUM_DEPLOYMENTS_SSM_PARAM,
-                        param_value=str(self.asd_aws_deployment_counter)
+                        param_name=self.ASD_NUM_DEPLOYMENTS_SSM_PARAM, param_value=str(self.asd_aws_deployment_counter)
                     )
                     logging.info(
                         f"+++ AWS SSM Parameter '{self.ASD_NUM_DEPLOYMENTS_SSM_PARAM}' was updated successfully +++"
@@ -240,7 +240,9 @@ class AWSInfrastructure:
             check_state_machine = self.step_functions.describe_state_machine(stateMachineArn=self.asd_state_machine_arn)
             return check_state_machine["status"] == "ACTIVE"
         except Exception as error:
-            logging.warning(f"!!! Unable to retrieve state machine info for resource '{self.asd_state_machine_arn}': {error} !!!")
+            logging.warning(
+                f"!!! Unable to retrieve state machine info for resource '{self.asd_state_machine_arn}': {error} !!!"
+            )
             return False
 
     def start_statemachine(self, execution_name: str, input_data: str) -> Dict[str, str]:
@@ -298,11 +300,16 @@ class AWSInfrastructure:
         # Get Date/Time UTC
         iso_datetime_utc = datetime.now(pytz.timezone("UTC")).replace(microsecond=0).strftime("%d-%m-%Y-%H%M%S")
 
+        # Defaul maximum synchronous invocation timeout value
+        max_timeout_synchronous_invocation: int = 60
+
         if input_payload:
             input_data = json.dumps(input_payload)
             asd_state_machine_exec_name = f"{input_payload['Action']}-{iso_datetime_utc}"
         else:
-            input_data = json.dumps({"Action": statemachine_action, "AsdDeploymentCount": self.aws_deployment_tracking[-1]})
+            input_data = json.dumps(
+                {"Action": statemachine_action, "AsdDeploymentCount": self.aws_deployment_tracking[-1]}
+            )
             asd_state_machine_exec_name = f"{statemachine_action}-{iso_datetime_utc}"
 
         # Start the state machine
@@ -318,7 +325,7 @@ class AWSInfrastructure:
             while self.get_data_from_statemachine(execution_response["executionArn"])["status"] == "RUNNING":
                 sleep(timeout_sleep)
                 timeout_sleep += 1
-                if timeout_sleep >= 60:
+                if timeout_sleep >= max_timeout_synchronous_invocation:
                     logging.error(
                         f"!!! ERROR: StateMachine took more than {timeout_sleep} seconds to execute !!! Aborting !!!"
                     )
@@ -372,7 +379,7 @@ class AWSInfrastructure:
                     {
                         "ParameterKey": "AsdContainerUuid",
                         "ParameterValue": self.asd_container_uuid,
-                    },                    
+                    },
                 ],
                 Capabilities=["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM", "CAPABILITY_AUTO_EXPAND"],
                 OnFailure="DELETE",
